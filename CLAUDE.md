@@ -1173,3 +1173,257 @@ export function SharedTaskList({ propertyId, listId }: Props) {
 - **Mobile First:** All interfaces should work well on iPhone. Use large touch targets and simple navigation.
 - **Bookkeeper Access:** Barbara Brady (CBIZ) - bills & payments only. Can view/manage bills and payment confirmations, but no access to property settings, documents, or reports.
 - **Caretaker Lists:** Justin (Parker Construction) oversees both RI and VT properties - shared task lists are essential for communicating work items.
+
+---
+
+## Property Tax Lookup Patterns
+
+When looking up property tax information from public records, use these patterns for each jurisdiction. Always use the current year when searching.
+
+### NYC Brooklyn (Block 02324)
+
+**NYC Open Data API** - Works reliably, returns JSON:
+
+```bash
+# Query all properties in block 2324 for a specific owner
+curl -s "https://data.cityofnewyork.us/resource/8y4t-faws.json?boro=3&block=2324&\$limit=500" | \
+  python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for r in data:
+    owner = r.get('owner', '')
+    if 'SPALTER' in owner or 'TERMAN' in owner:
+        print(f\"Lot {r.get('lot')}: {owner} - Market \${r.get('curmkttot')}, Apt: {r.get('aptno')}\")"
+```
+
+**Properties:**
+| Name | Block | Lot | Owner | Notes |
+|------|-------|-----|-------|-------|
+| Brooklyn Condo PH2E | 02324 | 1305 | SPALTER, MICHAEL | 421-a abatement through 2036 |
+| Brooklyn Condo PH2F | 02324 | 1306 | SPALTER, MICHAEL | 421-a abatement through 2036, has mortgage |
+| Brooklyn Storage Unit 44 | 02324 | 1352 | SPALTER, MICHAEL | Storage for PH2E |
+| Brooklyn Storage Unit 72 | 02324 | 1380 | SPALTER, MICHAEL | Storage for PH2F |
+
+**NYC Finance Portal:** https://a836-pts-access.nyc.gov/care/search/commonsearch.aspx?mode=address
+- Use address format: "34 N 7 STREET PH2F"
+- Often under maintenance; use Open Data API as backup
+
+### Providence, Rhode Island (88 Williams St)
+
+**Property Assessment Data:** https://www.city-data.com/providence-ri-properties/W/Williams-Street-1.html
+
+**Tax Rate:** $8.40 per $1,000 for owner-occupied single family (FY 2026)
+
+**Property Details:**
+- Address: 88 Williams St, Providence, RI 02906
+- Owner: Michael H Spalter & Anne M Spalter
+- Assessed Value: $712,300 (Land: $270,800, Building: $441,500)
+- Annual Tax: ~$5,983.32 ($712,300 × $8.40 / $1,000)
+- Payment Schedule: Quarterly (July 24, Oct 24, Jan 24, Apr 24)
+
+**Tax Rate Sources:**
+- RI Municipal Finance: https://municipalfinance.ri.gov/financial-tax-data/tax-rates
+- Providence Tax Calculator: https://www.providenceri.gov/tax-calculator/
+
+### Santa Clara County, California (125 Dana Ave, San Jose)
+
+**Use Playwright for automated lookup** - the site requires JavaScript:
+
+```bash
+# Install Playwright (if not installed)
+pip3 install playwright
+playwright install chromium
+
+# Run the lookup script
+python3 scripts/lookup_scc_tax.py
+```
+
+**Script location:** `scripts/lookup_scc_tax.py`
+
+**Property Details:**
+- Address: 125 Dana Ave, San Jose, CA 95126
+- APN: 274-15-034
+- Tax Rate Area: 017-108
+- 2025/2026 Tax: $11,783.54/year ($5,891.77 × 2 installments)
+- 2024/2025 Tax: $11,156.36/year ($5,578.18 × 2 installments)
+- Payment Schedule: Semi-annual (Dec 10, Apr 10)
+
+**Direct Portal:** https://santaclaracounty.telleronline.net/search/1/PropertyAddress
+- Search by address: "125 DANA AV SAN JOSE"
+- Or by APN: "274-15-034"
+
+### Vermont (Dummerston, Brattleboro)
+
+**NEMRC Property Database:** https://www.nemrc.info/web_data/vtdumm/searchT.php
+- Search by Parcel ID, Owner Name, or Street
+
+**SPAN Numbers (School Property Account Number):**
+| Property | SPAN | Town |
+|----------|------|------|
+| Vermont Main House | 186-059-10695 | Dummerston |
+| Booth House | 186-059-10098 | Dummerston |
+| Vermont Land | 081-025-11151 | Brattleboro |
+
+**Tax Rate:** ~1.76% effective ($17.60 per $1,000)
+**Payment Schedule:** Semi-annual (varies by town)
+
+**Vermont SPAN Finder:** https://tax.vermont.gov/span-finder
+
+---
+
+## Playwright Automation Scripts
+
+### Santa Clara County Property Tax Lookup
+
+The Santa Clara County tax site uses Angular and requires browser automation. See `scripts/lookup_scc_tax.py`:
+
+```python
+#!/usr/bin/env python3
+from playwright.sync_api import sync_playwright
+import time
+
+def lookup_property_tax():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+
+        page.goto("https://santaclaracounty.telleronline.net/search/1/PropertyAddress")
+        page.wait_for_load_state("networkidle")
+        time.sleep(3)
+
+        # Fill property address field (id="mat-input-1")
+        page.locator("#mat-input-1").fill("125 DANA AV SAN JOSE")
+        time.sleep(1)
+
+        # Press Enter to search
+        page.locator("#mat-input-1").press("Enter")
+        time.sleep(3)
+        page.wait_for_load_state("networkidle")
+
+        # Extract tax data from page
+        body_text = page.locator("body").inner_text()
+        # Parse for: Tax Amount, Status, Due Date, etc.
+
+        browser.close()
+```
+
+**Key selectors:**
+- Address input: `#mat-input-1`
+- APN input (on APN page): `#mat-input-0`
+- Results will show at URL containing `details?BsiKey=S_[APN]`
+
+---
+
+## Property Tax Identifiers Reference
+
+| Property | Jurisdiction | Identifier Type | Value |
+|----------|-------------|-----------------|-------|
+| Vermont Main House | Dummerston, VT | SPAN | 186-059-10695 |
+| Booth House | Dummerston, VT | SPAN | 186-059-10098 |
+| Vermont Land | Brattleboro, VT | SPAN | 081-025-11151 |
+| Brooklyn Condo PH2E | NYC | Block/Lot | 02324/1305 |
+| Brooklyn Condo PH2F | NYC | Block/Lot | 02324/1306 |
+| Brooklyn Storage 44 | NYC | Block/Lot | 02324/1352 |
+| Brooklyn Storage 72 | NYC | Block/Lot | 02324/1380 |
+| Rhode Island House | Providence, RI | Address | 88 Williams St |
+| 125 Dana Avenue | Santa Clara, CA | APN | 274-15-034 |
+
+---
+
+## Database Patterns
+
+### Property Tax History
+
+Tax history is stored in the `property_taxes` table with these key fields:
+- `tax_year`: The fiscal year (e.g., 2024, 2025)
+- `jurisdiction`: Where the tax is paid (e.g., "Providence, RI", "NYC", "Santa Clara County, CA")
+- `installment`: 1-4 for quarterly, 1-2 for semi-annual
+- `amount`: The installment amount
+- `status`: pending, sent, confirmed, overdue, cancelled
+- `payment_date`: When payment was made
+- `confirmation_date`: When payment was confirmed (important for checks)
+
+**Action to get tax history:** `getPropertyTaxHistory(propertyId)` in `src/lib/actions.ts`
+
+**UI:** Tax History tab on property detail page (`src/app/properties/[id]/page.tsx`)
+
+### PostgreSQL Type Casting
+
+When using date arithmetic in queries, cast integers explicitly:
+```sql
+-- WRONG: operator is not unique error
+WHERE due_date <= CURRENT_DATE + $1
+
+-- CORRECT: explicit cast to INTEGER
+WHERE due_date <= CURRENT_DATE + ($1::INTEGER)
+```
+
+---
+
+## Development Notes
+
+### Local Development
+
+```bash
+# Start Docker (PostgreSQL)
+docker-compose up -d
+
+# Run dev server
+npm run dev
+
+# Database is at localhost:5432
+# User: postgres, DB: propertymanagement
+```
+
+### Docker Database Access
+
+```bash
+# Run psql commands
+docker exec propertymanagement-db-1 psql -U postgres -d propertymanagement -c "SELECT * FROM properties;"
+
+# Reset database (re-run init.sql)
+docker exec -i propertymanagement-db-1 psql -U postgres -d propertymanagement < scripts/init.sql
+```
+
+### User Accounts
+
+| User | Email | Role |
+|------|-------|------|
+| Anne | anne@annespalter.com | owner |
+| Todd | todd@dailey.info | owner |
+| Michael | michael@example.com | owner |
+| Amelia | amelia@example.com | owner |
+| Barbara Brady | barbara@cbiz.com | bookkeeper |
+
+---
+
+## Session Accomplishments (Dec 2025)
+
+1. **Property Tax History Feature**
+   - Added `property_taxes` table tracking
+   - Created Tax History tab on property detail pages
+   - Implemented `getPropertyTaxHistory()` action
+
+2. **NYC Property Records Lookup**
+   - Used NYC Open Data API to find all Brooklyn properties
+   - Found storage units (Lots 1352, 1380) in addition to condos
+   - Updated ownership from TERMAN to SPALTER
+
+3. **Providence RI Tax Data**
+   - Found assessed value ($712,300) via city-data.com
+   - Calculated quarterly payments from verified tax rate ($8.40/$1000)
+
+4. **San Jose Property Tax via Playwright**
+   - Created `scripts/lookup_scc_tax.py` for automated lookups
+   - Retrieved verified tax data: $11,783.54/year (2025/2026)
+   - APN: 274-15-034, Tax Rate Area: 017-108
+
+5. **Data Import from Mega Info.xlsx**
+   - Imported 40 vendors with property assignments
+   - Added 7 professionals (lawyers, accountants)
+   - Created 53 property-vendor relationships
+
+6. **Vehicle Updates**
+   - Updated all VINs, plates, colors from user data
+   - Removed sold 2018 orange Equinox
+   - Added CR-V plate: 8HTD398
