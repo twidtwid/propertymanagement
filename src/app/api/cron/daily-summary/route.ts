@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateDailySummary, formatSummaryAsText, formatSummaryAsHtml } from "@/lib/daily-summary"
+import { sendDailySummaryEmail, checkAndSendUrgentNotifications } from "@/lib/notifications"
 
 /**
  * GET /api/cron/daily-summary
@@ -8,6 +9,7 @@ import { generateDailySummary, formatSummaryAsText, formatSummaryAsHtml } from "
  *
  * Query params:
  *   format=text|html|json (default: json)
+ *   send=true to also send the email
  */
 export async function GET(request: NextRequest) {
   // Verify cron secret in production
@@ -48,11 +50,72 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Check if we should send the email
+    const shouldSend = request.nextUrl.searchParams.get("send") === "true"
+
+    let emailResult = null
+    if (shouldSend) {
+      console.log("[Daily Summary] Sending email...")
+      emailResult = await sendDailySummaryEmail()
+    }
+
     // Default: JSON
     return NextResponse.json({
       success: true,
       summary,
-      message: `Generated summary with ${summary.urgentItems.length} urgent items`,
+      emailSent: shouldSend ? emailResult?.success : false,
+      emailMessageId: emailResult?.messageId,
+      message: `Generated summary with ${summary.urgentItems.length} urgent items${shouldSend ? (emailResult?.success ? " - email sent" : " - email failed") : ""}`,
+    })
+  } catch (error) {
+    console.error("[Daily Summary] Error:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * POST /api/cron/daily-summary
+ * Generates the daily summary and sends it via email.
+ * Also checks for urgent items and sends notifications.
+ */
+export async function POST(request: NextRequest) {
+  // Verify cron secret in production
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = request.headers.get("authorization")
+
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+  }
+
+  try {
+    console.log("[Daily Summary] Starting scheduled summary...")
+
+    // Check and send urgent notifications first
+    const urgentResult = await checkAndSendUrgentNotifications()
+    console.log("[Daily Summary] Urgent notifications:", urgentResult)
+
+    // Send daily summary email
+    const summaryResult = await sendDailySummaryEmail()
+
+    return NextResponse.json({
+      success: true,
+      summary: {
+        emailSent: summaryResult.success,
+        messageId: summaryResult.messageId,
+        error: summaryResult.error,
+      },
+      urgentNotifications: urgentResult,
+      message: summaryResult.success
+        ? "Daily summary sent successfully"
+        : `Failed to send summary: ${summaryResult.error}`,
     })
   } catch (error) {
     console.error("[Daily Summary] Error:", error)

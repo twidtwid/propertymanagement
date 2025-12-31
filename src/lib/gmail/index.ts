@@ -39,5 +39,11 @@ export {
   getUrgentUnreadCommunications,
 } from "./sync"
 
+export {
+  sendEmail,
+  sendDailySummaryEmail,
+  sendUrgentNotificationEmail,
+} from "./send"
+
 export type { SyncResult, SyncState } from "./sync"
 export type { VendorInfo, MatchResult } from "./matcher"

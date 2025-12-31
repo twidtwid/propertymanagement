@@ -57,5 +57,25 @@ services:
     command: node scripts/sync-emails.js --watch --interval=10
     restart: unless-stopped
 
+  # Daily summary scheduler - sends email at 6 PM NYC time
+  daily-summary:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-propertymanagement}
+      - APP_HOST=app
+      - APP_PORT=3000
+    env_file:
+      - .env.local
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - app
+      - db
+    command: node scripts/daily-summary-scheduler.js
+    restart: unless-stopped
+
 volumes:
   postgres_data:

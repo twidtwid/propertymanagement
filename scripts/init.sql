@@ -353,6 +353,83 @@ CREATE TABLE shared_task_items (
 );
 
 -- ============================================
+-- GMAIL INTEGRATION TABLES
+-- ============================================
+
+-- Gmail OAuth tokens (encrypted)
+CREATE TABLE gmail_oauth_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_email TEXT NOT NULL UNIQUE,
+  access_token_encrypted TEXT NOT NULL,
+  refresh_token_encrypted TEXT NOT NULL,
+  token_expiry TIMESTAMPTZ NOT NULL,
+  scopes TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Vendor communications (email journal)
+CREATE TABLE vendor_communications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL,
+  gmail_message_id TEXT UNIQUE NOT NULL,
+  thread_id TEXT,
+  direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+  from_email TEXT NOT NULL,
+  to_email TEXT NOT NULL,
+  subject TEXT,
+  body_snippet TEXT,
+  body_html TEXT,
+  received_at TIMESTAMPTZ NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  is_important BOOLEAN DEFAULT FALSE,
+  has_attachment BOOLEAN DEFAULT FALSE,
+  attachment_names TEXT[],
+  labels TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Email sync state
+CREATE TABLE email_sync_state (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_email TEXT NOT NULL UNIQUE,
+  last_sync_at TIMESTAMPTZ,
+  last_message_id TEXT,
+  sync_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Notification log
+CREATE TABLE notification_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipient_email TEXT NOT NULL,
+  notification_type TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body_html TEXT,
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  gmail_message_id TEXT
+);
+
+-- Daily summary tracking
+CREATE TABLE daily_summaries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  summary_date DATE NOT NULL UNIQUE,
+  actions_taken JSONB DEFAULT '[]',
+  urgent_items JSONB DEFAULT '[]',
+  upcoming_items JSONB DEFAULT '[]',
+  sent_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Gmail indexes
+CREATE INDEX idx_vendor_comms_vendor ON vendor_communications(vendor_id);
+CREATE INDEX idx_vendor_comms_date ON vendor_communications(received_at DESC);
+CREATE INDEX idx_vendor_comms_gmail_id ON vendor_communications(gmail_message_id);
+CREATE INDEX idx_notification_log_date ON notification_log(sent_at DESC);
+CREATE INDEX idx_notification_log_type ON notification_log(notification_type);
+
+-- ============================================
 -- AUDIT LOGGING
 -- ============================================
 
