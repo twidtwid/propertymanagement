@@ -281,7 +281,7 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
   }
 }
 
-export function formatSummaryAsText(summary: DailySummaryData): string {
+export async function formatSummaryAsText(summary: DailySummaryData): Promise<string> {
   const lines: string[] = []
 
   lines.push("=" .repeat(60))
@@ -334,7 +334,7 @@ export function formatSummaryAsText(summary: DailySummaryData): string {
   return lines.join("\n")
 }
 
-export function formatSummaryAsHtml(summary: DailySummaryData): string {
+export async function formatSummaryAsHtml(summary: DailySummaryData): Promise<string> {
   let html = `
 <!DOCTYPE html>
 <html>

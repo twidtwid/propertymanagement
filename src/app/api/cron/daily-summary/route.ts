@@ -35,14 +35,14 @@ export async function GET(request: NextRequest) {
     })
 
     if (format === "text") {
-      const text = formatSummaryAsText(summary)
+      const text = await formatSummaryAsText(summary)
       return new NextResponse(text, {
         headers: { "Content-Type": "text/plain" },
       })
     }
 
     if (format === "html") {
-      const html = formatSummaryAsHtml(summary)
+      const html = await formatSummaryAsHtml(summary)
       return new NextResponse(html, {
         headers: { "Content-Type": "text/html" },
       })

@@ -1577,6 +1577,22 @@ Common domains (gmail, yahoo, etc.) are excluded from domain matching.
 5. **Vendor Specialties**: The database enum is limited - map AI suggestions to valid values
 6. **UUID Generation**: Use `gen_random_uuid()` instead of `uuid_generate_v4()` in PostgreSQL
 
+8. **Gmail Integration Phase 2** (Dec 31, 2025)
+   - Imported 48,918 emails from 2025 into database
+   - 1,733 emails matched to vendors, 538 marked urgent
+   - Top vendors by email volume:
+     - BuildingLink: 468 emails
+     - Nest: 294 emails
+     - Ward Lumber: 265 emails
+     - John (plumbing): 191 emails
+     - Brady Parker: 106 emails
+   - Created Vendor Journal tab on vendor detail pages
+   - Built email preview component with expandable view
+   - Implemented subdomain matching (us1.buildinglink.com → buildinglink.com)
+   - Created daily summary generator (`src/lib/daily-summary.ts`)
+   - Added historical import script (`scripts/import-emails.js`)
+   - Docker-based email sync service running every 10 minutes
+
 ---
 
 ## Reports & Analytics
