@@ -11,9 +11,17 @@ import {
   Shield,
   Wrench,
   ArrowRight,
+  Sun,
 } from "lucide-react"
 
 const reports = [
+  {
+    title: "Daily Summary",
+    description: "Today's urgent items, upcoming tasks, and recent emails",
+    href: "/reports/daily-summary",
+    icon: Sun,
+    color: "orange",
+  },
   {
     title: "Payment Summary",
     description: "Overview of all payments by property and type",
@@ -59,6 +67,7 @@ const reports = [
 ]
 
 const colorClasses: Record<string, { bg: string; text: string }> = {
+  orange: { bg: "bg-orange-50", text: "text-orange-600" },
   blue: { bg: "bg-blue-50", text: "text-blue-600" },
   green: { bg: "bg-green-50", text: "text-green-600" },
   amber: { bg: "bg-amber-50", text: "text-amber-600" },
