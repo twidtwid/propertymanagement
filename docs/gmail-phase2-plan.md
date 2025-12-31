@@ -1,6 +1,6 @@
 # Gmail Integration Phase 2 Plan
 
-**Status**: Phase 2 Core Implementation Complete (Dec 30, 2025)
+**Status**: Phase 2 COMPLETE (Dec 30, 2025)
 
 ## Phase 1 Summary (Completed)
 
@@ -60,8 +60,10 @@ The `vendor_communications` table already exists from Phase 1 setup.
 | Sync Cron Endpoint | DONE | `/api/cron/sync-emails` (10-min polling) |
 | Historical Import | DONE | `/api/gmail/import` endpoint |
 | Urgent Detection | DONE | Built into sync.ts |
-| Vendor Journal Tab | PENDING | UI components needed |
-| Daily Summary | PENDING | Cron job and email template needed |
+| Vendor Journal Tab | DONE | `src/components/vendors/vendor-journal.tsx`, `email-preview.tsx` |
+| Daily Summary | DONE | `/api/cron/daily-summary`, `src/lib/daily-summary.ts` |
+| Local Sync Script | DONE | `scripts/sync-emails.js` with Docker service |
+| Local Summary Script | DONE | `scripts/daily-summary.js` |
 
 ### Implementation Tasks
 
@@ -85,14 +87,14 @@ Created a service that:
 - Process emails in batches of 50 to avoid rate limits
 - Urgent email detection built into sync process
 
-#### Task 2: Vendor Detail Page with Journal Tab - PENDING
-Enhance vendor pages to show communication history.
+#### Task 2: Vendor Detail Page with Journal Tab - COMPLETED
+Enhanced vendor pages to show communication history.
 
-**Files to Create/Modify:**
-- `src/app/vendors/[id]/page.tsx` - Add tabbed interface
+**Files Created/Modified:**
+- `src/app/vendors/[id]/page.tsx` - Added tabbed interface with Overview and Journal tabs
 - `src/components/vendors/vendor-journal.tsx` - Email timeline component
 - `src/components/vendors/email-preview.tsx` - Expandable email viewer
-- `src/lib/actions.ts` - Add `getVendorCommunications()` action
+- `src/lib/actions.ts` - Added `getVendorCommunications()` action
 
 **Journal Features:**
 - Timeline view of emails (newest first)

@@ -60,6 +60,85 @@ export async function getVendorsBySpecialty(specialty: string): Promise<Vendor[]
   )
 }
 
+// Vendor Communications (Email Journal)
+export interface VendorCommunication {
+  id: string
+  vendor_id: string | null
+  gmail_message_id: string
+  thread_id: string | null
+  direction: "inbound" | "outbound"
+  from_email: string
+  to_email: string
+  subject: string | null
+  body_snippet: string | null
+  body_html: string | null
+  received_at: string
+  is_read: boolean
+  is_important: boolean
+  has_attachment: boolean
+  attachment_names: string[]
+  labels: string[]
+  created_at: string
+  vendor?: Vendor
+}
+
+export async function getVendorCommunications(vendorId: string): Promise<VendorCommunication[]> {
+  return query<VendorCommunication>(
+    `SELECT * FROM vendor_communications
+     WHERE vendor_id = $1
+     ORDER BY received_at DESC`,
+    [vendorId]
+  )
+}
+
+export async function getRecentCommunications(limit: number = 50): Promise<VendorCommunication[]> {
+  return query<VendorCommunication>(
+    `SELECT vc.*, row_to_json(v.*) as vendor
+     FROM vendor_communications vc
+     LEFT JOIN vendors v ON vc.vendor_id = v.id
+     ORDER BY vc.received_at DESC
+     LIMIT $1`,
+    [limit]
+  )
+}
+
+export async function getUnmatchedCommunications(): Promise<VendorCommunication[]> {
+  return query<VendorCommunication>(
+    `SELECT * FROM vendor_communications
+     WHERE vendor_id IS NULL
+     ORDER BY received_at DESC
+     LIMIT 100`
+  )
+}
+
+export async function getCommunicationStats(): Promise<{
+  total: number
+  matched: number
+  unmatched: number
+  urgent: number
+}> {
+  const stats = await queryOne<{
+    total: string
+    matched: string
+    unmatched: string
+    urgent: string
+  }>(`
+    SELECT
+      COUNT(*) as total,
+      COUNT(vendor_id) as matched,
+      COUNT(*) - COUNT(vendor_id) as unmatched,
+      COUNT(*) FILTER (WHERE is_important = TRUE) as urgent
+    FROM vendor_communications
+  `)
+
+  return {
+    total: parseInt(stats?.total || "0"),
+    matched: parseInt(stats?.matched || "0"),
+    unmatched: parseInt(stats?.unmatched || "0"),
+    urgent: parseInt(stats?.urgent || "0"),
+  }
+}
+
 // Property Vendors (lookup)
 export async function getPropertyVendors(propertyId: string): Promise<(PropertyVendor & { vendor: Vendor })[]> {
   return query<PropertyVendor & { vendor: Vendor }>(
