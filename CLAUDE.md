@@ -22,30 +22,35 @@ A custom web application for managing 10 properties across 6 jurisdictions (Verm
 - **Framework:** Next.js 14+ (App Router)
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS + shadcn/ui
-- **Database:** PostgreSQL via Supabase
-- **Auth:** Supabase Auth
-- **Storage:** Supabase Storage (documents)
-- **Hosting:** Vercel + Supabase
+- **Database:** PostgreSQL (local Docker)
+- **Auth:** Simple session-based (no external provider)
+- **Storage:** Local filesystem
+- **Hosting:** Local Docker (PostgreSQL + Next.js)
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Create the project
-npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
+# 1. Start Docker services
+docker compose up -d
 
-# 2. Install dependencies
-npm install @supabase/supabase-js @supabase/ssr
+# 2. Install dependencies (if running outside Docker)
+npm install
+
+# 3. Run dev server
+npm run dev
+
+# App runs at http://localhost:3000
+# Database at localhost:5432 (postgres/postgres)
+```
+
+### Dependencies
+
+```bash
 npm install date-fns zod react-hook-form @hookform/resolvers
-npm install lucide-react recharts
+npm install lucide-react recharts googleapis pg
 npm install -D @types/node
-
-# 3. Initialize shadcn/ui
-npx shadcn@latest init
-
-# 4. Add shadcn components
-npx shadcn@latest add button card input label select textarea table tabs badge dialog dropdown-menu form toast calendar popover command
 ```
 
 ---
@@ -55,10 +60,19 @@ npx shadcn@latest add button card input label select textarea table tabs badge d
 Create `.env.local`:
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/propertymanagement
+
+# Gmail OAuth (Google Cloud Console)
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/gmail/callback
+
+# Token encryption (generate: openssl rand -hex 32)
+TOKEN_ENCRYPTION_KEY=your_32_byte_hex_key
+
+# Notification recipient
+NOTIFICATION_EMAIL=anne@annespalter.com
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -68,7 +82,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ## Database Schema
 
-Run this SQL in Supabase SQL Editor:
+Run this SQL in PostgreSQL (or see `scripts/init.sql`):
 
 ```sql
 -- Enable UUID extension
@@ -103,9 +117,9 @@ CREATE TYPE alert_severity AS ENUM ('info', 'warning', 'critical');
 -- TABLES
 -- ============================================
 
--- User Profiles (extends Supabase auth.users)
+-- User Profiles
 CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT NOT NULL,
   full_name TEXT,
   role user_role DEFAULT 'owner',
@@ -631,14 +645,12 @@ CREATE TRIGGER on_auth_user_created
 │       ├── confirm-dialog.tsx
 │       └── file-upload.tsx
 ├── /lib
-│   ├── supabase
-│   │   ├── client.ts           # Browser client
-│   │   ├── server.ts           # Server client
-│   │   └── middleware.ts
+│   ├── db.ts                   # PostgreSQL client (pg)
+│   ├── gmail/                  # Gmail API integration
 │   ├── utils.ts
 │   └── constants.ts
 ├── /types
-│   └── database.ts             # Generated types from Supabase
+│   └── database.ts             # TypeScript types
 └── /hooks
     ├── use-properties.ts
     ├── use-vendors.ts
@@ -770,12 +782,11 @@ Create a script to import Anne's existing data:
 
 ```typescript
 // scripts/seed-data.ts
-import { createClient } from "@supabase/supabase-js"
+import { Pool } from "pg"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/propertymanagement"
+})
 
 async function seedProperties() {
   const properties = [
@@ -873,13 +884,14 @@ async function seedProperties() {
     },
   ]
 
-  const { data, error } = await supabase
-    .from("properties")
-    .insert(properties)
-    .select()
-
-  console.log("Properties seeded:", data?.length)
-  if (error) console.error(error)
+  for (const prop of properties) {
+    await pool.query(
+      `INSERT INTO properties (name, address, city, state, country, property_type, span_number, block_number, lot_number, has_mortgage, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [prop.name, prop.address, prop.city, prop.state, prop.country, prop.property_type, prop.span_number, prop.block_number, prop.lot_number, prop.has_mortgage, prop.notes]
+    )
+  }
+  console.log("Properties seeded:", properties.length)
 }
 
 async function seedVehicles() {
@@ -958,13 +970,14 @@ async function seedVehicles() {
     },
   ]
 
-  const { data, error } = await supabase
-    .from("vehicles")
-    .insert(vehicles)
-    .select()
-
-  console.log("Vehicles seeded:", data?.length)
-  if (error) console.error(error)
+  for (const v of vehicles) {
+    await pool.query(
+      `INSERT INTO vehicles (year, make, model, color, vin, license_plate, registration_state, registration_expires, garage_location, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [v.year, v.make, v.model, v.color, v.vin, v.license_plate, v.registration_state, v.registration_expires, v.garage_location, v.notes]
+    )
+  }
+  console.log("Vehicles seeded:", vehicles.length)
 }
 
 // Run seeds
@@ -994,27 +1007,38 @@ DRIVER'S LICENSES:
 
 ## Deployment
 
-### Vercel Deployment
+### Local Docker Deployment
 
-1. Push code to GitHub
-2. Connect repository to Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy
+```bash
+# Start all services
+docker compose up -d
 
-### Supabase Setup
+# Services running:
+# - app: Next.js on http://localhost:3000
+# - db: PostgreSQL on localhost:5432
+# - email-sync: Gmail sync every 10 minutes
+```
 
-1. Create project at [supabase.com](https://supabase.com)
-2. Run SQL schema in SQL Editor
-3. Enable Email auth in Authentication settings
-4. Create storage bucket "documents" for file uploads
-5. Copy API keys to environment variables
+### Docker Compose Services
+
+| Service | Description | Port |
+|---------|-------------|------|
+| `app` | Next.js application | 3000 |
+| `db` | PostgreSQL database | 5432 |
+| `email-sync` | Gmail sync (runs every 10 min) | - |
+
+### Database Setup
+
+1. Database auto-initializes from `scripts/init.sql`
+2. Credentials: postgres/postgres
+3. Database name: propertymanagement
 
 ---
 
 ## Next Steps After Initial Setup
 
 1. [ ] Create Next.js project with dependencies
-2. [ ] Set up Supabase project and run schema
+2. [x] Set up PostgreSQL database via Docker
 3. [ ] Implement authentication flow
 4. [ ] Build dashboard with Quick Contact widget
 5. [ ] Create properties CRUD
@@ -1026,7 +1050,7 @@ DRIVER'S LICENSES:
 11. [ ] Set up alert system
 12. [ ] Import data from Mega Info.xlsx
 13. [ ] Mobile PWA optimization
-14. [ ] Deploy to Vercel
+14. [x] Deploy via Docker Compose
 
 ---
 
