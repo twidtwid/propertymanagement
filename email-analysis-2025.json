@@ -1,0 +1,1069 @@
+{
+  "analyzedAt": "2025-12-31T07:10:49.717Z",
+  "totalEmails": 48021,
+  "uniqueSenders": 3131,
+  "patterns": {
+    "invoice": 636,
+    "payment": 733,
+    "service": 223,
+    "urgent": 44,
+    "quote": 85,
+    "confirmation": 389,
+    "scheduled": 212,
+    "renewal": 270
+  },
+  "matchedVendors": [
+    {
+      "email": "evalaskows@gmail.com",
+      "name": "Eva Laskowski",
+      "count": 83,
+      "vendor": "Eva Laskowski"
+    },
+    {
+      "email": "bparker@parkercci.com",
+      "name": "Brady Parker",
+      "count": 12,
+      "vendor": "Brady Parker"
+    },
+    {
+      "email": "matt@fluetechinc.com",
+      "name": "Matt FTI",
+      "count": 9,
+      "vendor": "Matt"
+    },
+    {
+      "email": "runningpower7@gmail.com",
+      "name": "Running Power Contracting Inc.",
+      "count": 8,
+      "vendor": "Carlos"
+    },
+    {
+      "email": "mlowell@allenpools-spas.com",
+      "name": "Michele Lowell",
+      "count": 8,
+      "vendor": "Chris/Michele/Jared"
+    },
+    {
+      "email": "forestcarevt@gmail.com",
+      "name": "Andrew Morrison",
+      "count": 7,
+      "vendor": "Andrew Morrison"
+    },
+    {
+      "email": "michael@publicparkinginc.com",
+      "name": "Michael Bader",
+      "count": 4,
+      "vendor": "Public Parking"
+    },
+    {
+      "email": "gassettenergy@gmail.com",
+      "name": "Kim Gassett",
+      "count": 1,
+      "vendor": "Steve Gassett"
+    }
+  ],
+  "unmatchedSenders": [
+    {
+      "email": "anne@annespalter.com",
+      "name": "Anne Spalter",
+      "count": 1430
+    },
+    {
+      "email": "alerts@transactional.vanguard.com",
+      "name": "Vanguard",
+      "count": 745
+    },
+    {
+      "email": "onlinebanking@ealerts.bankofamerica.com",
+      "name": "Bank of America",
+      "count": 609
+    },
+    {
+      "email": "reply@ss.email.nextdoor.com",
+      "name": "North Williamsburg Waterfront Lost & Found Posts",
+      "count": 588
+    },
+    {
+      "email": "notify@buildinglink.com",
+      "name": "North Edge",
+      "count": 586
+    },
+    {
+      "email": "michael@michaelspalter.com",
+      "name": "Michael Spalter",
+      "count": 358
+    },
+    {
+      "email": "noreply@news.bloomberg.com",
+      "name": "Bloomberg",
+      "count": 357
+    },
+    {
+      "email": "alerts@vanguard.com",
+      "name": "Vanguard",
+      "count": 334
+    },
+    {
+      "email": "michaels@emdeals.michaels.com",
+      "name": "Michaels",
+      "count": 319
+    },
+    {
+      "email": "info@lists.uncommongoods.com",
+      "name": "Uncommon Goods",
+      "count": 311
+    },
+    {
+      "email": "shop@email.sharperimage.com",
+      "name": "Sharper Image",
+      "count": 304
+    },
+    {
+      "email": "notifications@nest.com",
+      "name": "88Waves",
+      "count": 280
+    },
+    {
+      "email": "pesi@pesieducation.com",
+      "name": "The PESI Team",
+      "count": 272
+    },
+    {
+      "email": "newyorker@newsletter.newyorker.com",
+      "name": "The New Yorker Daily",
+      "count": 270
+    },
+    {
+      "email": "nytdirect@nytimes.com",
+      "name": "The New York Times",
+      "count": 266
+    },
+    {
+      "email": "email@washingtonpost.com",
+      "name": "The Washington Post",
+      "count": 247
+    },
+    {
+      "email": "shipment-tracking@amazon.com",
+      "name": "Amazon.com",
+      "count": 225
+    },
+    {
+      "email": "service@paypal.com",
+      "name": "PayPal",
+      "count": 222
+    },
+    {
+      "email": "contact@dollskill.com",
+      "name": "Dolls Kill",
+      "count": 205
+    },
+    {
+      "email": "no-reply@is.email.nextdoor.com",
+      "name": "Your North Williamsburg Waterfront neighbors",
+      "count": 196
+    },
+    {
+      "email": "store-news@amazon.com",
+      "name": "Amazon.com",
+      "count": 194
+    },
+    {
+      "email": "auto-reply@usps.com",
+      "name": null,
+      "count": 192
+    },
+    {
+      "email": "info@visualcapitalist.com",
+      "name": "Visual Capitalist",
+      "count": 191
+    },
+    {
+      "email": "freepeople@s.freepeople.com",
+      "name": "Free People",
+      "count": 191
+    },
+    {
+      "email": "email@frankandeileen.com",
+      "name": "Frank & Eileen",
+      "count": 187
+    },
+    {
+      "email": "newsletters@mail.thespruce.com",
+      "name": "The Spruce Daily",
+      "count": 187
+    },
+    {
+      "email": "email@kickstartrends.com",
+      "name": "Kickstarter Trend",
+      "count": 186
+    },
+    {
+      "email": "barbara.brady@cbiz.com",
+      "name": "Brady, Barbara",
+      "count": 178
+    },
+    {
+      "email": "noreply@uber.com",
+      "name": "Uber Receipts",
+      "count": 177
+    },
+    {
+      "email": "order-update@amazon.com",
+      "name": "Amazon.com",
+      "count": 176
+    },
+    {
+      "email": "hello@printfresh.com",
+      "name": "Printfresh",
+      "count": 174
+    },
+    {
+      "email": "zazzle@cm.send.zazzle.com",
+      "name": "Zazzle Inc.",
+      "count": 172
+    },
+    {
+      "email": "auto-confirm@amazon.com",
+      "name": "Amazon.com",
+      "count": 172
+    },
+    {
+      "email": "noreply@redditmail.com",
+      "name": "Reddit",
+      "count": 172
+    },
+    {
+      "email": "fresh@email.fresh.com",
+      "name": "fresh",
+      "count": 170
+    },
+    {
+      "email": "costco@digital.costco.com",
+      "name": "Costco Wholesale",
+      "count": 167
+    },
+    {
+      "email": "newsletter@email.businessinsider.com",
+      "name": "Business Insider",
+      "count": 167
+    },
+    {
+      "email": "hammacher@email.hammacher.com",
+      "name": "Hammacher Schlemmer",
+      "count": 167
+    },
+    {
+      "email": "thecompanystore@email.thecompanystore.com",
+      "name": "The Company Store",
+      "count": 165
+    },
+    {
+      "email": "ruthbuczynski@nicabm.com",
+      "name": "Ruth Buczynski",
+      "count": 159
+    },
+    {
+      "email": "us@silksilky.com",
+      "name": "SILKSILKY",
+      "count": 155
+    },
+    {
+      "email": "madewell@mail.madewell.com",
+      "name": "Madewell",
+      "count": 145
+    },
+    {
+      "email": "info@miamifruit.org",
+      "name": "Miami Fruit",
+      "count": 142
+    },
+    {
+      "email": "kipling@b.kipling-usa.com",
+      "name": "Kipling",
+      "count": 142
+    },
+    {
+      "email": "info@e.m.hannaandersson.com",
+      "name": "Hanna Andersson",
+      "count": 142
+    },
+    {
+      "email": "support@e.usa.experian.com",
+      "name": "Experian",
+      "count": 140
+    },
+    {
+      "email": "hello@send.italic.com",
+      "name": "Italic",
+      "count": 140
+    },
+    {
+      "email": "no-reply@emails.skechers.com",
+      "name": "SKECHERS",
+      "count": 139
+    },
+    {
+      "email": "breakingnews-noreply@nytimes.com",
+      "name": "The New York Times",
+      "count": 139
+    },
+    {
+      "email": "hello@mail.cointracker.io",
+      "name": "CoinTracker",
+      "count": 138
+    },
+    {
+      "email": "victoriassecret@e1.victoriassecret.com",
+      "name": "Victoria's Secret",
+      "count": 138
+    },
+    {
+      "email": "notifications@instructure.com",
+      "name": "UC San Diego Extended Studies Canvas",
+      "count": 138
+    },
+    {
+      "email": "email@promotion.bedbathandbeyond.com",
+      "name": "Bed Bath & Beyond",
+      "count": 136
+    },
+    {
+      "email": "no_reply@e.dansko.com",
+      "name": "Dansko",
+      "count": 135
+    },
+    {
+      "email": "calendar-notification@google.com",
+      "name": "Google Calendar",
+      "count": 133
+    },
+    {
+      "email": "hi@e.qz.com",
+      "name": "Quartz Daily Brief",
+      "count": 133
+    },
+    {
+      "email": "10xresearch@substack.com",
+      "name": "10x Research",
+      "count": 132
+    },
+    {
+      "email": "support@holdenqigong.com",
+      "name": "Holden QiGong",
+      "count": 129
+    },
+    {
+      "email": "noreply@thenokbox.com",
+      "name": "The Nokbox",
+      "count": 129
+    },
+    {
+      "email": "newsletters@e.economist.com",
+      "name": "The Economist Today",
+      "count": 128
+    },
+    {
+      "email": "meundies_at_mail_meundies_com_d9y2pbvbzeqfz3_met84968@icloud.com",
+      "name": "MeUndies",
+      "count": 128
+    },
+    {
+      "email": "newsletter@e.newscientist.com",
+      "name": "New Scientist Daily",
+      "count": 128
+    },
+    {
+      "email": "bergdorfgoodman@email.bergdorfgoodman.com",
+      "name": "Bergdorf Goodman",
+      "count": 127
+    },
+    {
+      "email": "news@emailus.birkenstock.com",
+      "name": "Birkenstock News",
+      "count": 124
+    },
+    {
+      "email": "uspsinformeddelivery@email.informeddelivery.usps.com",
+      "name": "USPS Informed Delivery",
+      "count": 122
+    },
+    {
+      "email": "newsletters@mail.latimes.com",
+      "name": "Essential California — L.A. Times",
+      "count": 121
+    },
+    {
+      "email": "no-reply@rs.email.nextdoor.com",
+      "name": "Your North Williamsburg Waterfront neighbors",
+      "count": 120
+    },
+    {
+      "email": "anthropologie@s.anthropologie.com",
+      "name": "Anthropologie",
+      "count": 119
+    },
+    {
+      "email": "meundies@mail.meundies.com",
+      "name": "MeUndies",
+      "count": 116
+    },
+    {
+      "email": "emails@wolfandbadger.com",
+      "name": "Wolf & Badger",
+      "count": 114
+    },
+    {
+      "email": "jomalone@em.jomalone.com",
+      "name": "Jo Malone London",
+      "count": 113
+    },
+    {
+      "email": "veronicabeard@veronicabeard.com",
+      "name": "Veronica Beard",
+      "count": 112
+    },
+    {
+      "email": "1800flowers@em.1800flowers.com",
+      "name": "1-800-FLOWERS.COM",
+      "count": 112
+    },
+    {
+      "email": "newsletters@theatlantic.com",
+      "name": "The Atlantic Daily",
+      "count": 111
+    },
+    {
+      "email": "no-reply@email.lilysilk.com",
+      "name": "LILYSILK",
+      "count": 110
+    },
+    {
+      "email": "hello@e.lululemon.com",
+      "name": "lululemon",
+      "count": 109
+    },
+    {
+      "email": "honey@honeybirdette.com",
+      "name": "Honey Birdette",
+      "count": 109
+    },
+    {
+      "email": "no-reply@posts.fairygodboss.com",
+      "name": "Fairygodboss Daily",
+      "count": 109
+    },
+    {
+      "email": "hello@e.nymag.com",
+      "name": "Adarryll from New York Magazine",
+      "count": 108
+    },
+    {
+      "email": "mcinfo@ups.com",
+      "name": "UPS",
+      "count": 107
+    },
+    {
+      "email": "teleflorapartners@partners.teleflora.com",
+      "name": "Teleflora Partners",
+      "count": 105
+    },
+    {
+      "email": "info@sferra.com",
+      "name": "SFERRA",
+      "count": 104
+    },
+    {
+      "email": "service@yiume.com",
+      "name": "Yiume",
+      "count": 103
+    },
+    {
+      "email": "victoriassecret@e2.vspink.com",
+      "name": "VS PINK",
+      "count": 103
+    },
+    {
+      "email": "cafepress@mail.cafepress.com",
+      "name": "CafePress",
+      "count": 100
+    },
+    {
+      "email": "newsletter@thedeepview.co",
+      "name": "The Deep View",
+      "count": 99
+    },
+    {
+      "email": "noreply@mail.charlottetilbury.com",
+      "name": "Charlotte Tilbury",
+      "count": 99
+    },
+    {
+      "email": "hello@clubmagichour.com",
+      "name": "Magic Hour",
+      "count": 98
+    },
+    {
+      "email": "rainamarievalentine@gmail.com",
+      "name": "Raina Valentine",
+      "count": 97
+    },
+    {
+      "email": "vanityfair@newsletter.vf.com",
+      "name": "Vanity Fair",
+      "count": 97
+    },
+    {
+      "email": "hello@pipsticks.com",
+      "name": "Pipsticks",
+      "count": 96
+    },
+    {
+      "email": "offers@tradepubs.nl00.net",
+      "name": "TradePub.com",
+      "count": 96
+    },
+    {
+      "email": "backcountry@b.backcountry.com",
+      "name": "Alex From Backcountry",
+      "count": 96
+    },
+    {
+      "email": "noreply@vosgeschocolate.com",
+      "name": "Vosges Haut-Chocolat",
+      "count": 94
+    },
+    {
+      "email": "contact@laseraway.com",
+      "name": "LaserAway",
+      "count": 94
+    },
+    {
+      "email": "hello@hyperallergic.com",
+      "name": "Hyperallergic",
+      "count": 94
+    },
+    {
+      "email": "larroude@larroude.com",
+      "name": "Larroudé",
+      "count": 94
+    },
+    {
+      "email": "newsletter@aisecret.us",
+      "name": "AI Secret",
+      "count": 93
+    },
+    {
+      "email": "samsclub@em.samsclub.com",
+      "name": "Sam's Club",
+      "count": 92
+    },
+    {
+      "email": "theaireport@mail.beehiiv.com",
+      "name": "The AI Report",
+      "count": 92
+    }
+  ],
+  "topSenders": [
+    {
+      "email": "anne@annespalter.com",
+      "name": "Anne Spalter",
+      "count": 1430
+    },
+    {
+      "email": "alerts@transactional.vanguard.com",
+      "name": "Vanguard",
+      "count": 745
+    },
+    {
+      "email": "onlinebanking@ealerts.bankofamerica.com",
+      "name": "Bank of America",
+      "count": 609
+    },
+    {
+      "email": "reply@ss.email.nextdoor.com",
+      "name": "North Williamsburg Waterfront Lost & Found Posts",
+      "count": 588
+    },
+    {
+      "email": "notify@buildinglink.com",
+      "name": "North Edge",
+      "count": 586
+    },
+    {
+      "email": "michael@michaelspalter.com",
+      "name": "Michael Spalter",
+      "count": 358
+    },
+    {
+      "email": "noreply@news.bloomberg.com",
+      "name": "Bloomberg",
+      "count": 357
+    },
+    {
+      "email": "alerts@vanguard.com",
+      "name": "Vanguard",
+      "count": 334
+    },
+    {
+      "email": "michaels@emdeals.michaels.com",
+      "name": "Michaels",
+      "count": 319
+    },
+    {
+      "email": "info@lists.uncommongoods.com",
+      "name": "Uncommon Goods",
+      "count": 311
+    },
+    {
+      "email": "shop@email.sharperimage.com",
+      "name": "Sharper Image",
+      "count": 304
+    },
+    {
+      "email": "notifications@nest.com",
+      "name": "88Waves",
+      "count": 280
+    },
+    {
+      "email": "pesi@pesieducation.com",
+      "name": "The PESI Team",
+      "count": 272
+    },
+    {
+      "email": "newyorker@newsletter.newyorker.com",
+      "name": "The New Yorker Daily",
+      "count": 270
+    },
+    {
+      "email": "nytdirect@nytimes.com",
+      "name": "The New York Times",
+      "count": 266
+    },
+    {
+      "email": "email@washingtonpost.com",
+      "name": "The Washington Post",
+      "count": 247
+    },
+    {
+      "email": "shipment-tracking@amazon.com",
+      "name": "Amazon.com",
+      "count": 225
+    },
+    {
+      "email": "service@paypal.com",
+      "name": "PayPal",
+      "count": 222
+    },
+    {
+      "email": "contact@dollskill.com",
+      "name": "Dolls Kill",
+      "count": 205
+    },
+    {
+      "email": "no-reply@is.email.nextdoor.com",
+      "name": "Your North Williamsburg Waterfront neighbors",
+      "count": 196
+    },
+    {
+      "email": "store-news@amazon.com",
+      "name": "Amazon.com",
+      "count": 194
+    },
+    {
+      "email": "auto-reply@usps.com",
+      "name": null,
+      "count": 192
+    },
+    {
+      "email": "info@visualcapitalist.com",
+      "name": "Visual Capitalist",
+      "count": 191
+    },
+    {
+      "email": "freepeople@s.freepeople.com",
+      "name": "Free People",
+      "count": 191
+    },
+    {
+      "email": "email@frankandeileen.com",
+      "name": "Frank & Eileen",
+      "count": 187
+    },
+    {
+      "email": "newsletters@mail.thespruce.com",
+      "name": "The Spruce Daily",
+      "count": 187
+    },
+    {
+      "email": "email@kickstartrends.com",
+      "name": "Kickstarter Trend",
+      "count": 186
+    },
+    {
+      "email": "barbara.brady@cbiz.com",
+      "name": "Brady, Barbara",
+      "count": 178
+    },
+    {
+      "email": "noreply@uber.com",
+      "name": "Uber Receipts",
+      "count": 177
+    },
+    {
+      "email": "order-update@amazon.com",
+      "name": "Amazon.com",
+      "count": 176
+    },
+    {
+      "email": "hello@printfresh.com",
+      "name": "Printfresh",
+      "count": 174
+    },
+    {
+      "email": "zazzle@cm.send.zazzle.com",
+      "name": "Zazzle Inc.",
+      "count": 172
+    },
+    {
+      "email": "auto-confirm@amazon.com",
+      "name": "Amazon.com",
+      "count": 172
+    },
+    {
+      "email": "noreply@redditmail.com",
+      "name": "Reddit",
+      "count": 172
+    },
+    {
+      "email": "fresh@email.fresh.com",
+      "name": "fresh",
+      "count": 170
+    },
+    {
+      "email": "costco@digital.costco.com",
+      "name": "Costco Wholesale",
+      "count": 167
+    },
+    {
+      "email": "newsletter@email.businessinsider.com",
+      "name": "Business Insider",
+      "count": 167
+    },
+    {
+      "email": "hammacher@email.hammacher.com",
+      "name": "Hammacher Schlemmer",
+      "count": 167
+    },
+    {
+      "email": "thecompanystore@email.thecompanystore.com",
+      "name": "The Company Store",
+      "count": 165
+    },
+    {
+      "email": "ruthbuczynski@nicabm.com",
+      "name": "Ruth Buczynski",
+      "count": 159
+    },
+    {
+      "email": "us@silksilky.com",
+      "name": "SILKSILKY",
+      "count": 155
+    },
+    {
+      "email": "madewell@mail.madewell.com",
+      "name": "Madewell",
+      "count": 145
+    },
+    {
+      "email": "info@miamifruit.org",
+      "name": "Miami Fruit",
+      "count": 142
+    },
+    {
+      "email": "kipling@b.kipling-usa.com",
+      "name": "Kipling",
+      "count": 142
+    },
+    {
+      "email": "info@e.m.hannaandersson.com",
+      "name": "Hanna Andersson",
+      "count": 142
+    },
+    {
+      "email": "support@e.usa.experian.com",
+      "name": "Experian",
+      "count": 140
+    },
+    {
+      "email": "hello@send.italic.com",
+      "name": "Italic",
+      "count": 140
+    },
+    {
+      "email": "no-reply@emails.skechers.com",
+      "name": "SKECHERS",
+      "count": 139
+    },
+    {
+      "email": "breakingnews-noreply@nytimes.com",
+      "name": "The New York Times",
+      "count": 139
+    },
+    {
+      "email": "hello@mail.cointracker.io",
+      "name": "CoinTracker",
+      "count": 138
+    },
+    {
+      "email": "victoriassecret@e1.victoriassecret.com",
+      "name": "Victoria's Secret",
+      "count": 138
+    },
+    {
+      "email": "notifications@instructure.com",
+      "name": "UC San Diego Extended Studies Canvas",
+      "count": 138
+    },
+    {
+      "email": "email@promotion.bedbathandbeyond.com",
+      "name": "Bed Bath & Beyond",
+      "count": 136
+    },
+    {
+      "email": "no_reply@e.dansko.com",
+      "name": "Dansko",
+      "count": 135
+    },
+    {
+      "email": "calendar-notification@google.com",
+      "name": "Google Calendar",
+      "count": 133
+    },
+    {
+      "email": "hi@e.qz.com",
+      "name": "Quartz Daily Brief",
+      "count": 133
+    },
+    {
+      "email": "10xresearch@substack.com",
+      "name": "10x Research",
+      "count": 132
+    },
+    {
+      "email": "support@holdenqigong.com",
+      "name": "Holden QiGong",
+      "count": 129
+    },
+    {
+      "email": "noreply@thenokbox.com",
+      "name": "The Nokbox",
+      "count": 129
+    },
+    {
+      "email": "newsletters@e.economist.com",
+      "name": "The Economist Today",
+      "count": 128
+    },
+    {
+      "email": "meundies_at_mail_meundies_com_d9y2pbvbzeqfz3_met84968@icloud.com",
+      "name": "MeUndies",
+      "count": 128
+    },
+    {
+      "email": "newsletter@e.newscientist.com",
+      "name": "New Scientist Daily",
+      "count": 128
+    },
+    {
+      "email": "bergdorfgoodman@email.bergdorfgoodman.com",
+      "name": "Bergdorf Goodman",
+      "count": 127
+    },
+    {
+      "email": "news@emailus.birkenstock.com",
+      "name": "Birkenstock News",
+      "count": 124
+    },
+    {
+      "email": "uspsinformeddelivery@email.informeddelivery.usps.com",
+      "name": "USPS Informed Delivery",
+      "count": 122
+    },
+    {
+      "email": "newsletters@mail.latimes.com",
+      "name": "Essential California — L.A. Times",
+      "count": 121
+    },
+    {
+      "email": "no-reply@rs.email.nextdoor.com",
+      "name": "Your North Williamsburg Waterfront neighbors",
+      "count": 120
+    },
+    {
+      "email": "anthropologie@s.anthropologie.com",
+      "name": "Anthropologie",
+      "count": 119
+    },
+    {
+      "email": "meundies@mail.meundies.com",
+      "name": "MeUndies",
+      "count": 116
+    },
+    {
+      "email": "emails@wolfandbadger.com",
+      "name": "Wolf & Badger",
+      "count": 114
+    },
+    {
+      "email": "jomalone@em.jomalone.com",
+      "name": "Jo Malone London",
+      "count": 113
+    },
+    {
+      "email": "veronicabeard@veronicabeard.com",
+      "name": "Veronica Beard",
+      "count": 112
+    },
+    {
+      "email": "1800flowers@em.1800flowers.com",
+      "name": "1-800-FLOWERS.COM",
+      "count": 112
+    },
+    {
+      "email": "newsletters@theatlantic.com",
+      "name": "The Atlantic Daily",
+      "count": 111
+    },
+    {
+      "email": "no-reply@email.lilysilk.com",
+      "name": "LILYSILK",
+      "count": 110
+    },
+    {
+      "email": "hello@e.lululemon.com",
+      "name": "lululemon",
+      "count": 109
+    },
+    {
+      "email": "honey@honeybirdette.com",
+      "name": "Honey Birdette",
+      "count": 109
+    },
+    {
+      "email": "no-reply@posts.fairygodboss.com",
+      "name": "Fairygodboss Daily",
+      "count": 109
+    },
+    {
+      "email": "hello@e.nymag.com",
+      "name": "Adarryll from New York Magazine",
+      "count": 108
+    },
+    {
+      "email": "mcinfo@ups.com",
+      "name": "UPS",
+      "count": 107
+    },
+    {
+      "email": "teleflorapartners@partners.teleflora.com",
+      "name": "Teleflora Partners",
+      "count": 105
+    },
+    {
+      "email": "info@sferra.com",
+      "name": "SFERRA",
+      "count": 104
+    },
+    {
+      "email": "service@yiume.com",
+      "name": "Yiume",
+      "count": 103
+    },
+    {
+      "email": "victoriassecret@e2.vspink.com",
+      "name": "VS PINK",
+      "count": 103
+    },
+    {
+      "email": "cafepress@mail.cafepress.com",
+      "name": "CafePress",
+      "count": 100
+    },
+    {
+      "email": "newsletter@thedeepview.co",
+      "name": "The Deep View",
+      "count": 99
+    },
+    {
+      "email": "noreply@mail.charlottetilbury.com",
+      "name": "Charlotte Tilbury",
+      "count": 99
+    },
+    {
+      "email": "hello@clubmagichour.com",
+      "name": "Magic Hour",
+      "count": 98
+    },
+    {
+      "email": "rainamarievalentine@gmail.com",
+      "name": "Raina Valentine",
+      "count": 97
+    },
+    {
+      "email": "vanityfair@newsletter.vf.com",
+      "name": "Vanity Fair",
+      "count": 97
+    },
+    {
+      "email": "hello@pipsticks.com",
+      "name": "Pipsticks",
+      "count": 96
+    },
+    {
+      "email": "offers@tradepubs.nl00.net",
+      "name": "TradePub.com",
+      "count": 96
+    },
+    {
+      "email": "backcountry@b.backcountry.com",
+      "name": "Alex From Backcountry",
+      "count": 96
+    },
+    {
+      "email": "noreply@vosgeschocolate.com",
+      "name": "Vosges Haut-Chocolat",
+      "count": 94
+    },
+    {
+      "email": "contact@laseraway.com",
+      "name": "LaserAway",
+      "count": 94
+    },
+    {
+      "email": "hello@hyperallergic.com",
+      "name": "Hyperallergic",
+      "count": 94
+    },
+    {
+      "email": "larroude@larroude.com",
+      "name": "Larroudé",
+      "count": 94
+    },
+    {
+      "email": "newsletter@aisecret.us",
+      "name": "AI Secret",
+      "count": 93
+    },
+    {
+      "email": "samsclub@em.samsclub.com",
+      "name": "Sam's Club",
+      "count": 92
+    },
+    {
+      "email": "theaireport@mail.beehiiv.com",
+      "name": "The AI Report",
+      "count": 92
+    }
+  ]
+}

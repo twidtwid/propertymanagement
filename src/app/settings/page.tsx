@@ -1,10 +1,11 @@
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { User, Bell, Shield, Users, Database, Mail } from "lucide-react"
+import { User, Bell, Shield, Users, Database, Mail, ArrowRight } from "lucide-react"
 
 export default function SettingsPage() {
   return (
@@ -176,6 +177,32 @@ export default function SettingsPage() {
             <Mail className="h-4 w-4 mr-2" />
             Invite Team Member
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Gmail Integration
+          </CardTitle>
+          <CardDescription>Connect Gmail for vendor communications</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="font-medium">Vendor Email Analysis</p>
+              <p className="text-sm text-muted-foreground">
+                Analyze vendor emails, track communications, get daily summaries
+              </p>
+            </div>
+            <Button variant="outline" asChild>
+              <Link href="/settings/gmail">
+                Configure
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

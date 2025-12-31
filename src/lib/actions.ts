@@ -382,3 +382,437 @@ export async function getDashboardStats() {
     urgentTasks: parseInt(urgentTasksCount?.count || "0"),
   }
 }
+
+// ============================================
+// REPORT QUERIES
+// ============================================
+
+// Payment Summary Report
+export interface PaymentSummaryReport {
+  bills: Bill[]
+  byType: Record<string, number>
+  byProperty: Record<string, number>
+  total: number
+  count: number
+  year: number
+}
+
+export async function getPaymentSummaryReport(year?: number): Promise<PaymentSummaryReport> {
+  const targetYear = year || new Date().getFullYear()
+
+  const bills = await query<Bill>(
+    `SELECT b.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM bills b
+     LEFT JOIN properties p ON b.property_id = p.id
+     LEFT JOIN vehicles v ON b.vehicle_id = v.id
+     WHERE EXTRACT(YEAR FROM b.due_date) = $1
+     ORDER BY b.due_date`,
+    [targetYear]
+  )
+
+  const byType: Record<string, number> = {}
+  const byProperty: Record<string, number> = {}
+  let total = 0
+
+  bills.forEach((bill) => {
+    const amount = Number(bill.amount) || 0
+    total += amount
+
+    // Group by bill type
+    const type = bill.bill_type || "other"
+    byType[type] = (byType[type] || 0) + amount
+
+    // Group by property
+    const propertyName = (bill as Bill & { property?: Property }).property?.name || "No Property"
+    byProperty[propertyName] = (byProperty[propertyName] || 0) + amount
+  })
+
+  return { bills, byType, byProperty, total, count: bills.length, year: targetYear }
+}
+
+// Property Values Report
+export interface PropertyValueReport {
+  id: string
+  name: string
+  city: string
+  state: string | null
+  property_type: string
+  purchase_date: string | null
+  purchase_price: number | null
+  current_value: number | null
+  appreciation: number | null
+  appreciationPercent: number | null
+}
+
+export interface PropertyValuesReport {
+  properties: PropertyValueReport[]
+  totalPurchaseValue: number
+  totalCurrentValue: number
+  totalAppreciation: number
+  averageAppreciationPercent: number
+}
+
+export async function getPropertyValuesReport(): Promise<PropertyValuesReport> {
+  const rawProperties = await query<Property>(
+    `SELECT * FROM properties WHERE status = 'active' ORDER BY name`
+  )
+
+  let totalPurchaseValue = 0
+  let totalCurrentValue = 0
+  let propertiesWithAppreciation = 0
+  let totalAppreciationPercent = 0
+
+  const properties: PropertyValueReport[] = rawProperties.map((p) => {
+    const purchasePrice = Number(p.purchase_price) || null
+    const currentValue = Number(p.current_value) || null
+
+    let appreciation: number | null = null
+    let appreciationPercent: number | null = null
+
+    if (purchasePrice && currentValue) {
+      appreciation = currentValue - purchasePrice
+      appreciationPercent = ((currentValue - purchasePrice) / purchasePrice) * 100
+      totalPurchaseValue += purchasePrice
+      totalCurrentValue += currentValue
+      propertiesWithAppreciation++
+      totalAppreciationPercent += appreciationPercent
+    } else if (currentValue) {
+      totalCurrentValue += currentValue
+    }
+
+    return {
+      id: p.id,
+      name: p.name,
+      city: p.city,
+      state: p.state,
+      property_type: p.property_type,
+      purchase_date: p.purchase_date,
+      purchase_price: purchasePrice,
+      current_value: currentValue,
+      appreciation,
+      appreciationPercent,
+    }
+  })
+
+  return {
+    properties,
+    totalPurchaseValue,
+    totalCurrentValue,
+    totalAppreciation: totalCurrentValue - totalPurchaseValue,
+    averageAppreciationPercent: propertiesWithAppreciation > 0
+      ? totalAppreciationPercent / propertiesWithAppreciation
+      : 0,
+  }
+}
+
+// Tax Calendar Report
+export interface TaxCalendarReport {
+  taxes: PropertyTax[]
+  byJurisdiction: Record<string, number>
+  byMonth: Record<string, number>
+  totalDue: number
+  totalPaid: number
+  totalPending: number
+  year: number
+}
+
+export async function getTaxCalendarReport(year?: number): Promise<TaxCalendarReport> {
+  const targetYear = year || new Date().getFullYear()
+
+  const taxes = await query<PropertyTax>(
+    `SELECT pt.*, row_to_json(p.*) as property
+     FROM property_taxes pt
+     JOIN properties p ON pt.property_id = p.id
+     WHERE pt.tax_year = $1
+     ORDER BY pt.due_date, p.name`,
+    [targetYear]
+  )
+
+  const byJurisdiction: Record<string, number> = {}
+  const byMonth: Record<string, number> = {}
+  let totalDue = 0
+  let totalPaid = 0
+  let totalPending = 0
+
+  taxes.forEach((tax) => {
+    const amount = Number(tax.amount) || 0
+    totalDue += amount
+
+    if (tax.status === "confirmed") {
+      totalPaid += amount
+    } else {
+      totalPending += amount
+    }
+
+    // Group by jurisdiction
+    byJurisdiction[tax.jurisdiction] = (byJurisdiction[tax.jurisdiction] || 0) + amount
+
+    // Group by month
+    if (tax.due_date) {
+      const month = new Date(tax.due_date).toLocaleDateString("en-US", { month: "short" })
+      byMonth[month] = (byMonth[month] || 0) + amount
+    }
+  })
+
+  return { taxes, byJurisdiction, byMonth, totalDue, totalPaid, totalPending, year: targetYear }
+}
+
+// Maintenance Costs Report
+export interface MaintenanceCostsReport {
+  tasks: MaintenanceTask[]
+  byProperty: Record<string, number>
+  byPriority: Record<string, number>
+  totalEstimated: number
+  totalActual: number
+  completedCount: number
+  pendingCount: number
+  year: number
+}
+
+export async function getMaintenanceCostsReport(year?: number): Promise<MaintenanceCostsReport> {
+  const targetYear = year || new Date().getFullYear()
+
+  const tasks = await query<MaintenanceTask>(
+    `SELECT mt.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM maintenance_tasks mt
+     LEFT JOIN properties p ON mt.property_id = p.id
+     LEFT JOIN vehicles v ON mt.vehicle_id = v.id
+     WHERE EXTRACT(YEAR FROM COALESCE(mt.completed_date, mt.due_date, mt.created_at)) = $1
+     ORDER BY mt.completed_date DESC NULLS LAST, mt.due_date`,
+    [targetYear]
+  )
+
+  const byProperty: Record<string, number> = {}
+  const byPriority: Record<string, number> = {}
+  let totalEstimated = 0
+  let totalActual = 0
+  let completedCount = 0
+  let pendingCount = 0
+
+  tasks.forEach((task) => {
+    const estimated = Number(task.estimated_cost) || 0
+    const actual = Number(task.actual_cost) || 0
+    totalEstimated += estimated
+    totalActual += actual
+
+    if (task.status === "completed") {
+      completedCount++
+    } else if (task.status === "pending" || task.status === "in_progress") {
+      pendingCount++
+    }
+
+    // Group by property (use actual cost if available, otherwise estimated)
+    const cost = actual || estimated
+    const propertyName = (task as MaintenanceTask & { property?: Property }).property?.name || "No Property"
+    byProperty[propertyName] = (byProperty[propertyName] || 0) + cost
+
+    // Group by priority
+    byPriority[task.priority] = (byPriority[task.priority] || 0) + cost
+  })
+
+  return {
+    tasks,
+    byProperty,
+    byPriority,
+    totalEstimated,
+    totalActual,
+    completedCount,
+    pendingCount,
+    year: targetYear,
+  }
+}
+
+// Insurance Coverage Report
+export interface InsuranceCoverageReport {
+  policies: InsurancePolicy[]
+  byType: Record<string, { count: number; premium: number; coverage: number }>
+  totalAnnualPremium: number
+  totalCoverage: number
+  policyCount: number
+  expiringWithin60Days: number
+}
+
+export async function getInsuranceCoverageReport(): Promise<InsuranceCoverageReport> {
+  const policies = await query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     ORDER BY ip.policy_type, ip.carrier_name`
+  )
+
+  const byType: Record<string, { count: number; premium: number; coverage: number }> = {}
+  let totalAnnualPremium = 0
+  let totalCoverage = 0
+  let expiringWithin60Days = 0
+  const now = new Date()
+  const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+
+  policies.forEach((policy) => {
+    const premium = Number(policy.premium_amount) || 0
+    const coverage = Number(policy.coverage_amount) || 0
+
+    // Annualize premium
+    let annualPremium = premium
+    switch (policy.premium_frequency) {
+      case "monthly":
+        annualPremium = premium * 12
+        break
+      case "quarterly":
+        annualPremium = premium * 4
+        break
+      case "semi_annual":
+        annualPremium = premium * 2
+        break
+    }
+    totalAnnualPremium += annualPremium
+    totalCoverage += coverage
+
+    // Check expiration
+    if (policy.expiration_date) {
+      const expDate = new Date(policy.expiration_date)
+      if (expDate <= sixtyDaysFromNow) {
+        expiringWithin60Days++
+      }
+    }
+
+    // Group by type
+    if (!byType[policy.policy_type]) {
+      byType[policy.policy_type] = { count: 0, premium: 0, coverage: 0 }
+    }
+    byType[policy.policy_type].count++
+    byType[policy.policy_type].premium += annualPremium
+    byType[policy.policy_type].coverage += coverage
+  })
+
+  return {
+    policies,
+    byType,
+    totalAnnualPremium,
+    totalCoverage,
+    policyCount: policies.length,
+    expiringWithin60Days,
+  }
+}
+
+// Year-End Export Report
+export interface YearEndCategory {
+  category: string
+  items: { description: string; amount: number; date: string | null }[]
+  total: number
+}
+
+export interface YearEndReport {
+  year: number
+  categories: YearEndCategory[]
+  grandTotal: number
+  propertyTaxTotal: number
+  insuranceTotal: number
+  maintenanceTotal: number
+  otherBillsTotal: number
+}
+
+export async function getYearEndExportData(year?: number): Promise<YearEndReport> {
+  const targetYear = year || new Date().getFullYear()
+
+  const [bills, taxes, policies, maintenanceTasks] = await Promise.all([
+    query<Bill>(
+      `SELECT b.*, row_to_json(p.*) as property
+       FROM bills b
+       LEFT JOIN properties p ON b.property_id = p.id
+       WHERE EXTRACT(YEAR FROM b.due_date) = $1
+         AND b.status IN ('sent', 'confirmed')
+       ORDER BY b.due_date`,
+      [targetYear]
+    ),
+    query<PropertyTax>(
+      `SELECT pt.*, row_to_json(p.*) as property
+       FROM property_taxes pt
+       JOIN properties p ON pt.property_id = p.id
+       WHERE pt.tax_year = $1
+       ORDER BY pt.due_date`,
+      [targetYear]
+    ),
+    query<InsurancePolicy>(
+      `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+       FROM insurance_policies ip
+       LEFT JOIN properties p ON ip.property_id = p.id
+       LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+       WHERE EXTRACT(YEAR FROM ip.effective_date) <= $1
+         AND (ip.expiration_date IS NULL OR EXTRACT(YEAR FROM ip.expiration_date) >= $1)`,
+      [targetYear]
+    ),
+    query<MaintenanceTask>(
+      `SELECT mt.*, row_to_json(p.*) as property
+       FROM maintenance_tasks mt
+       LEFT JOIN properties p ON mt.property_id = p.id
+       WHERE mt.status = 'completed'
+         AND EXTRACT(YEAR FROM mt.completed_date) = $1
+       ORDER BY mt.completed_date`,
+      [targetYear]
+    ),
+  ])
+
+  const categories: YearEndCategory[] = []
+  let grandTotal = 0
+
+  // Property Taxes
+  const taxItems = taxes.map((t) => ({
+    description: `${(t as PropertyTax & { property?: Property }).property?.name || "Unknown"} - ${t.jurisdiction} Q${t.installment}`,
+    amount: Number(t.amount) || 0,
+    date: t.due_date,
+  }))
+  const propertyTaxTotal = taxItems.reduce((sum, i) => sum + i.amount, 0)
+  categories.push({ category: "Property Taxes", items: taxItems, total: propertyTaxTotal })
+  grandTotal += propertyTaxTotal
+
+  // Insurance Premiums (annualized)
+  const insuranceItems = policies.map((p) => {
+    let annualPremium = Number(p.premium_amount) || 0
+    switch (p.premium_frequency) {
+      case "monthly": annualPremium *= 12; break
+      case "quarterly": annualPremium *= 4; break
+      case "semi_annual": annualPremium *= 2; break
+    }
+    return {
+      description: `${p.carrier_name} - ${p.policy_type}`,
+      amount: annualPremium,
+      date: p.effective_date,
+    }
+  })
+  const insuranceTotal = insuranceItems.reduce((sum, i) => sum + i.amount, 0)
+  categories.push({ category: "Insurance Premiums", items: insuranceItems, total: insuranceTotal })
+  grandTotal += insuranceTotal
+
+  // Maintenance
+  const maintenanceItems = maintenanceTasks.map((t) => ({
+    description: `${(t as MaintenanceTask & { property?: Property }).property?.name || "General"} - ${t.title}`,
+    amount: Number(t.actual_cost) || Number(t.estimated_cost) || 0,
+    date: t.completed_date,
+  }))
+  const maintenanceTotal = maintenanceItems.reduce((sum, i) => sum + i.amount, 0)
+  categories.push({ category: "Maintenance", items: maintenanceItems, total: maintenanceTotal })
+  grandTotal += maintenanceTotal
+
+  // Other Bills (excluding property_tax which is handled separately)
+  const otherBillItems = bills
+    .filter((b) => b.bill_type !== "property_tax")
+    .map((b) => ({
+      description: `${(b as Bill & { property?: Property }).property?.name || "General"} - ${b.description || b.bill_type}`,
+      amount: Number(b.amount) || 0,
+      date: b.due_date,
+    }))
+  const otherBillsTotal = otherBillItems.reduce((sum, i) => sum + i.amount, 0)
+  categories.push({ category: "Other Bills", items: otherBillItems, total: otherBillsTotal })
+  grandTotal += otherBillsTotal
+
+  return {
+    year: targetYear,
+    categories,
+    grandTotal,
+    propertyTaxTotal,
+    insuranceTotal,
+    maintenanceTotal,
+    otherBillsTotal,
+  }
+}

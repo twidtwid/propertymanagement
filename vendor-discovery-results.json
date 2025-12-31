@@ -1,0 +1,725 @@
+[
+  {
+    "domain": "griffineditions.com",
+    "count": 10,
+    "categories": [
+      "Quotes/Estimates"
+    ],
+    "names": [
+      "finn@griffineditions.com"
+    ],
+    "emails": [
+      "finn@griffineditions.com"
+    ]
+  },
+  {
+    "domain": "ups.com",
+    "count": 6,
+    "categories": [
+      "Appointments"
+    ],
+    "names": [
+      "UPS"
+    ],
+    "emails": [
+      "mcinfo@ups.com"
+    ]
+  },
+  {
+    "domain": "akam.com",
+    "count": 4,
+    "categories": [
+      "Insurance"
+    ],
+    "names": [
+      "Aleksandra Barbul",
+      "Tracey Whisnant"
+    ],
+    "emails": [
+      "abarbul@akam.com",
+      "twhisnant@akam.com"
+    ]
+  },
+  {
+    "domain": "deadriver.com",
+    "count": 3,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "Dead River Company"
+    ],
+    "emails": [
+      "noreply@deadriver.com"
+    ]
+  },
+  {
+    "domain": "email.apple.com",
+    "count": 3,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "Apple"
+    ],
+    "emails": [
+      "no_reply@email.apple.com"
+    ]
+  },
+  {
+    "domain": "vagaro.com",
+    "count": 3,
+    "categories": [
+      "Appointments"
+    ],
+    "names": [
+      "Purple Sarah Day Spa"
+    ],
+    "emails": [
+      "admin@vagaro.com"
+    ]
+  },
+  {
+    "domain": "majorair.net",
+    "count": 3,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "Cody Levine",
+      "Deborah Layne"
+    ],
+    "emails": [
+      "cody@majorair.net",
+      "dlayne@majorair.net"
+    ]
+  },
+  {
+    "domain": "starshep.com",
+    "count": 3,
+    "categories": [
+      "Insurance"
+    ],
+    "names": [
+      "Chiappetta, Marcela"
+    ],
+    "emails": [
+      "mchiappetta@starshep.com"
+    ]
+  },
+  {
+    "domain": "facebookmail.com",
+    "count": 2,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "Facebook"
+    ],
+    "emails": [
+      "notification@facebookmail.com"
+    ]
+  },
+  {
+    "domain": "notification.intuit.com",
+    "count": 2,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "QuickBooks Payments",
+      "Clark Fine Art Services"
+    ],
+    "emails": [
+      "quickbooks@notification.intuit.com"
+    ]
+  },
+  {
+    "domain": "invoicecloud.net",
+    "count": 2,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "Providence Water Supply Board"
+    ],
+    "emails": [
+      "no-reply@invoicecloud.net"
+    ]
+  },
+  {
+    "domain": "upliftdesk.com",
+    "count": 2,
+    "categories": [
+      "Quotes/Estimates"
+    ],
+    "names": [
+      "Linda Sanchez"
+    ],
+    "emails": [
+      "linda.sanchez@upliftdesk.com"
+    ]
+  },
+  {
+    "domain": "fedex.com",
+    "count": 2,
+    "categories": [
+      "Appointments"
+    ],
+    "names": [
+      "FedEx Delivery Manager"
+    ],
+    "emails": [
+      "trackingupdates@fedex.com"
+    ]
+  },
+  {
+    "domain": "marketing.blvd.me",
+    "count": 2,
+    "categories": [
+      "Appointments"
+    ],
+    "names": [
+      "PRESS Modern Massage",
+      "Overture spa"
+    ],
+    "emails": [
+      "press-modern-massage@marketing.blvd.me",
+      "overture-spa@marketing.blvd.me"
+    ]
+  },
+  {
+    "domain": "baldhill.com",
+    "count": 2,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "Bald Hill Dodge Chrysler Jeep Ram"
+    ],
+    "emails": [
+      "serviceteam@baldhill.com"
+    ]
+  },
+  {
+    "domain": "mail.yelp.com",
+    "count": 2,
+    "categories": [
+      "Service",
+      "Insurance"
+    ],
+    "names": [
+      "Yelp"
+    ],
+    "emails": [
+      "no-reply@mail.yelp.com"
+    ]
+  },
+  {
+    "domain": "e.siriusxm.com",
+    "count": 2,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "SiriusXM"
+    ],
+    "emails": [
+      "no-reply@e.siriusxm.com"
+    ]
+  },
+  {
+    "domain": "expy.jp",
+    "count": 2,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "yoyaku@expy.jp"
+    ],
+    "emails": [
+      "yoyaku@expy.jp"
+    ]
+  },
+  {
+    "domain": "nicabm.com",
+    "count": 2,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "Ruth Buczynski"
+    ],
+    "emails": [
+      "ruthbuczynski@nicabm.com"
+    ]
+  },
+  {
+    "domain": "na.patagonia.com",
+    "count": 2,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "Patagonia"
+    ],
+    "emails": [
+      "funhogs@na.patagonia.com"
+    ]
+  },
+  {
+    "domain": "exlservice.com",
+    "count": 2,
+    "categories": [
+      "Insurance"
+    ],
+    "names": [
+      "Rebecca B Hyer"
+    ],
+    "emails": [
+      "rebecca.hyer@exlservice.com"
+    ]
+  },
+  {
+    "domain": "service.berkleyone.com",
+    "count": 2,
+    "categories": [
+      "Insurance"
+    ],
+    "names": [
+      "BERKLEY ONE PRIORITYONE SERVICE TEAM"
+    ],
+    "emails": [
+      "berkleyone@service.berkleyone.com"
+    ]
+  },
+  {
+    "domain": "jmclaughlin.com",
+    "count": 1,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      ""
+    ],
+    "emails": [
+      "retailreceipts@jmclaughlin.com"
+    ]
+  },
+  {
+    "domain": "holdenqigong.com",
+    "count": 1,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "Holden QiGong"
+    ],
+    "emails": [
+      "support@holdenqigong.com"
+    ]
+  },
+  {
+    "domain": "staples.com",
+    "count": 1,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "StaplesReceipt@staples.com"
+    ],
+    "emails": [
+      "staplesreceipt@staples.com"
+    ]
+  },
+  {
+    "domain": "paddle.com",
+    "count": 1,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "NightCafe (via Paddle.com)"
+    ],
+    "emails": [
+      "help@paddle.com"
+    ]
+  },
+  {
+    "domain": "pirateship.com",
+    "count": 1,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "Pirate Ship"
+    ],
+    "emails": [
+      "support@pirateship.com"
+    ]
+  },
+  {
+    "domain": "receipts.italic.com",
+    "count": 1,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "Italic"
+    ],
+    "emails": [
+      "invoice+statements@receipts.italic.com"
+    ]
+  },
+  {
+    "domain": "adobe.com",
+    "count": 1,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "Adobe"
+    ],
+    "emails": [
+      "custsupp@adobe.com"
+    ]
+  },
+  {
+    "domain": "upsbilling.ups.com",
+    "count": 1,
+    "categories": [
+      "Invoice/Billing"
+    ],
+    "names": [
+      "no.reply@upsbilling.ups.com"
+    ],
+    "emails": [
+      "no.reply@upsbilling.ups.com"
+    ]
+  },
+  {
+    "domain": "arttactic.com",
+    "count": 1,
+    "categories": [
+      "Quotes/Estimates"
+    ],
+    "names": [
+      "ArtTactic"
+    ],
+    "emails": [
+      "info@arttactic.com"
+    ]
+  },
+  {
+    "domain": "services.barclaysus.com",
+    "count": 1,
+    "categories": [
+      "Appointments"
+    ],
+    "names": [
+      "JetBlue Plus Card"
+    ],
+    "emails": [
+      "alerts@services.barclaysus.com"
+    ]
+  },
+  {
+    "domain": "flamingoestate.com",
+    "count": 1,
+    "categories": [
+      "Appointments"
+    ],
+    "names": [
+      "Flamingo Estate"
+    ],
+    "emails": [
+      "concierge@flamingoestate.com"
+    ]
+  },
+  {
+    "domain": "med.cornell.edu",
+    "count": 1,
+    "categories": [
+      "Appointments"
+    ],
+    "names": [
+      "Bridget T. Carey"
+    ],
+    "emails": [
+      "btcarey@med.cornell.edu"
+    ]
+  },
+  {
+    "domain": "magazines.northeast.aaa.com",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "Emma at Your AAA"
+    ],
+    "emails": [
+      "editor@magazines.northeast.aaa.com"
+    ]
+  },
+  {
+    "domain": "ea.epson.com",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "Julius Tiu"
+    ],
+    "emails": [
+      "julius.tiu@ea.epson.com"
+    ]
+  },
+  {
+    "domain": "connected.staples.com",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "Staples"
+    ],
+    "emails": [
+      "staples@connected.staples.com"
+    ]
+  },
+  {
+    "domain": "opus.pro",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "OpusClip"
+    ],
+    "emails": [
+      "no-reply@opus.pro"
+    ]
+  },
+  {
+    "domain": "link.com",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "Link"
+    ],
+    "emails": [
+      "notifications@link.com"
+    ]
+  },
+  {
+    "domain": "message.fedex.com",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "FedEx"
+    ],
+    "emails": [
+      "fedex@message.fedex.com"
+    ]
+  },
+  {
+    "domain": "carcare.no-reply.carfax.com",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "CARFAX Car Care"
+    ],
+    "emails": [
+      "carfax@carcare.no-reply.carfax.com"
+    ]
+  },
+  {
+    "domain": "updates.myvehicle.app",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "Monadnock Ford"
+    ],
+    "emails": [
+      "hello@updates.myvehicle.app"
+    ]
+  },
+  {
+    "domain": "panasonic.aero",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "Customer Care"
+    ],
+    "emails": [
+      "customercare@panasonic.aero"
+    ]
+  },
+  {
+    "domain": "backblaze.com",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "Backblaze Support"
+    ],
+    "emails": [
+      "info@backblaze.com"
+    ]
+  },
+  {
+    "domain": "wifi-cloud.jp",
+    "count": 1,
+    "categories": [
+      "Service"
+    ],
+    "names": [
+      "freeinternet@wifi-cloud.jp"
+    ],
+    "emails": [
+      "freeinternet@wifi-cloud.jp"
+    ]
+  },
+  {
+    "domain": "wardlumber.ccsend.com",
+    "count": 1,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "Ward Lumber"
+    ],
+    "emails": [
+      "marketing@wardlumber.ccsend.com"
+    ]
+  },
+  {
+    "domain": "thesecurerelationship.com",
+    "count": 1,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "Julie Menanno | The Secure Relationship"
+    ],
+    "emails": [
+      "support@thesecurerelationship.com"
+    ]
+  },
+  {
+    "domain": "e.newscientist.com",
+    "count": 1,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "New Scientist Daily"
+    ],
+    "emails": [
+      "newsletter@e.newscientist.com"
+    ]
+  },
+  {
+    "domain": "daily.theepochtimes.com",
+    "count": 1,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "The Epoch Times"
+    ],
+    "emails": [
+      "news@daily.theepochtimes.com"
+    ]
+  },
+  {
+    "domain": "igkhair.com",
+    "count": 1,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "IGK Hair"
+    ],
+    "emails": [
+      "hello@igkhair.com"
+    ]
+  },
+  {
+    "domain": "s.freepeople.com",
+    "count": 1,
+    "categories": [
+      "Repairs"
+    ],
+    "names": [
+      "Free People"
+    ],
+    "emails": [
+      "freepeople@s.freepeople.com"
+    ]
+  },
+  {
+    "domain": "substack.com",
+    "count": 1,
+    "categories": [
+      "Insurance"
+    ],
+    "names": [
+      "Jessica Yellin, News Not Noise"
+    ],
+    "emails": [
+      "newsnotnoisejessicayellin+news-not-noise-explains@substack.com"
+    ]
+  },
+  {
+    "domain": "email.alltrails.com",
+    "count": 1,
+    "categories": [
+      "Insurance"
+    ],
+    "names": [
+      "AllTrails"
+    ],
+    "emails": [
+      "no-reply@email.alltrails.com"
+    ]
+  },
+  {
+    "domain": "aaas.sciencepubs.org",
+    "count": 1,
+    "categories": [
+      "Insurance"
+    ],
+    "names": [
+      "AAAS"
+    ],
+    "emails": [
+      "announcements@aaas.sciencepubs.org"
+    ]
+  },
+  {
+    "domain": "mail.beehiiv.com",
+    "count": 1,
+    "categories": [
+      "Insurance"
+    ],
+    "names": [
+      "The AI Report"
+    ],
+    "emails": [
+      "theaireport@mail.beehiiv.com"
+    ]
+  }
+]

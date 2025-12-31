@@ -11,16 +11,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, CreditCard, Calendar, Check, AlertCircle } from "lucide-react"
-import { getBills, getPropertyTaxes, getBillsNeedingConfirmation } from "@/lib/actions"
+import { CreditCard, Calendar, Check, AlertCircle } from "lucide-react"
+import { getBills, getPropertyTaxes, getBillsNeedingConfirmation, getActiveProperties, getActiveVehicles } from "@/lib/actions"
 import { formatCurrency, formatDate, daysUntil, daysSince } from "@/lib/utils"
 import { PAYMENT_STATUS_LABELS } from "@/types/database"
+import { AddBillButton } from "@/components/payments/add-bill-button"
+import { ConfirmPaymentButton } from "@/components/payments/confirm-payment-button"
 
 export default async function PaymentsPage() {
-  const [bills, taxes, needsConfirmation] = await Promise.all([
+  const [bills, taxes, needsConfirmation, properties, vehicles] = await Promise.all([
     getBills(),
     getPropertyTaxes(),
     getBillsNeedingConfirmation(),
+    getActiveProperties(),
+    getActiveVehicles(),
   ])
 
   const pendingBills = bills.filter((b) => b.status === "pending" || b.status === "sent")
@@ -35,10 +39,7 @@ export default async function PaymentsPage() {
             Track bills, taxes, and payment confirmations
           </p>
         </div>
-        <Button size="lg">
-          <Plus className="h-5 w-5 mr-2" />
-          Add Bill
-        </Button>
+        <AddBillButton properties={properties} vehicles={vehicles} />
       </div>
 
       {needsConfirmation.length > 0 && (
@@ -79,10 +80,7 @@ export default async function PaymentsPage() {
                           {days} days waiting
                         </Badge>
                       </div>
-                      <Button size="sm">
-                        <Check className="h-4 w-4 mr-1" />
-                        Confirm
-                      </Button>
+                      <ConfirmPaymentButton billId={bill.id} />
                     </div>
                   </div>
                 )

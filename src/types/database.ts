@@ -387,3 +387,13 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
   high: 'High',
   urgent: 'Urgent',
 }
+
+export const BILL_TYPE_LABELS: Record<BillType, string> = {
+  property_tax: 'Property Tax',
+  insurance: 'Insurance',
+  utility: 'Utility',
+  maintenance: 'Maintenance',
+  mortgage: 'Mortgage',
+  hoa: 'HOA',
+  other: 'Other',
+}

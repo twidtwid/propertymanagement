@@ -46,9 +46,11 @@ export default async function InsurancePage() {
             Manage your {policies.length} insurance policies
           </p>
         </div>
-        <Button size="lg">
-          <Plus className="h-5 w-5 mr-2" />
-          Add Policy
+        <Button size="lg" asChild>
+          <Link href="/insurance/new">
+            <Plus className="h-5 w-5 mr-2" />
+            Add Policy
+          </Link>
         </Button>
       </div>
 

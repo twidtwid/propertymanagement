@@ -1427,3 +1427,147 @@ docker exec -i propertymanagement-db-1 psql -U postgres -d propertymanagement < 
    - Updated all VINs, plates, colors from user data
    - Removed sold 2018 orange Equinox
    - Added CR-V plate: 8HTD398
+
+7. **Gmail Integration Phase 1** (Dec 30, 2025)
+   - Connected Gmail OAuth (anne@annespalter.com)
+   - Analyzed 48,021 emails from 2025
+   - Used Claude API (Haiku) to categorize unmatched senders
+   - Discovered and added 11 new vendors from email analysis:
+     - SHL-NY (Smart Home Living) - A/V vendor for Brooklyn condos
+     - BuildingLink - Property management software
+     - Nest - Smart home devices
+     - AKAM Property Management
+     - Dead River Company (fuel oil)
+     - Major Air (HVAC)
+     - Providence Water Supply Board
+     - Berkley One Insurance
+     - And more...
+   - Added Barbara Brady (CBIZ) as professional/bookkeeper
+   - Created email sync infrastructure (`src/lib/gmail/sync.ts`, `matcher.ts`)
+   - Set up 10-minute cron sync (`/api/cron/sync-emails`)
+   - Created historical import endpoint (`/api/gmail/import`)
+
+---
+
+## Gmail Integration
+
+### Overview
+
+The system integrates with Gmail to:
+1. Sync vendor communications automatically (every 10 minutes)
+2. Match emails to vendors by email address/domain
+3. Store communications in `vendor_communications` table
+4. Detect urgent emails for notifications
+
+### Environment Variables
+
+```env
+# Gmail OAuth (Google Cloud Console)
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/gmail/callback
+TOKEN_ENCRYPTION_KEY=your_32_byte_hex_key  # openssl rand -hex 32
+NOTIFICATION_EMAIL=anne@annespalter.com
+ANTHROPIC_API_KEY=your_anthropic_key  # For AI analysis
+```
+
+### Database Tables
+
+```sql
+-- Gmail OAuth tokens (encrypted)
+CREATE TABLE gmail_oauth_tokens (
+  id UUID PRIMARY KEY,
+  user_email TEXT NOT NULL UNIQUE,
+  access_token_encrypted TEXT NOT NULL,
+  refresh_token_encrypted TEXT NOT NULL,
+  token_expiry TIMESTAMPTZ NOT NULL,
+  scopes TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Vendor communications
+CREATE TABLE vendor_communications (
+  id UUID PRIMARY KEY,
+  vendor_id UUID REFERENCES vendors(id),
+  gmail_message_id TEXT UNIQUE NOT NULL,
+  thread_id TEXT,
+  direction TEXT CHECK (direction IN ('inbound', 'outbound')),
+  from_email TEXT NOT NULL,
+  to_email TEXT NOT NULL,
+  subject TEXT,
+  body_snippet TEXT,
+  body_html TEXT,
+  received_at TIMESTAMPTZ NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  is_important BOOLEAN DEFAULT FALSE,
+  has_attachment BOOLEAN DEFAULT FALSE,
+  attachment_names TEXT[],
+  labels TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Email sync state
+CREATE TABLE email_sync_state (
+  id UUID PRIMARY KEY,
+  user_email TEXT NOT NULL UNIQUE,
+  last_sync_at TIMESTAMPTZ,
+  last_message_id TEXT,
+  sync_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/gmail/auth.ts` | OAuth flow, token storage |
+| `src/lib/gmail/client.ts` | Gmail API wrapper |
+| `src/lib/gmail/sync.ts` | Email sync service |
+| `src/lib/gmail/matcher.ts` | Vendor email matching |
+| `src/app/api/cron/sync-emails/route.ts` | 10-min sync cron |
+| `src/app/api/gmail/import/route.ts` | Historical import |
+| `src/app/settings/gmail/page.tsx` | Gmail settings UI |
+
+### Vendor Matching Logic
+
+1. **Exact match** - Sender email matches vendor email (confidence: 1.0)
+2. **Domain match** - Sender domain matches vendor domain (confidence: 0.8)
+3. **Name match** - Sender name contains vendor/company name (confidence: 0.6)
+
+Common domains (gmail, yahoo, etc.) are excluded from domain matching.
+
+### Lessons Learned
+
+1. **Token Encryption**: Use AES-256-GCM with random IV for each encryption
+2. **Batch Processing**: Process emails in batches of 50 to avoid rate limits
+3. **Error Handling**: Always commit after each DB insert to avoid transaction aborts
+4. **Type Safety**: Spread operators with object literals can cause "specified more than once" TypeScript errors - restructure to avoid
+5. **Vendor Specialties**: The database enum is limited - map AI suggestions to valid values
+6. **UUID Generation**: Use `gen_random_uuid()` instead of `uuid_generate_v4()` in PostgreSQL
+
+---
+
+## Reports & Analytics
+
+The system includes comprehensive reporting capabilities:
+
+### Available Reports
+
+| Report | Path | Description |
+|--------|------|-------------|
+| Property Values | `/reports/property-values` | Purchase prices, current values, appreciation |
+| Tax Calendar | `/reports/tax-calendar` | Upcoming property taxes with payment links |
+| Insurance Summary | `/reports/insurance` | All policies, premiums, coverage |
+| Payments History | `/reports/payments` | Payment trends by category |
+| Maintenance Analysis | `/reports/maintenance` | Cost by property, vendor performance |
+| Year-End Summary | `/reports/year-end` | Annual financial summary |
+
+### Key Insights Available
+
+- Total property portfolio value: Sum of all current_value
+- Annual tax burden: Sum of quarterly property taxes
+- Insurance coverage: Total premium and deductible analysis
+- Vendor spending: Cost breakdown by specialty and property

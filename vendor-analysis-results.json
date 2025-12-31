@@ -1,0 +1,61 @@
+{
+  "analyzed_at": "2025-12-31T07:10:49.717Z",
+  "av_vendors_found": [
+    {
+      "email": "notifications@nest.com",
+      "name": "88Waves",
+      "count": 280
+    },
+    {
+      "email": "notifications@nest.com",
+      "name": "88Waves",
+      "count": 280
+    }
+  ],
+  "potential_vendors": [
+    {
+      "email": "notify@buildinglink.com",
+      "name": "BuildingLink",
+      "specialty": "property_management",
+      "reason": "Property management software for multi-unit buildings",
+      "confidence": "high"
+    },
+    {
+      "email": "notifications@nest.com",
+      "name": "Nest",
+      "specialty": "home_automation",
+      "reason": "Smart home device manufacturer for thermostats, security cameras",
+      "confidence": "high"
+    },
+    {
+      "email": "barbara.brady@cbiz.com",
+      "name": "CBIZ",
+      "specialty": "professional",
+      "reason": "Professional services firm likely handling property accounting or tax services",
+      "confidence": "medium"
+    }
+  ],
+  "added_vendors": [
+    {
+      "email": "notify@buildinglink.com",
+      "name": "BuildingLink",
+      "specialty": "property_management",
+      "reason": "Property management software for multi-unit buildings",
+      "confidence": "high"
+    },
+    {
+      "email": "notifications@nest.com",
+      "name": "Nest",
+      "specialty": "home_automation",
+      "reason": "Smart home device manufacturer for thermostats, security cameras",
+      "confidence": "high"
+    },
+    {
+      "email": "barbara.brady@cbiz.com",
+      "name": "CBIZ",
+      "specialty": "professional",
+      "reason": "Professional services firm likely handling property accounting or tax services",
+      "confidence": "medium"
+    }
+  ]
+}

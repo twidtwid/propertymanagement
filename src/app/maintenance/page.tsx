@@ -5,22 +5,25 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
-  Plus,
   Wrench,
   ClipboardList,
   History,
   Building2,
   Car,
 } from "lucide-react"
-import { getMaintenanceTasks, getPendingMaintenanceTasks, getSharedTaskLists } from "@/lib/actions"
+import { getMaintenanceTasks, getPendingMaintenanceTasks, getSharedTaskLists, getActiveProperties, getActiveVehicles, getActiveVendors } from "@/lib/actions"
 import { formatDate, daysUntil } from "@/lib/utils"
 import { TASK_PRIORITY_LABELS } from "@/types/database"
+import { AddTaskButton } from "@/components/maintenance/add-task-button"
 
 export default async function MaintenancePage() {
-  const [allTasks, pendingTasks, taskLists] = await Promise.all([
+  const [allTasks, pendingTasks, taskLists, properties, vehicles, vendors] = await Promise.all([
     getMaintenanceTasks(),
     getPendingMaintenanceTasks(),
     getSharedTaskLists(),
+    getActiveProperties(),
+    getActiveVehicles(),
+    getActiveVendors(),
   ])
 
   const completedTasks = allTasks.filter((t) => t.status === "completed")
@@ -34,10 +37,7 @@ export default async function MaintenancePage() {
             Track maintenance tasks and shared task lists
           </p>
         </div>
-        <Button size="lg">
-          <Plus className="h-5 w-5 mr-2" />
-          Add Task
-        </Button>
+        <AddTaskButton properties={properties} vehicles={vehicles} vendors={vendors} />
       </div>
 
       <Tabs defaultValue="pending" className="space-y-6">
