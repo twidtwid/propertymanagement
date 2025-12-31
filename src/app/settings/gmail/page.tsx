@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   ArrowLeft,
   Mail,
@@ -19,6 +21,9 @@ import {
   FileText,
   AlertTriangle,
   Building2,
+  Download,
+  Clock,
+  Inbox,
 } from "lucide-react"
 import type { EmailAnalysisReport } from "@/types/gmail"
 
@@ -30,14 +35,27 @@ interface GmailStatus {
   authUrl: string
 }
 
+interface CommunicationStats {
+  total: number
+  matched: number
+  unmatched: number
+  urgent: number
+}
+
 export default function GmailSettingsPage() {
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<GmailStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [analysisReport, setAnalysisReport] = useState<EmailAnalysisReport | null>(null)
   const [analysisSummary, setAnalysisSummary] = useState<string | null>(null)
+  const [commStats, setCommStats] = useState<CommunicationStats | null>(null)
+  const [importResult, setImportResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [importStartDate, setImportStartDate] = useState("2025-01-01")
+  const [importEndDate, setImportEndDate] = useState(new Date().toISOString().split("T")[0])
 
   // Check for OAuth callback params
   const success = searchParams.get("success")
@@ -46,6 +64,7 @@ export default function GmailSettingsPage() {
 
   useEffect(() => {
     fetchStatus()
+    fetchCommStats()
   }, [])
 
   async function fetchStatus() {
@@ -58,6 +77,63 @@ export default function GmailSettingsPage() {
       setError(err instanceof Error ? err.message : "Unknown error")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchCommStats() {
+    try {
+      const response = await fetch("/api/gmail/stats")
+      if (response.ok) {
+        const data = await response.json()
+        setCommStats(data)
+      }
+    } catch {
+      // Stats are optional, ignore errors
+    }
+  }
+
+  async function handleImport() {
+    try {
+      setImporting(true)
+      setError(null)
+      setImportResult(null)
+
+      const response = await fetch("/api/gmail/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: importStartDate,
+          endDate: importEndDate,
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Import failed")
+
+      setImportResult(data.message)
+      fetchCommStats()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  async function handleSync() {
+    try {
+      setSyncing(true)
+      setError(null)
+
+      const response = await fetch("/api/cron/sync-emails")
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Sync failed")
+
+      setImportResult(data.message)
+      fetchCommStats()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -202,6 +278,139 @@ export default function GmailSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Email Sync & Import */}
+      {status?.isConnected && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Inbox className="h-5 w-5" />
+              Email Sync & Import
+            </CardTitle>
+            <CardDescription>
+              Sync recent emails or import historical emails from Gmail
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Stats */}
+            {commStats && (
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                    <FileText className="h-4 w-4" />
+                    Total Emails
+                  </div>
+                  <p className="text-2xl font-semibold">{commStats.total}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                    <CheckCircle className="h-4 w-4" />
+                    Matched to Vendors
+                  </div>
+                  <p className="text-2xl font-semibold">{commStats.matched}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                    <XCircle className="h-4 w-4" />
+                    Unmatched
+                  </div>
+                  <p className="text-2xl font-semibold">{commStats.unmatched}</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                    <AlertTriangle className="h-4 w-4" />
+                    Urgent
+                  </div>
+                  <p className="text-2xl font-semibold">{commStats.urgent}</p>
+                </div>
+              </div>
+            )}
+
+            {importResult && (
+              <div className="rounded-lg bg-green-50 border border-green-200 p-4">
+                <div className="flex items-center gap-2 text-green-800">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>{importResult}</span>
+                </div>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Quick Sync */}
+            <div>
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Quick Sync
+              </h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Fetch new emails since last sync (runs automatically every 10 minutes in Docker)
+              </p>
+              <Button onClick={handleSync} disabled={syncing}>
+                {syncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Sync Now
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Historical Import */}
+            <div>
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Historical Import
+              </h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Import emails from a specific date range. Use for initial setup or to backfill data.
+              </p>
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={importStartDate}
+                    onChange={(e) => setImportStartDate(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={importEndDate}
+                    onChange={(e) => setImportEndDate(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+                <Button onClick={handleImport} disabled={importing}>
+                  {importing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Import Emails
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Email Analysis */}
       {status?.isConnected && (
