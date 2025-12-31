@@ -16,7 +16,8 @@ export type VendorSpecialty =
   | 'landscaping' | 'cleaning' | 'pest_control' | 'pool_spa' | 'appliance'
   | 'locksmith' | 'alarm_security' | 'snow_removal' | 'fuel_oil'
   | 'property_management' | 'architect' | 'movers' | 'trash' | 'internet'
-  | 'phone' | 'water' | 'septic' | 'forester' | 'other'
+  | 'phone' | 'water' | 'septic' | 'forester' | 'fireplace' | 'insurance'
+  | 'auto' | 'elevator' | 'flooring' | 'parking' | 'masonry' | 'other'
 export type Season = 'winter' | 'spring' | 'summer' | 'fall' | 'annual'
 export type AlertSeverity = 'info' | 'warning' | 'critical'
 
@@ -363,6 +364,13 @@ export const VENDOR_SPECIALTY_LABELS: Record<VendorSpecialty, string> = {
   water: 'Water',
   septic: 'Septic',
   forester: 'Forester',
+  fireplace: 'Fireplace',
+  insurance: 'Insurance',
+  auto: 'Auto Service',
+  elevator: 'Elevator',
+  flooring: 'Flooring',
+  parking: 'Parking',
+  masonry: 'Masonry',
   other: 'Other',
 }
 
