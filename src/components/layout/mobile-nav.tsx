@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import {
   Home,
   Building2,
+  Building,
   Car,
   Users,
   CreditCard,
@@ -23,6 +24,7 @@ import { GlobalSearch } from "@/components/shared/global-search"
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Properties", href: "/properties", icon: Building2 },
+  { name: "BuildingLink", href: "/buildinglink", icon: Building },
   { name: "Vehicles", href: "/vehicles", icon: Car },
   { name: "Vendors", href: "/vendors", icon: Users },
   { name: "Payments", href: "/payments", icon: CreditCard },

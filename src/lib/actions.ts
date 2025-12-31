@@ -1234,3 +1234,257 @@ export async function getYearEndExportData(year?: number): Promise<YearEndReport
     otherBillsTotal,
   }
 }
+
+// ============================================
+// BuildingLink Communications
+// ============================================
+
+export type BuildingLinkCategory =
+  | 'critical'
+  | 'important'
+  | 'maintenance'
+  | 'security'
+  | 'routine'
+  | 'noise'
+
+export interface BuildingLinkMessage {
+  id: string
+  subject: string
+  body_snippet: string | null
+  body_html: string | null
+  received_at: string
+  category: BuildingLinkCategory
+  subcategory: string
+  is_read: boolean
+  unit: 'PH2E' | 'PH2F' | 'both' | 'unknown'
+}
+
+export interface BuildingLinkStats {
+  total: number
+  unread: number
+  critical: number
+  important: number
+  maintenance: number
+  security: number
+  todayCount: number
+  thisWeekCount: number
+}
+
+// Categorize a BuildingLink message based on subject and content
+function categorizeBuildingLinkMessage(subject: string, body: string | null): { category: BuildingLinkCategory; subcategory: string } {
+  const s = subject.toLowerCase()
+  const b = (body || '').toLowerCase()
+
+  // Critical - needs immediate attention
+  if (s.includes('out of service') || s.includes('emergency') || s.includes('urgent') || s.includes('water shut')) {
+    return { category: 'critical', subcategory: 'Service Outage' }
+  }
+
+  // Important - building notices, HOA, policy changes
+  if (s.includes('meeting') || s.includes('vote') || s.includes('annual')) {
+    return { category: 'important', subcategory: 'HOA/Meeting' }
+  }
+  if (s.includes('notice') || s.includes('reminder:') || s.includes('policy') || s.includes('schedule')) {
+    return { category: 'important', subcategory: 'Building Notice' }
+  }
+  if (s.includes('back in service') || s.includes('resolved') || s.includes('reopened')) {
+    return { category: 'important', subcategory: 'Service Restored' }
+  }
+  if (s.includes('cooling') || s.includes('heating') || s.includes('hvac') || s.includes('winteriz')) {
+    return { category: 'important', subcategory: 'HVAC Notice' }
+  }
+  if (s.includes('monthly update') || s.includes('newsletter') || s.includes('news letter')) {
+    return { category: 'important', subcategory: 'Newsletter' }
+  }
+
+  // Maintenance - request updates
+  if (s.includes('maintenance request')) {
+    return { category: 'maintenance', subcategory: 'Maintenance Request' }
+  }
+
+  // Security - key access logs
+  if (s.includes('key ') || s.includes('keylink')) {
+    return { category: 'security', subcategory: 'Key Access' }
+  }
+
+  // Routine - amenities, events, resident postings
+  if (s.includes('pool') || s.includes('gym') || s.includes('amenity') || s.includes('amenities') || s.includes('fitness')) {
+    return { category: 'routine', subcategory: 'Amenity Update' }
+  }
+  if (s.includes('party') || s.includes('event') || s.includes('holiday') || s.includes('salsa')) {
+    return { category: 'routine', subcategory: 'Building Event' }
+  }
+  if (s.includes('resident posting') || s.includes('lost & found')) {
+    return { category: 'routine', subcategory: 'Resident Posting' }
+  }
+  if (s.includes('window cleaning') || s.includes('fire pump') || s.includes('peloton')) {
+    return { category: 'routine', subcategory: 'Building Update' }
+  }
+
+  // Noise - packages, deliveries, pickups
+  if (s.includes('package') || s.includes('delivery') || s.includes('usps') || s.includes('ups') || s.includes('fedex')) {
+    return { category: 'noise', subcategory: 'Package Delivery' }
+  }
+  if (s.includes('picked up')) {
+    return { category: 'noise', subcategory: 'Package Pickup' }
+  }
+  if (s.includes('dry cleaning')) {
+    return { category: 'noise', subcategory: 'Dry Cleaning' }
+  }
+  if (s === 'notification' && (b.includes('amazon') || b.includes('package') || b.includes('delivery'))) {
+    return { category: 'noise', subcategory: 'Package Notification' }
+  }
+  if (s.includes('unclaimed') && s.includes('deliver')) {
+    return { category: 'routine', subcategory: 'Unclaimed Package' }
+  }
+
+  // Default - categorize as routine
+  return { category: 'routine', subcategory: 'Other' }
+}
+
+// Extract unit from message
+function extractUnit(subject: string, body: string | null): 'PH2E' | 'PH2F' | 'both' | 'unknown' {
+  const text = `${subject} ${body || ''}`.toUpperCase()
+  const hasE = text.includes('PH2-E') || text.includes('NPH2-E') || text.includes('PH2E')
+  const hasF = text.includes('PH2-F') || text.includes('NPH2-F') || text.includes('PH2F')
+
+  if (hasE && hasF) return 'both'
+  if (hasE) return 'PH2E'
+  if (hasF) return 'PH2F'
+  return 'unknown' // Building-wide messages
+}
+
+export async function getBuildingLinkVendorId(): Promise<string | null> {
+  const vendor = await queryOne<{ id: string }>(
+    "SELECT id FROM vendors WHERE LOWER(name) = 'buildinglink' OR LOWER(company) = 'buildinglink' LIMIT 1"
+  )
+  return vendor?.id || null
+}
+
+export async function getBuildingLinkMessages(
+  options?: {
+    category?: BuildingLinkCategory | 'all'
+    limit?: number
+    offset?: number
+    search?: string
+  }
+): Promise<BuildingLinkMessage[]> {
+  const vendorId = await getBuildingLinkVendorId()
+  if (!vendorId) return []
+
+  const limit = options?.limit || 100
+  const offset = options?.offset || 0
+  const search = options?.search
+
+  let sql = `
+    SELECT id, subject, body_snippet, body_html, received_at, is_read
+    FROM vendor_communications
+    WHERE vendor_id = $1
+  `
+  const params: (string | number)[] = [vendorId]
+  let paramIndex = 2
+
+  if (search) {
+    sql += ` AND (subject ILIKE $${paramIndex} OR body_snippet ILIKE $${paramIndex})`
+    params.push(`%${search}%`)
+    paramIndex++
+  }
+
+  sql += ` ORDER BY received_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`
+  params.push(limit, offset)
+
+  const messages = await query<{
+    id: string
+    subject: string
+    body_snippet: string | null
+    body_html: string | null
+    received_at: string
+    is_read: boolean
+  }>(sql, params)
+
+  // Categorize each message
+  const categorized: BuildingLinkMessage[] = messages.map(msg => {
+    const { category, subcategory } = categorizeBuildingLinkMessage(msg.subject, msg.body_snippet)
+    const unit = extractUnit(msg.subject, msg.body_snippet)
+    return {
+      ...msg,
+      category,
+      subcategory,
+      unit,
+    }
+  })
+
+  // Filter by category if specified
+  if (options?.category && options.category !== 'all') {
+    return categorized.filter(m => m.category === options.category)
+  }
+
+  return categorized
+}
+
+export async function getBuildingLinkStats(): Promise<BuildingLinkStats> {
+  const vendorId = await getBuildingLinkVendorId()
+  if (!vendorId) {
+    return { total: 0, unread: 0, critical: 0, important: 0, maintenance: 0, security: 0, todayCount: 0, thisWeekCount: 0 }
+  }
+
+  // Get counts
+  const stats = await queryOne<{
+    total: string
+    unread: string
+    today_count: string
+    week_count: string
+  }>(`
+    SELECT
+      COUNT(*) as total,
+      COUNT(*) FILTER (WHERE is_read = false) as unread,
+      COUNT(*) FILTER (WHERE received_at::date = CURRENT_DATE) as today_count,
+      COUNT(*) FILTER (WHERE received_at >= CURRENT_DATE - INTERVAL '7 days') as week_count
+    FROM vendor_communications
+    WHERE vendor_id = $1
+  `, [vendorId])
+
+  // Get all messages to count by category (we need to categorize in app code)
+  const messages = await query<{ subject: string; body_snippet: string | null }>(`
+    SELECT subject, body_snippet
+    FROM vendor_communications
+    WHERE vendor_id = $1
+  `, [vendorId])
+
+  let critical = 0, important = 0, maintenance = 0, security = 0
+  for (const msg of messages) {
+    const { category } = categorizeBuildingLinkMessage(msg.subject, msg.body_snippet)
+    switch (category) {
+      case 'critical': critical++; break
+      case 'important': important++; break
+      case 'maintenance': maintenance++; break
+      case 'security': security++; break
+    }
+  }
+
+  return {
+    total: parseInt(stats?.total || '0'),
+    unread: parseInt(stats?.unread || '0'),
+    critical,
+    important,
+    maintenance,
+    security,
+    todayCount: parseInt(stats?.today_count || '0'),
+    thisWeekCount: parseInt(stats?.week_count || '0'),
+  }
+}
+
+export async function getBuildingLinkCriticalAndImportant(): Promise<BuildingLinkMessage[]> {
+  const messages = await getBuildingLinkMessages({ limit: 500 })
+  return messages.filter(m => m.category === 'critical' || m.category === 'important')
+}
+
+export async function getBuildingLinkSecurityLog(limit = 50): Promise<BuildingLinkMessage[]> {
+  const messages = await getBuildingLinkMessages({ limit: 200 })
+  return messages.filter(m => m.category === 'security').slice(0, limit)
+}
+
+export async function getBuildingLinkMaintenance(): Promise<BuildingLinkMessage[]> {
+  const messages = await getBuildingLinkMessages({ limit: 200 })
+  return messages.filter(m => m.category === 'maintenance')
+}
