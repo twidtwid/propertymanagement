@@ -30,18 +30,19 @@ import { PROPERTY_TYPE_LABELS, VENDOR_SPECIALTY_LABELS } from "@/types/database"
 export default async function PropertyDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const property = await getProperty(params.id)
+  const { id } = await params
+  const property = await getProperty(id)
 
   if (!property) {
     notFound()
   }
 
   const [vendors, taskLists, taxHistory] = await Promise.all([
-    getPropertyVendors(params.id),
-    getSharedTaskListsForProperty(params.id),
-    getPropertyTaxHistory(params.id),
+    getPropertyVendors(id),
+    getSharedTaskListsForProperty(id),
+    getPropertyTaxHistory(id),
   ])
 
   return (
@@ -71,9 +72,11 @@ export default async function PropertyDetailPage({
             </p>
           </div>
         </div>
-        <Button size="lg" variant="outline">
-          <Edit className="h-5 w-5 mr-2" />
-          Edit
+        <Button size="lg" variant="outline" asChild>
+          <Link href={`/properties/${property.id}/edit`}>
+            <Edit className="h-5 w-5 mr-2" />
+            Edit
+          </Link>
         </Button>
       </div>
 

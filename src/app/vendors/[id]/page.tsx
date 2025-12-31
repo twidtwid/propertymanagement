@@ -17,23 +17,28 @@ import {
   Building,
   MessageSquare,
   User,
+  Home,
 } from "lucide-react"
-import { getVendor, getVendorCommunications } from "@/lib/actions"
+import { getVendor, getVendorCommunications, getPropertiesForVendor } from "@/lib/actions"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
 import { VendorJournal } from "@/components/vendors/vendor-journal"
 
 export default async function VendorDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const vendor = await getVendor(params.id)
+  const { id } = await params
+  const vendor = await getVendor(id)
 
   if (!vendor) {
     notFound()
   }
 
-  const communications = await getVendorCommunications(params.id)
+  const [communications, assignedProperties] = await Promise.all([
+    getVendorCommunications(id),
+    getPropertiesForVendor(id),
+  ])
 
   return (
     <div className="space-y-8">
@@ -68,9 +73,11 @@ export default async function VendorDetailPage({
               </a>
             </Button>
           )}
-          <Button size="lg" variant="outline">
-            <Edit className="h-5 w-5 mr-2" />
-            Edit
+          <Button size="lg" variant="outline" asChild>
+            <Link href={`/vendors/${vendor.id}/edit`}>
+              <Edit className="h-5 w-5 mr-2" />
+              Edit
+            </Link>
           </Button>
         </div>
       </div>
@@ -221,6 +228,39 @@ export default async function VendorDetailPage({
               </CardContent>
             </Card>
           </div>
+
+          {/* Properties Served */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Home className="h-5 w-5" />
+                Properties Served
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {assignedProperties.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {assignedProperties.map((property) => (
+                    <Link
+                      key={property.id}
+                      href={`/properties/${property.id}`}
+                      className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <Building className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{property.name}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {property.city}, {property.state || property.country}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No properties assigned</p>
+              )}
+            </CardContent>
+          </Card>
 
           {vendor.notes && (
             <Card>

@@ -1,0 +1,180 @@
+"use client"
+
+import Link from "next/link"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Building2,
+  Car,
+  Store,
+  Check,
+  Clock,
+  AlertTriangle,
+} from "lucide-react"
+import type { UnifiedPayment } from "@/types/database"
+import { BILL_TYPE_LABELS, PAYMENT_STATUS_LABELS } from "@/types/database"
+import { formatCurrency, formatDate, daysUntil } from "@/lib/utils"
+import { ConfirmPaymentButton } from "./confirm-payment-button"
+
+interface PaymentTableProps {
+  payments: UnifiedPayment[]
+}
+
+function getStatusVariant(status: string, isOverdue: boolean, daysWaiting: number | null): "default" | "secondary" | "destructive" | "outline" | "success" | "warning" {
+  if (isOverdue) return "destructive"
+  if (daysWaiting && daysWaiting > 14) return "warning"
+  switch (status) {
+    case "confirmed":
+      return "success"
+    case "sent":
+      return "warning"
+    case "pending":
+      return "secondary"
+    case "overdue":
+      return "destructive"
+    default:
+      return "default"
+  }
+}
+
+function getCategoryIcon(category: string) {
+  switch (category) {
+    case "property_tax":
+      return <Building2 className="h-4 w-4" />
+    case "insurance":
+      return <AlertTriangle className="h-4 w-4" />
+    case "mortgage":
+      return <Building2 className="h-4 w-4" />
+    case "utility":
+      return <Clock className="h-4 w-4" />
+    default:
+      return <Store className="h-4 w-4" />
+  }
+}
+
+export function PaymentTable({ payments }: PaymentTableProps) {
+  if (payments.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        No payments found matching your filters.
+      </div>
+    )
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[300px]">Description</TableHead>
+          <TableHead>Property / Vehicle</TableHead>
+          <TableHead>Due Date</TableHead>
+          <TableHead className="text-right">Amount</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className="w-[100px]"></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {payments.map((payment) => {
+          const days = daysUntil(payment.due_date)
+          const statusVariant = getStatusVariant(
+            payment.status,
+            payment.is_overdue,
+            payment.days_waiting
+          )
+
+          return (
+            <TableRow
+              key={`${payment.source}-${payment.source_id}`}
+              className={payment.is_overdue ? "bg-red-50/50" : undefined}
+            >
+              <TableCell>
+                <div className="flex items-center gap-3">
+                  <div className="text-muted-foreground">
+                    {getCategoryIcon(payment.category)}
+                  </div>
+                  <div>
+                    <p className="font-medium">{payment.description}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {BILL_TYPE_LABELS[payment.category]}
+                      {payment.vendor_name && ` · ${payment.vendor_name}`}
+                    </p>
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                {payment.property_name && (
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <span>{payment.property_name}</span>
+                  </div>
+                )}
+                {payment.vehicle_name && (
+                  <div className="flex items-center gap-2">
+                    <Car className="h-4 w-4 text-muted-foreground" />
+                    <span>{payment.vehicle_name}</span>
+                  </div>
+                )}
+                {!payment.property_name && !payment.vehicle_name && (
+                  <span className="text-muted-foreground">-</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <span>{formatDate(payment.due_date)}</span>
+                  {payment.is_overdue && (
+                    <Badge variant="destructive" className="text-xs">
+                      Overdue
+                    </Badge>
+                  )}
+                  {!payment.is_overdue && days <= 7 && days >= 0 && (
+                    <Badge variant="warning" className="text-xs">
+                      {days === 0 ? "Today" : `${days}d`}
+                    </Badge>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="text-right font-medium">
+                {formatCurrency(payment.amount)}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col gap-1">
+                  <Badge variant={statusVariant}>
+                    {PAYMENT_STATUS_LABELS[payment.status]}
+                  </Badge>
+                  {payment.days_waiting !== null && payment.days_waiting > 0 && (
+                    <span className="text-xs text-amber-600">
+                      {payment.days_waiting}d waiting
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex justify-end gap-2">
+                  {payment.status === "pending" && (
+                    <Button size="sm" variant="outline">
+                      Mark Paid
+                    </Button>
+                  )}
+                  {payment.status === "sent" && payment.source === "bill" && (
+                    <ConfirmPaymentButton billId={payment.source_id} />
+                  )}
+                  {payment.status === "confirmed" && (
+                    <Check className="h-5 w-5 text-green-600" />
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          )
+        })}
+      </TableBody>
+    </Table>
+  )
+}

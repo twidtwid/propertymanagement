@@ -397,3 +397,96 @@ export const BILL_TYPE_LABELS: Record<BillType, string> = {
   hoa: 'HOA',
   other: 'Other',
 }
+
+// Unified Payment type for consolidated payment view
+export type PaymentSource = 'bill' | 'property_tax' | 'insurance_premium'
+
+export interface UnifiedPayment {
+  id: string
+  source: PaymentSource
+  source_id: string  // Original record ID
+  category: BillType
+  description: string
+  property_id: string | null
+  property_name: string | null
+  vehicle_id: string | null
+  vehicle_name: string | null
+  vendor_id: string | null
+  vendor_name: string | null
+  amount: number
+  due_date: string
+  status: PaymentStatus
+  payment_method: PaymentMethod | null
+  payment_date: string | null
+  confirmation_date: string | null
+  days_waiting: number | null  // Computed: days since payment_date if unconfirmed
+  is_overdue: boolean  // Computed: due_date < today && status = pending
+  recurrence: Recurrence
+}
+
+// Bank transaction types for CSV import
+export interface BankTransaction {
+  id: string
+  import_batch_id: string
+  transaction_date: string
+  description: string
+  amount: number
+  check_number: string | null
+  matched_bill_id: string | null
+  matched_at: string | null
+  match_confidence: number | null
+  match_method: string | null
+  is_confirmed: boolean
+  created_at: string
+}
+
+export interface BankImportBatch {
+  id: string
+  filename: string
+  account_type: string | null
+  date_range_start: string | null
+  date_range_end: string | null
+  transaction_count: number
+  matched_count: number
+  imported_by: string | null
+  imported_at: string
+}
+
+// Recurring template types
+export interface RecurringTemplate {
+  id: string
+  property_id: string | null
+  vehicle_id: string | null
+  vendor_id: string | null
+  template_name: string
+  bill_type: BillType
+  amount: number
+  currency: string
+  recurrence: Recurrence
+  day_of_month: number | null
+  month_of_year: number | null
+  payment_method: PaymentMethod | null
+  days_to_confirm: number
+  auto_pay: boolean
+  is_active: boolean
+  last_generated_date: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined fields
+  property?: Property
+  vehicle?: Vehicle
+  vendor?: Vendor
+}
+
+// Payment audit log
+export interface PaymentAuditLog {
+  id: string
+  bill_id: string
+  action: 'created' | 'marked_paid' | 'confirmed' | 'deleted'
+  old_status: PaymentStatus | null
+  new_status: PaymentStatus | null
+  performed_by: string | null
+  performed_at: string
+  notes: string | null
+}

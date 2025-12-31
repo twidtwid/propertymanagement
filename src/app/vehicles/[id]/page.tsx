@@ -18,9 +18,10 @@ import { formatDate, daysUntil } from "@/lib/utils"
 export default async function VehicleDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const vehicle = await getVehicle(params.id)
+  const { id } = await params
+  const vehicle = await getVehicle(id)
 
   if (!vehicle) {
     notFound()
@@ -54,9 +55,11 @@ export default async function VehicleDetailPage({
             <p className="text-lg text-muted-foreground mt-1">{vehicle.color}</p>
           )}
         </div>
-        <Button size="lg" variant="outline">
-          <Edit className="h-5 w-5 mr-2" />
-          Edit
+        <Button size="lg" variant="outline" asChild>
+          <Link href={`/vehicles/${vehicle.id}/edit`}>
+            <Edit className="h-5 w-5 mr-2" />
+            Edit
+          </Link>
         </Button>
       </div>
 

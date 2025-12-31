@@ -430,6 +430,85 @@ CREATE INDEX idx_notification_log_date ON notification_log(sent_at DESC);
 CREATE INDEX idx_notification_log_type ON notification_log(notification_type);
 
 -- ============================================
+-- PAYMENT INTEGRATION TABLES
+-- ============================================
+
+-- Recurring payment templates
+CREATE TABLE recurring_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+  vehicle_id UUID REFERENCES vehicles(id) ON DELETE CASCADE,
+  vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL,
+  template_name TEXT NOT NULL,  -- e.g., "Brooklyn PH2F Mortgage"
+  bill_type bill_type NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  recurrence recurrence NOT NULL,  -- monthly, quarterly, semi_annual, annual
+  day_of_month INTEGER CHECK (day_of_month >= 1 AND day_of_month <= 28),  -- 1-28 for monthly
+  month_of_year INTEGER CHECK (month_of_year >= 1 AND month_of_year <= 12),  -- 1-12 for annual
+  payment_method payment_method,
+  days_to_confirm INTEGER DEFAULT 14,
+  auto_pay BOOLEAN DEFAULT FALSE,  -- If true, auto-set status to 'sent'
+  is_active BOOLEAN DEFAULT TRUE,
+  last_generated_date DATE,  -- Track what's been generated
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_recurring_active ON recurring_templates(is_active) WHERE is_active = TRUE;
+
+-- Bank transaction import batches
+CREATE TABLE bank_import_batches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL,
+  account_type TEXT,  -- 'checking', 'credit'
+  date_range_start DATE,
+  date_range_end DATE,
+  transaction_count INTEGER DEFAULT 0,
+  matched_count INTEGER DEFAULT 0,
+  imported_by UUID REFERENCES profiles(id),
+  imported_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Imported bank transactions
+CREATE TABLE bank_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  import_batch_id UUID NOT NULL REFERENCES bank_import_batches(id) ON DELETE CASCADE,
+  transaction_date DATE NOT NULL,
+  description TEXT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,  -- Negative = debit (payment out)
+  check_number TEXT,  -- If available from CSV
+  -- Matching fields
+  matched_bill_id UUID REFERENCES bills(id) ON DELETE SET NULL,
+  matched_at TIMESTAMPTZ,
+  match_confidence DECIMAL(3,2) CHECK (match_confidence >= 0 AND match_confidence <= 1),  -- 0.00 to 1.00
+  match_method TEXT,  -- 'check_number', 'amount_date', 'description', 'manual'
+  is_confirmed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_bank_txn_date ON bank_transactions(transaction_date DESC);
+CREATE INDEX idx_bank_txn_unmatched ON bank_transactions(matched_bill_id) WHERE matched_bill_id IS NULL;
+CREATE INDEX idx_bank_txn_check ON bank_transactions(check_number) WHERE check_number IS NOT NULL;
+CREATE INDEX idx_bank_txn_batch ON bank_transactions(import_batch_id);
+
+-- Payment audit log (tracks all payment status changes)
+CREATE TABLE payment_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bill_id UUID REFERENCES bills(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK (action IN ('created', 'marked_paid', 'confirmed', 'deleted')),
+  old_status payment_status,
+  new_status payment_status,
+  performed_by UUID REFERENCES profiles(id),
+  performed_at TIMESTAMPTZ DEFAULT NOW(),
+  notes TEXT
+);
+
+CREATE INDEX idx_payment_audit_bill ON payment_audit_log(bill_id);
+CREATE INDEX idx_payment_audit_date ON payment_audit_log(performed_at DESC);
+
+-- ============================================
 -- AUDIT LOGGING
 -- ============================================
 

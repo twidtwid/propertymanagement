@@ -899,3 +899,79 @@ export async function deleteSharedTaskItem(id: string): Promise<ActionResult> {
     return { success: false, error: "Failed to delete task item" }
   }
 }
+
+// ============================================
+// Property-Vendor Associations
+// ============================================
+
+export async function updateVendorProperties(
+  vendorId: string,
+  propertyIds: string[]
+): Promise<ActionResult> {
+  try {
+    // Delete existing associations
+    await query("DELETE FROM property_vendors WHERE vendor_id = $1", [vendorId])
+
+    // Insert new associations
+    if (propertyIds.length > 0) {
+      const values = propertyIds
+        .map((_, i) => `($1, $${i + 2})`)
+        .join(", ")
+      await query(
+        `INSERT INTO property_vendors (vendor_id, property_id) VALUES ${values}`,
+        [vendorId, ...propertyIds]
+      )
+    }
+
+    revalidatePath("/vendors")
+    revalidatePath(`/vendors/${vendorId}`)
+    return { success: true, data: undefined }
+  } catch (error) {
+    console.error("Failed to update vendor properties:", error)
+    return { success: false, error: "Failed to update vendor properties" }
+  }
+}
+
+export async function addVendorToProperty(
+  vendorId: string,
+  propertyId: string,
+  isPrimary: boolean = false
+): Promise<ActionResult> {
+  try {
+    await query(
+      `INSERT INTO property_vendors (vendor_id, property_id, is_primary)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (property_id, vendor_id, specialty_override) DO UPDATE
+       SET is_primary = $3`,
+      [vendorId, propertyId, isPrimary]
+    )
+
+    revalidatePath("/vendors")
+    revalidatePath(`/vendors/${vendorId}`)
+    revalidatePath(`/properties/${propertyId}`)
+    return { success: true, data: undefined }
+  } catch (error) {
+    console.error("Failed to add vendor to property:", error)
+    return { success: false, error: "Failed to add vendor to property" }
+  }
+}
+
+export async function removeVendorFromProperty(
+  vendorId: string,
+  propertyId: string
+): Promise<ActionResult> {
+  try {
+    await query(
+      "DELETE FROM property_vendors WHERE vendor_id = $1 AND property_id = $2",
+      [vendorId, propertyId]
+    )
+
+    revalidatePath("/vendors")
+    revalidatePath(`/vendors/${vendorId}`)
+    revalidatePath(`/properties/${propertyId}`)
+    return { success: true, data: undefined }
+  } catch (error) {
+    console.error("Failed to remove vendor from property:", error)
+    return { success: false, error: "Failed to remove vendor from property" }
+  }
+}

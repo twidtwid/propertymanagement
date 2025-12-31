@@ -2,7 +2,6 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -11,14 +10,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Search, Phone, Mail, Star } from "lucide-react"
-import { getVendors } from "@/lib/actions"
+import { Plus, Phone, Mail, Star, MapPin } from "lucide-react"
+import { getVendorsFiltered, getVendorLocations } from "@/lib/actions"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
+import { VendorFilters } from "@/components/vendors/vendor-filters"
 
-export default async function VendorsPage() {
-  const vendors = await getVendors()
+interface VendorsPageProps {
+  searchParams: Promise<{
+    specialty?: string
+    location?: string
+    search?: string
+  }>
+}
 
-  // Group vendors by specialty
+export default async function VendorsPage({ searchParams }: VendorsPageProps) {
+  const params = await searchParams
+  const [vendors, locations] = await Promise.all([
+    getVendorsFiltered({
+      specialty: params.specialty,
+      location: params.location,
+      search: params.search,
+    }),
+    getVendorLocations(),
+  ])
+
+  // Group vendors by specialty for the grid view
   const vendorsBySpecialty = vendors.reduce((acc, vendor) => {
     const specialty = vendor.specialty
     if (!acc[specialty]) acc[specialty] = []
@@ -45,15 +61,7 @@ export default async function VendorsPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search vendors..."
-                className="pl-10"
-              />
-            </div>
-          </div>
+          <VendorFilters locations={locations} />
         </CardHeader>
         <CardContent>
           <Table>
@@ -61,6 +69,7 @@ export default async function VendorsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Specialty</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Rating</TableHead>
                 <TableHead>Status</TableHead>
@@ -83,6 +92,16 @@ export default async function VendorsPage() {
                     <Badge variant="outline">
                       {VENDOR_SPECIALTY_LABELS[vendor.specialty]}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {vendor.locations.length > 0 ? (
+                      <div className="flex items-center gap-1 text-sm">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>{vendor.locations.join(", ")}</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
@@ -139,6 +158,13 @@ export default async function VendorsPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {vendors.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No vendors found matching your filters.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -149,7 +175,7 @@ export default async function VendorsPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Object.entries(vendorsBySpecialty)
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([specialty, vendors]) => (
+            .map(([specialty, specialtyVendors]) => (
               <Card key={specialty}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">
@@ -158,13 +184,18 @@ export default async function VendorsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {vendors.map((vendor) => (
+                    {specialtyVendors.map((vendor) => (
                       <div
                         key={vendor.id}
                         className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors"
                       >
                         <Link href={`/vendors/${vendor.id}`} className="flex-1">
                           <span className="text-base">{vendor.name}</span>
+                          {vendor.locations.length > 0 && (
+                            <span className="text-sm text-muted-foreground ml-2">
+                              ({vendor.locations.join(", ")})
+                            </span>
+                          )}
                         </Link>
                         {vendor.phone && (
                           <a

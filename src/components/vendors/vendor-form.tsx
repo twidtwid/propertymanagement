@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
@@ -9,14 +10,16 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { FormField, FormSelect, FormTextarea, SubmitButton } from "@/components/forms"
 import { useToast } from "@/hooks/use-toast"
-import { createVendor, updateVendor } from "@/lib/mutations"
+import { createVendor, updateVendor, updateVendorProperties } from "@/lib/mutations"
 import { vendorSchema, type VendorFormData } from "@/lib/schemas"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
-import type { Vendor } from "@/types/database"
-import { Star } from "lucide-react"
+import type { Vendor, Property } from "@/types/database"
+import { Star, Home } from "lucide-react"
 
 interface VendorFormProps {
   vendor?: Vendor
+  properties?: Property[]
+  assignedPropertyIds?: string[]
   onSuccess?: (vendor: Vendor) => void
 }
 
@@ -29,10 +32,11 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: "other", label: "Other" },
 ]
 
-export function VendorForm({ vendor, onSuccess }: VendorFormProps) {
+export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], onSuccess }: VendorFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const isEditing = !!vendor
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>(assignedPropertyIds)
 
   const {
     register,
@@ -76,6 +80,18 @@ export function VendorForm({ vendor, onSuccess }: VendorFormProps) {
       : await createVendor(data)
 
     if (result.success) {
+      // Update property associations
+      const vendorId = result.data.id
+      const propResult = await updateVendorProperties(vendorId, selectedPropertyIds)
+
+      if (!propResult.success) {
+        toast({
+          title: "Warning",
+          description: "Vendor saved but property associations failed to update.",
+          variant: "destructive",
+        })
+      }
+
       toast({
         title: isEditing ? "Vendor updated" : "Vendor created",
         description: `${data.name} has been ${isEditing ? "updated" : "added"} successfully.`,
@@ -144,6 +160,57 @@ export function VendorForm({ vendor, onSuccess }: VendorFormProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Properties Served */}
+      {properties.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Home className="h-5 w-5" />
+              Properties Served
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Select the properties this vendor services. Location will be auto-derived from assigned properties.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {properties.map((property) => (
+                <label
+                  key={property.id}
+                  htmlFor={`property-${property.id}`}
+                  className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer"
+                >
+                  <Checkbox
+                    id={`property-${property.id}`}
+                    checked={selectedPropertyIds.includes(property.id)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedPropertyIds(prev => [...prev, property.id])
+                      } else {
+                        setSelectedPropertyIds(prev => prev.filter(id => id !== property.id))
+                      }
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium">
+                      {property.name}
+                    </span>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {property.city}, {property.state || property.country}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            {selectedPropertyIds.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-4">
+                {selectedPropertyIds.length} propert{selectedPropertyIds.length === 1 ? 'y' : 'ies'} selected
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Contact Information */}
       <Card>
