@@ -38,5 +38,24 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Email sync service - runs every 10 minutes
+  email-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-propertymanagement}
+    env_file:
+      - .env.local
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    # Run sync every 10 minutes using watch mode
+    command: node scripts/sync-emails.js --watch --interval=10
+    restart: unless-stopped
+
 volumes:
   postgres_data:

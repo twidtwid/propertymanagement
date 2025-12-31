@@ -1527,9 +1527,38 @@ CREATE TABLE email_sync_state (
 | `src/lib/gmail/client.ts` | Gmail API wrapper |
 | `src/lib/gmail/sync.ts` | Email sync service |
 | `src/lib/gmail/matcher.ts` | Vendor email matching |
-| `src/app/api/cron/sync-emails/route.ts` | 10-min sync cron |
-| `src/app/api/gmail/import/route.ts` | Historical import |
+| `scripts/sync-emails.js` | Standalone sync script (Docker/cron) |
+| `src/app/api/gmail/import/route.ts` | Historical import API |
 | `src/app/settings/gmail/page.tsx` | Gmail settings UI |
+
+### Running Email Sync Locally
+
+**Option 1: Docker Compose (recommended)**
+```bash
+# Start all services including email sync
+docker compose up -d
+
+# The email-sync service runs automatically every 10 minutes
+docker compose logs -f email-sync
+```
+
+**Option 2: Manual sync**
+```bash
+# Run once
+node scripts/sync-emails.js
+
+# Run continuously (every 10 minutes)
+node scripts/sync-emails.js --watch
+
+# Custom interval (every 5 minutes)
+node scripts/sync-emails.js --watch --interval=5
+```
+
+**Option 3: Cron job**
+```bash
+# Add to crontab (every 10 minutes)
+*/10 * * * * cd /path/to/propertymanagement && node scripts/sync-emails.js >> /var/log/email-sync.log 2>&1
+```
 
 ### Vendor Matching Logic
 
