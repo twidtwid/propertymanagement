@@ -400,8 +400,12 @@ async function syncEmails() {
     return { success: true, emailsStored: stored, emailsMatched: matched, urgentEmails: urgent };
 
   } catch (error) {
-    console.error('\n❌ Sync error:', error.message);
-    return { success: false, error: error.message };
+    const errMsg = error.message || error.toString() || 'Unknown error';
+    console.error('\n❌ Sync error:', errMsg);
+    if (errMsg.includes('decrypt') || errMsg.includes('key') || errMsg.includes('iv')) {
+      console.error('   This may be a token encryption issue. Check TOKEN_ENCRYPTION_KEY in .env.local');
+    }
+    return { success: false, error: errMsg };
   }
 }
 
