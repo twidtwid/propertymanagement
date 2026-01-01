@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, X } from "lucide-react"
-import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
+import { getVendorSpecialtyOptions } from "@/types/database"
 
 interface VendorFiltersProps {
   locations: string[]
@@ -53,7 +53,7 @@ export function VendorFilters({ locations }: VendorFiltersProps) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Specialties</SelectItem>
-          {Object.entries(VENDOR_SPECIALTY_LABELS).map(([value, label]) => (
+          {getVendorSpecialtyOptions().map(({ value, label }) => (
             <SelectItem key={value} value={value}>
               {label}
             </SelectItem>

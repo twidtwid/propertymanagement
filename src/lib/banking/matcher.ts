@@ -3,12 +3,13 @@
 
 import { query } from "../db"
 import type { ParsedTransaction } from "./csv-parser"
-import type { Bill, Vendor } from "@/types/database"
+
+export type MatchMethod = 'check_number' | 'amount_date' | 'amount_vendor' | 'vendor_name' | 'description' | 'manual'
 
 export interface MatchCandidate {
   bill: BillWithDetails
   confidence: number  // 0.00 to 1.00
-  matchMethod: 'check_number' | 'amount_date' | 'amount_vendor' | 'description'
+  matchMethod: MatchMethod
   matchReason: string
 }
 
@@ -19,7 +20,17 @@ export interface MatchResult {
   autoConfirm: boolean  // True if confidence >= 0.90
 }
 
-interface BillWithDetails extends Bill {
+interface BillWithDetails {
+  id: string
+  description: string | null
+  amount: number
+  due_date: string
+  status: string
+  payment_method: string | null
+  payment_date: string | null
+  payment_reference: string | null
+  vendor_id: string | null
+  property_id: string | null
   vendor_name?: string
   vendor_company?: string
   property_name?: string
@@ -41,16 +52,10 @@ async function getPendingBills(): Promise<BillWithDetails[]> {
   `)
 }
 
-// Get vendors for description matching
-async function getVendors(): Promise<Vendor[]> {
-  return query<Vendor>('SELECT * FROM vendors WHERE is_active = TRUE')
-}
-
 // Match a single transaction to bills
 async function matchTransaction(
   transaction: ParsedTransaction,
-  pendingBills: BillWithDetails[],
-  vendors: Vendor[]
+  pendingBills: BillWithDetails[]
 ): Promise<MatchResult> {
   const result: MatchResult = {
     transaction,
@@ -60,22 +65,25 @@ async function matchTransaction(
   }
 
   // Only match debits (negative amounts = money going out)
-  if (transaction.amount >= 0) {
+  if (!transaction.isDebit) {
     return result
   }
 
   const transactionAmount = Math.abs(transaction.amount)
   const transactionDate = transaction.date
+  const extractedVendor = transaction.extractedVendorName?.toLowerCase() || ''
 
   for (const bill of pendingBills) {
-    // Priority 1: Check number match (confidence: 0.95)
+    // Priority 1: Check number match (confidence: 0.95-0.98)
     if (transaction.checkNumber && bill.payment_reference) {
       if (transaction.checkNumber === bill.payment_reference) {
+        // Higher confidence if amount also matches
+        const amountMatches = Math.abs(bill.amount - transactionAmount) < 0.01
         result.matches.push({
           bill,
-          confidence: 0.95,
+          confidence: amountMatches ? 0.98 : 0.95,
           matchMethod: 'check_number',
-          matchReason: `Check number ${transaction.checkNumber} matches payment reference`
+          matchReason: `Check #${transaction.checkNumber} matches${amountMatches ? ' with exact amount' : ''}`
         })
         continue
       }
@@ -89,18 +97,37 @@ async function matchTransaction(
     const daysDiff = Math.floor((transactionDate.getTime() - billDate.getTime()) / (1000 * 60 * 60 * 24))
     const dateWithinRange = daysDiff >= -7 && daysDiff <= 21
 
-    // Priority 2: Exact amount + date window (confidence: 0.85)
+    // Priority 2: Extracted vendor name matches + exact amount (confidence: 0.90)
+    if (amountMatches && extractedVendor && bill.vendor_name) {
+      const vendorName = bill.vendor_name.toLowerCase()
+      const vendorCompany = bill.vendor_company?.toLowerCase() || ''
+
+      // Fuzzy match on extracted vendor name
+      if (extractedVendor.includes(vendorName) ||
+          vendorName.includes(extractedVendor) ||
+          (vendorCompany && (extractedVendor.includes(vendorCompany) || vendorCompany.includes(extractedVendor)))) {
+        result.matches.push({
+          bill,
+          confidence: 0.90,
+          matchMethod: 'vendor_name',
+          matchReason: `Vendor "${transaction.extractedVendorName}" matches with exact amount $${transactionAmount.toFixed(2)}`
+        })
+        continue
+      }
+    }
+
+    // Priority 3: Exact amount + date window (confidence: 0.85)
     if (amountMatches && dateWithinRange) {
       result.matches.push({
         bill,
         confidence: 0.85,
         matchMethod: 'amount_date',
-        matchReason: `Amount $${transactionAmount.toFixed(2)} matches, date within range`
+        matchReason: `Amount $${transactionAmount.toFixed(2)} matches, date within ${Math.abs(daysDiff)} days`
       })
       continue
     }
 
-    // Priority 3: Amount + vendor name in description (confidence: 0.75)
+    // Priority 4: Amount + vendor name in description (confidence: 0.75)
     if (amountMatches && bill.vendor_name) {
       const descLower = transaction.description.toLowerCase()
       const vendorName = bill.vendor_name.toLowerCase()
@@ -111,14 +138,14 @@ async function matchTransaction(
           bill,
           confidence: 0.75,
           matchMethod: 'amount_vendor',
-          matchReason: `Amount matches and description contains vendor name`
+          matchReason: `Amount matches and description contains "${bill.vendor_name}"`
         })
         continue
       }
     }
 
-    // Priority 4: Amount within 10% + vendor match (confidence: 0.60)
-    const amountWithinTolerance = Math.abs(bill.amount - transactionAmount) / bill.amount <= 0.10
+    // Priority 5: Amount within 10% + vendor match (confidence: 0.60)
+    const amountWithinTolerance = bill.amount > 0 && Math.abs(bill.amount - transactionAmount) / bill.amount <= 0.10
     if (amountWithinTolerance && bill.vendor_name) {
       const descLower = transaction.description.toLowerCase()
       const vendorName = bill.vendor_name.toLowerCase()
@@ -129,7 +156,7 @@ async function matchTransaction(
           bill,
           confidence: 0.60,
           matchMethod: 'description',
-          matchReason: `Amount within 10% and vendor name found in description`
+          matchReason: `Amount within 10% ($${transactionAmount.toFixed(2)} vs $${bill.amount.toFixed(2)}) and vendor "${bill.vendor_name}" found`
         })
         continue
       }
@@ -153,11 +180,10 @@ export async function matchTransactionsToBills(
   transactions: ParsedTransaction[]
 ): Promise<MatchResult[]> {
   const pendingBills = await getPendingBills()
-  const vendors = await getVendors()
   const results: MatchResult[] = []
 
   for (const transaction of transactions) {
-    const result = await matchTransaction(transaction, pendingBills, vendors)
+    const result = await matchTransaction(transaction, pendingBills)
     results.push(result)
   }
 

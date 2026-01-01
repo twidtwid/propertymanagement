@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 // Paths that don't require authentication
-const publicPaths = ["/auth/login", "/auth/signup", "/auth/callback"]
+const publicPaths = ["/auth/login", "/auth/signup", "/auth/callback", "/auth/verify"]
 
 // Paths that bookkeepers can access
 const bookeeperPaths = ["/", "/payments", "/settings"]

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { query, queryOne } from "./db"
+import { getLogger } from "./logger/contextual"
+import { audit } from "./logger/audit"
 import type {
   Property,
   Vehicle,
@@ -31,8 +33,10 @@ import {
 // ============================================
 
 export async function createProperty(formData: unknown): Promise<ActionResult<Property>> {
+  const log = getLogger("mutations.property")
   const parsed = propertySchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Property validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -56,21 +60,34 @@ export async function createProperty(formData: unknown): Promise<ActionResult<Pr
       ]
     )
 
+    await audit({
+      action: "create",
+      entityType: "property",
+      entityId: property!.id,
+      entityName: property!.name,
+    })
+
     revalidatePath("/properties")
+    log.info("Property created", { propertyId: property!.id, name: property!.name })
     return { success: true, data: property! }
   } catch (error) {
-    console.error("Failed to create property:", error)
+    log.error("Failed to create property", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create property" }
   }
 }
 
 export async function updateProperty(id: string, formData: unknown): Promise<ActionResult<Property>> {
+  const log = getLogger("mutations.property")
   const parsed = propertySchema.partial().safeParse(formData)
   if (!parsed.success) {
+    log.warn("Property update validation failed", { propertyId: id, errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
   try {
+    // Get old value for audit
+    const oldProperty = await queryOne<Property>("SELECT * FROM properties WHERE id = $1", [id])
+
     const d = parsed.data
     const property = await queryOne<Property>(
       `UPDATE properties SET
@@ -110,25 +127,57 @@ export async function updateProperty(id: string, formData: unknown): Promise<Act
     )
 
     if (!property) {
+      log.warn("Property not found for update", { propertyId: id })
       return { success: false, error: "Property not found" }
     }
 
+    const changes: Record<string, { old: unknown; new: unknown }> = {}
+    if (oldProperty) {
+      if (oldProperty.name !== property.name) changes.name = { old: oldProperty.name, new: property.name }
+      if (oldProperty.address !== property.address) changes.address = { old: oldProperty.address, new: property.address }
+      if (oldProperty.status !== property.status) changes.status = { old: oldProperty.status, new: property.status }
+    }
+    await audit({
+      action: "update",
+      entityType: "property",
+      entityId: property.id,
+      entityName: property.name,
+      changes: Object.keys(changes).length > 0 ? changes : undefined,
+    })
+
     revalidatePath("/properties")
     revalidatePath(`/properties/${id}`)
+    log.info("Property updated", { propertyId: property.id, name: property.name })
     return { success: true, data: property }
   } catch (error) {
-    console.error("Failed to update property:", error)
+    log.error("Failed to update property", { propertyId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update property" }
   }
 }
 
 export async function deleteProperty(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.property")
   try {
+    // Get property details for audit before deletion
+    const property = await queryOne<Property>("SELECT * FROM properties WHERE id = $1", [id])
+
     await query("DELETE FROM properties WHERE id = $1", [id])
+
+    if (property) {
+      await audit({
+        action: "delete",
+        entityType: "property",
+        entityId: id,
+        entityName: property.name,
+        metadata: { address: property.address, city: property.city },
+      })
+    }
+
     revalidatePath("/properties")
+    log.info("Property deleted", { propertyId: id, name: property?.name })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete property:", error)
+    log.error("Failed to delete property", { propertyId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete property" }
   }
 }
@@ -138,8 +187,10 @@ export async function deleteProperty(id: string): Promise<ActionResult> {
 // ============================================
 
 export async function createVendor(formData: unknown): Promise<ActionResult<Vendor>> {
+  const log = getLogger("mutations.vendor")
   const parsed = vendorSchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Vendor validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -159,21 +210,34 @@ export async function createVendor(formData: unknown): Promise<ActionResult<Vend
       ]
     )
 
+    await audit({
+      action: "create",
+      entityType: "vendor",
+      entityId: vendor!.id,
+      entityName: vendor!.name,
+      metadata: { specialty: vendor!.specialty, company: vendor!.company },
+    })
+
     revalidatePath("/vendors")
+    log.info("Vendor created", { vendorId: vendor!.id, name: vendor!.name })
     return { success: true, data: vendor! }
   } catch (error) {
-    console.error("Failed to create vendor:", error)
+    log.error("Failed to create vendor", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create vendor" }
   }
 }
 
 export async function updateVendor(id: string, formData: unknown): Promise<ActionResult<Vendor>> {
+  const log = getLogger("mutations.vendor")
   const parsed = vendorSchema.partial().safeParse(formData)
   if (!parsed.success) {
+    log.warn("Vendor update validation failed", { vendorId: id, errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
   try {
+    const oldVendor = await queryOne<Vendor>("SELECT * FROM vendors WHERE id = $1", [id])
+
     const d = parsed.data
     const vendor = await queryOne<Vendor>(
       `UPDATE vendors SET
@@ -203,25 +267,56 @@ export async function updateVendor(id: string, formData: unknown): Promise<Actio
     )
 
     if (!vendor) {
+      log.warn("Vendor not found for update", { vendorId: id })
       return { success: false, error: "Vendor not found" }
     }
 
+    const vendorChanges: Record<string, { old: unknown; new: unknown }> = {}
+    if (oldVendor) {
+      if (oldVendor.name !== vendor.name) vendorChanges.name = { old: oldVendor.name, new: vendor.name }
+      if (oldVendor.specialty !== vendor.specialty) vendorChanges.specialty = { old: oldVendor.specialty, new: vendor.specialty }
+      if (oldVendor.is_active !== vendor.is_active) vendorChanges.is_active = { old: oldVendor.is_active, new: vendor.is_active }
+    }
+    await audit({
+      action: "update",
+      entityType: "vendor",
+      entityId: vendor.id,
+      entityName: vendor.name,
+      changes: Object.keys(vendorChanges).length > 0 ? vendorChanges : undefined,
+    })
+
     revalidatePath("/vendors")
     revalidatePath(`/vendors/${id}`)
+    log.info("Vendor updated", { vendorId: vendor.id, name: vendor.name })
     return { success: true, data: vendor }
   } catch (error) {
-    console.error("Failed to update vendor:", error)
+    log.error("Failed to update vendor", { vendorId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update vendor" }
   }
 }
 
 export async function deleteVendor(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.vendor")
   try {
+    const vendor = await queryOne<Vendor>("SELECT * FROM vendors WHERE id = $1", [id])
+
     await query("DELETE FROM vendors WHERE id = $1", [id])
+
+    if (vendor) {
+      await audit({
+        action: "delete",
+        entityType: "vendor",
+        entityId: id,
+        entityName: vendor.name,
+        metadata: { specialty: vendor.specialty, company: vendor.company },
+      })
+    }
+
     revalidatePath("/vendors")
+    log.info("Vendor deleted", { vendorId: id, name: vendor?.name })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete vendor:", error)
+    log.error("Failed to delete vendor", { vendorId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete vendor" }
   }
 }
@@ -231,8 +326,10 @@ export async function deleteVendor(id: string): Promise<ActionResult> {
 // ============================================
 
 export async function createVehicle(formData: unknown): Promise<ActionResult<Vehicle>> {
+  const log = getLogger("mutations.vehicle")
   const parsed = vehicleSchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Vehicle validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -252,21 +349,33 @@ export async function createVehicle(formData: unknown): Promise<ActionResult<Veh
       ]
     )
 
+    await audit({
+      action: "create",
+      entityType: "vehicle",
+      entityId: vehicle!.id,
+      entityName: `${vehicle!.year} ${vehicle!.make} ${vehicle!.model}`,
+    })
+
     revalidatePath("/vehicles")
+    log.info("Vehicle created", { vehicleId: vehicle!.id, make: vehicle!.make, model: vehicle!.model })
     return { success: true, data: vehicle! }
   } catch (error) {
-    console.error("Failed to create vehicle:", error)
+    log.error("Failed to create vehicle", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create vehicle" }
   }
 }
 
 export async function updateVehicle(id: string, formData: unknown): Promise<ActionResult<Vehicle>> {
+  const log = getLogger("mutations.vehicle")
   const parsed = vehicleSchema.partial().safeParse(formData)
   if (!parsed.success) {
+    log.warn("Vehicle update validation failed", { vehicleId: id, errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
   try {
+    const oldVehicle = await queryOne<Vehicle>("SELECT * FROM vehicles WHERE id = $1", [id])
+
     const d = parsed.data
     const vehicle = await queryOne<Vehicle>(
       `UPDATE vehicles SET
@@ -294,25 +403,54 @@ export async function updateVehicle(id: string, formData: unknown): Promise<Acti
     )
 
     if (!vehicle) {
+      log.warn("Vehicle not found for update", { vehicleId: id })
       return { success: false, error: "Vehicle not found" }
     }
 
+    const vehicleChanges: Record<string, { old: unknown; new: unknown }> = {}
+    if (oldVehicle) {
+      if (oldVehicle.license_plate !== vehicle.license_plate) vehicleChanges.license_plate = { old: oldVehicle.license_plate, new: vehicle.license_plate }
+      if (oldVehicle.is_active !== vehicle.is_active) vehicleChanges.is_active = { old: oldVehicle.is_active, new: vehicle.is_active }
+    }
+    await audit({
+      action: "update",
+      entityType: "vehicle",
+      entityId: vehicle.id,
+      entityName: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      changes: Object.keys(vehicleChanges).length > 0 ? vehicleChanges : undefined,
+    })
+
     revalidatePath("/vehicles")
     revalidatePath(`/vehicles/${id}`)
+    log.info("Vehicle updated", { vehicleId: vehicle.id, make: vehicle.make, model: vehicle.model })
     return { success: true, data: vehicle }
   } catch (error) {
-    console.error("Failed to update vehicle:", error)
+    log.error("Failed to update vehicle", { vehicleId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update vehicle" }
   }
 }
 
 export async function deleteVehicle(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.vehicle")
   try {
+    const vehicle = await queryOne<Vehicle>("SELECT * FROM vehicles WHERE id = $1", [id])
+
     await query("DELETE FROM vehicles WHERE id = $1", [id])
+
+    if (vehicle) {
+      await audit({
+        action: "delete",
+        entityType: "vehicle",
+        entityId: id,
+        entityName: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      })
+    }
+
     revalidatePath("/vehicles")
+    log.info("Vehicle deleted", { vehicleId: id })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete vehicle:", error)
+    log.error("Failed to delete vehicle", { vehicleId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete vehicle" }
   }
 }
@@ -322,8 +460,10 @@ export async function deleteVehicle(id: string): Promise<ActionResult> {
 // ============================================
 
 export async function createBill(formData: unknown): Promise<ActionResult<Bill>> {
+  const log = getLogger("mutations.bill")
   const parsed = billSchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Bill validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -347,21 +487,34 @@ export async function createBill(formData: unknown): Promise<ActionResult<Bill>>
       ]
     )
 
+    await audit({
+      action: "create",
+      entityType: "bill",
+      entityId: bill!.id,
+      entityName: bill!.description || `${bill!.bill_type} - $${bill!.amount}`,
+      metadata: { amount: bill!.amount, dueDate: bill!.due_date, billType: bill!.bill_type },
+    })
+
     revalidatePath("/payments")
+    log.info("Bill created", { billId: bill!.id, amount: bill!.amount, dueDate: bill!.due_date })
     return { success: true, data: bill! }
   } catch (error) {
-    console.error("Failed to create bill:", error)
+    log.error("Failed to create bill", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create bill" }
   }
 }
 
 export async function updateBill(id: string, formData: unknown): Promise<ActionResult<Bill>> {
+  const log = getLogger("mutations.bill")
   const parsed = billSchema.partial().safeParse(formData)
   if (!parsed.success) {
+    log.warn("Bill update validation failed", { billId: id, errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
   try {
+    const oldBill = await queryOne<Bill>("SELECT * FROM bills WHERE id = $1", [id])
+
     const d = parsed.data
     const bill = await queryOne<Bill>(
       `UPDATE bills SET
@@ -397,19 +550,39 @@ export async function updateBill(id: string, formData: unknown): Promise<ActionR
     )
 
     if (!bill) {
+      log.warn("Bill not found for update", { billId: id })
       return { success: false, error: "Bill not found" }
     }
 
+    const billChanges: Record<string, { old: unknown; new: unknown }> = {}
+    if (oldBill) {
+      if (oldBill.amount !== bill.amount) billChanges.amount = { old: oldBill.amount, new: bill.amount }
+      if (oldBill.status !== bill.status) billChanges.status = { old: oldBill.status, new: bill.status }
+      if (oldBill.due_date !== bill.due_date) billChanges.due_date = { old: oldBill.due_date, new: bill.due_date }
+    }
+    await audit({
+      action: "update",
+      entityType: "bill",
+      entityId: bill.id,
+      entityName: bill.description || `${bill.bill_type} - $${bill.amount}`,
+      changes: Object.keys(billChanges).length > 0 ? billChanges : undefined,
+    })
+
     revalidatePath("/payments")
+    log.info("Bill updated", { billId: bill.id, amount: bill.amount })
     return { success: true, data: bill }
   } catch (error) {
-    console.error("Failed to update bill:", error)
+    log.error("Failed to update bill", { billId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update bill" }
   }
 }
 
 export async function markBillPaid(id: string, paymentDate: string, paymentMethod?: string): Promise<ActionResult<Bill>> {
+  const log = getLogger("mutations.bill")
   try {
+    // Get old status for audit
+    const oldBill = await queryOne<Bill>("SELECT * FROM bills WHERE id = $1", [id])
+
     const bill = await queryOne<Bill>(
       `UPDATE bills SET
         status = 'sent',
@@ -422,19 +595,37 @@ export async function markBillPaid(id: string, paymentDate: string, paymentMetho
     )
 
     if (!bill) {
+      log.warn("Bill not found for mark paid", { billId: id })
       return { success: false, error: "Bill not found" }
     }
 
+    await audit({
+      action: "mark_paid",
+      entityType: "bill",
+      entityId: bill.id,
+      entityName: bill.description || `Bill ${bill.id}`,
+      changes: {
+        status: { old: oldBill?.status || "pending", new: "sent" },
+        payment_date: { old: oldBill?.payment_date, new: paymentDate },
+        payment_method: { old: oldBill?.payment_method, new: paymentMethod || oldBill?.payment_method },
+      },
+    })
+
     revalidatePath("/payments")
+    log.info("Bill marked as paid", { billId: bill.id, paymentDate, paymentMethod })
     return { success: true, data: bill }
   } catch (error) {
-    console.error("Failed to mark bill paid:", error)
+    log.error("Failed to mark bill paid", { billId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to mark bill paid" }
   }
 }
 
 export async function confirmBillPayment(id: string, notes?: string): Promise<ActionResult<Bill>> {
+  const log = getLogger("mutations.bill")
   try {
+    // Get old status for audit
+    const oldBill = await queryOne<Bill>("SELECT * FROM bills WHERE id = $1", [id])
+
     const bill = await queryOne<Bill>(
       `UPDATE bills SET
         status = 'confirmed',
@@ -447,24 +638,54 @@ export async function confirmBillPayment(id: string, notes?: string): Promise<Ac
     )
 
     if (!bill) {
+      log.warn("Bill not found for confirmation", { billId: id })
       return { success: false, error: "Bill not found" }
     }
 
+    await audit({
+      action: "confirm",
+      entityType: "bill",
+      entityId: bill.id,
+      entityName: bill.description || `Bill ${bill.id}`,
+      changes: {
+        status: { old: oldBill?.status || "sent", new: "confirmed" },
+        confirmation_date: { old: null, new: bill.confirmation_date },
+      },
+      metadata: notes ? { notes } : undefined,
+    })
+
     revalidatePath("/payments")
+    log.info("Bill payment confirmed", { billId: bill.id, description: bill.description })
     return { success: true, data: bill }
   } catch (error) {
-    console.error("Failed to confirm payment:", error)
+    log.error("Failed to confirm payment", { billId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to confirm payment" }
   }
 }
 
 export async function deleteBill(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.bill")
   try {
+    // Get bill details for audit before deletion
+    const bill = await queryOne<Bill>("SELECT * FROM bills WHERE id = $1", [id])
+
     await query("DELETE FROM bills WHERE id = $1", [id])
+
+    if (bill) {
+      await audit({
+        action: "delete",
+        entityType: "bill",
+        entityId: id,
+        entityName: bill.description || `Bill ${id}`,
+        metadata: { amount: bill.amount, dueDate: bill.due_date },
+      })
+    }
+
     revalidatePath("/payments")
+    log.info("Bill deleted", { billId: id })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete bill:", error)
+    log.error("Failed to delete bill", { billId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete bill" }
   }
 }
@@ -474,8 +695,10 @@ export async function deleteBill(id: string): Promise<ActionResult> {
 // ============================================
 
 export async function createPropertyTax(formData: unknown): Promise<ActionResult<PropertyTax>> {
+  const log = getLogger("mutations.property_tax")
   const parsed = propertyTaxSchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Property tax validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -493,22 +716,35 @@ export async function createPropertyTax(formData: unknown): Promise<ActionResult
       ]
     )
 
+    await audit({
+      action: "create",
+      entityType: "property_tax",
+      entityId: tax!.id,
+      entityName: `${tax!.jurisdiction} ${tax!.tax_year} Q${tax!.installment}`,
+      metadata: { amount: tax!.amount, dueDate: tax!.due_date, propertyId: tax!.property_id },
+    })
+
     revalidatePath("/payments")
     revalidatePath(`/properties/${d.property_id}`)
+    log.info("Property tax created", { taxId: tax!.id, jurisdiction: tax!.jurisdiction, year: tax!.tax_year })
     return { success: true, data: tax! }
   } catch (error) {
-    console.error("Failed to create property tax:", error)
+    log.error("Failed to create property tax", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create property tax record" }
   }
 }
 
 export async function updatePropertyTax(id: string, formData: unknown): Promise<ActionResult<PropertyTax>> {
+  const log = getLogger("mutations.property_tax")
   const parsed = propertyTaxSchema.partial().safeParse(formData)
   if (!parsed.success) {
+    log.warn("Property tax update validation failed", { taxId: id, errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
   try {
+    const oldTax = await queryOne<PropertyTax>("SELECT * FROM property_taxes WHERE id = $1", [id])
+
     const d = parsed.data
     const tax = await queryOne<PropertyTax>(
       `UPDATE property_taxes SET
@@ -532,25 +768,56 @@ export async function updatePropertyTax(id: string, formData: unknown): Promise<
     )
 
     if (!tax) {
+      log.warn("Property tax not found for update", { taxId: id })
       return { success: false, error: "Property tax not found" }
     }
 
+    const taxChanges: Record<string, { old: unknown; new: unknown }> = {}
+    if (oldTax) {
+      if (oldTax.status !== tax.status) taxChanges.status = { old: oldTax.status, new: tax.status }
+      if (oldTax.amount !== tax.amount) taxChanges.amount = { old: oldTax.amount, new: tax.amount }
+      if (oldTax.payment_date !== tax.payment_date) taxChanges.payment_date = { old: oldTax.payment_date, new: tax.payment_date }
+    }
+    await audit({
+      action: "update",
+      entityType: "property_tax",
+      entityId: tax.id,
+      entityName: `${tax.jurisdiction} ${tax.tax_year} Q${tax.installment}`,
+      changes: Object.keys(taxChanges).length > 0 ? taxChanges : undefined,
+    })
+
     revalidatePath("/payments")
     if (d.property_id) revalidatePath(`/properties/${d.property_id}`)
+    log.info("Property tax updated", { taxId: tax.id, status: tax.status })
     return { success: true, data: tax }
   } catch (error) {
-    console.error("Failed to update property tax:", error)
+    log.error("Failed to update property tax", { taxId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update property tax" }
   }
 }
 
 export async function deletePropertyTax(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.property_tax")
   try {
+    const tax = await queryOne<PropertyTax>("SELECT * FROM property_taxes WHERE id = $1", [id])
+
     await query("DELETE FROM property_taxes WHERE id = $1", [id])
+
+    if (tax) {
+      await audit({
+        action: "delete",
+        entityType: "property_tax",
+        entityId: id,
+        entityName: `${tax.jurisdiction} ${tax.tax_year} Q${tax.installment}`,
+        metadata: { amount: tax.amount },
+      })
+    }
+
     revalidatePath("/payments")
+    log.info("Property tax deleted", { taxId: id })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete property tax:", error)
+    log.error("Failed to delete property tax", { taxId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete property tax" }
   }
 }
@@ -560,8 +827,10 @@ export async function deletePropertyTax(id: string): Promise<ActionResult> {
 // ============================================
 
 export async function createInsurancePolicy(formData: unknown): Promise<ActionResult<InsurancePolicy>> {
+  const log = getLogger("mutations.insurance")
   const parsed = insurancePolicySchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Insurance policy validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -583,21 +852,34 @@ export async function createInsurancePolicy(formData: unknown): Promise<ActionRe
       ]
     )
 
+    await audit({
+      action: "create",
+      entityType: "insurance_policy",
+      entityId: policy!.id,
+      entityName: `${policy!.policy_type} - ${policy!.carrier_name}`,
+      metadata: { policyNumber: policy!.policy_number, expirationDate: policy!.expiration_date },
+    })
+
     revalidatePath("/insurance")
+    log.info("Insurance policy created", { policyId: policy!.id, carrier: policy!.carrier_name })
     return { success: true, data: policy! }
   } catch (error) {
-    console.error("Failed to create insurance policy:", error)
+    log.error("Failed to create insurance policy", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create insurance policy" }
   }
 }
 
 export async function updateInsurancePolicy(id: string, formData: unknown): Promise<ActionResult<InsurancePolicy>> {
+  const log = getLogger("mutations.insurance")
   const parsed = insurancePolicySchema.partial().safeParse(formData)
   if (!parsed.success) {
+    log.warn("Insurance policy update validation failed", { policyId: id, errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
   try {
+    const oldPolicy = await queryOne<InsurancePolicy>("SELECT * FROM insurance_policies WHERE id = $1", [id])
+
     const d = parsed.data
     const policy = await queryOne<InsurancePolicy>(
       `UPDATE insurance_policies SET
@@ -632,24 +914,54 @@ export async function updateInsurancePolicy(id: string, formData: unknown): Prom
     )
 
     if (!policy) {
+      log.warn("Insurance policy not found for update", { policyId: id })
       return { success: false, error: "Insurance policy not found" }
     }
 
+    const policyChanges: Record<string, { old: unknown; new: unknown }> = {}
+    if (oldPolicy) {
+      if (oldPolicy.premium_amount !== policy.premium_amount) policyChanges.premium_amount = { old: oldPolicy.premium_amount, new: policy.premium_amount }
+      if (oldPolicy.expiration_date !== policy.expiration_date) policyChanges.expiration_date = { old: oldPolicy.expiration_date, new: policy.expiration_date }
+    }
+    await audit({
+      action: "update",
+      entityType: "insurance_policy",
+      entityId: policy.id,
+      entityName: `${policy.policy_type} - ${policy.carrier_name}`,
+      changes: Object.keys(policyChanges).length > 0 ? policyChanges : undefined,
+    })
+
     revalidatePath("/insurance")
+    log.info("Insurance policy updated", { policyId: policy.id, carrier: policy.carrier_name })
     return { success: true, data: policy }
   } catch (error) {
-    console.error("Failed to update insurance policy:", error)
+    log.error("Failed to update insurance policy", { policyId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update insurance policy" }
   }
 }
 
 export async function deleteInsurancePolicy(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.insurance")
   try {
+    const policy = await queryOne<InsurancePolicy>("SELECT * FROM insurance_policies WHERE id = $1", [id])
+
     await query("DELETE FROM insurance_policies WHERE id = $1", [id])
+
+    if (policy) {
+      await audit({
+        action: "delete",
+        entityType: "insurance_policy",
+        entityId: id,
+        entityName: `${policy.policy_type} - ${policy.carrier_name}`,
+        metadata: { policyNumber: policy.policy_number },
+      })
+    }
+
     revalidatePath("/insurance")
+    log.info("Insurance policy deleted", { policyId: id })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete insurance policy:", error)
+    log.error("Failed to delete insurance policy", { policyId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete insurance policy" }
   }
 }
@@ -659,8 +971,10 @@ export async function deleteInsurancePolicy(id: string): Promise<ActionResult> {
 // ============================================
 
 export async function createMaintenanceTask(formData: unknown): Promise<ActionResult<MaintenanceTask>> {
+  const log = getLogger("mutations.maintenance")
   const parsed = maintenanceTaskSchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Maintenance task validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -680,21 +994,34 @@ export async function createMaintenanceTask(formData: unknown): Promise<ActionRe
       ]
     )
 
+    await audit({
+      action: "create",
+      entityType: "maintenance_task",
+      entityId: task!.id,
+      entityName: task!.title,
+      metadata: { priority: task!.priority, dueDate: task!.due_date },
+    })
+
     revalidatePath("/maintenance")
+    log.info("Maintenance task created", { taskId: task!.id, title: task!.title })
     return { success: true, data: task! }
   } catch (error) {
-    console.error("Failed to create maintenance task:", error)
+    log.error("Failed to create maintenance task", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create maintenance task" }
   }
 }
 
 export async function updateMaintenanceTask(id: string, formData: unknown): Promise<ActionResult<MaintenanceTask>> {
+  const log = getLogger("mutations.maintenance")
   const parsed = maintenanceTaskSchema.partial().safeParse(formData)
   if (!parsed.success) {
+    log.warn("Maintenance task update validation failed", { taskId: id, errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
   try {
+    const oldTask = await queryOne<MaintenanceTask>("SELECT * FROM maintenance_tasks WHERE id = $1", [id])
+
     const d = parsed.data
     const task = await queryOne<MaintenanceTask>(
       `UPDATE maintenance_tasks SET
@@ -724,19 +1051,37 @@ export async function updateMaintenanceTask(id: string, formData: unknown): Prom
     )
 
     if (!task) {
+      log.warn("Maintenance task not found for update", { taskId: id })
       return { success: false, error: "Task not found" }
     }
 
+    const taskChanges: Record<string, { old: unknown; new: unknown }> = {}
+    if (oldTask) {
+      if (oldTask.status !== task.status) taskChanges.status = { old: oldTask.status, new: task.status }
+      if (oldTask.priority !== task.priority) taskChanges.priority = { old: oldTask.priority, new: task.priority }
+    }
+    await audit({
+      action: "update",
+      entityType: "maintenance_task",
+      entityId: task.id,
+      entityName: task.title,
+      changes: Object.keys(taskChanges).length > 0 ? taskChanges : undefined,
+    })
+
     revalidatePath("/maintenance")
+    log.info("Maintenance task updated", { taskId: task.id, title: task.title })
     return { success: true, data: task }
   } catch (error) {
-    console.error("Failed to update maintenance task:", error)
+    log.error("Failed to update maintenance task", { taskId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update maintenance task" }
   }
 }
 
 export async function completeMaintenanceTask(id: string, actualCost?: number): Promise<ActionResult<MaintenanceTask>> {
+  const log = getLogger("mutations.maintenance")
   try {
+    const oldTask = await queryOne<MaintenanceTask>("SELECT * FROM maintenance_tasks WHERE id = $1", [id])
+
     const task = await queryOne<MaintenanceTask>(
       `UPDATE maintenance_tasks SET
         status = 'completed',
@@ -749,24 +1094,52 @@ export async function completeMaintenanceTask(id: string, actualCost?: number): 
     )
 
     if (!task) {
+      log.warn("Maintenance task not found for completion", { taskId: id })
       return { success: false, error: "Task not found" }
     }
 
+    await audit({
+      action: "update",
+      entityType: "maintenance_task",
+      entityId: task.id,
+      entityName: task.title,
+      changes: {
+        status: { old: oldTask?.status || "pending", new: "completed" },
+        completed_date: { old: null, new: task.completed_date },
+      },
+      metadata: actualCost ? { actualCost } : undefined,
+    })
+
     revalidatePath("/maintenance")
+    log.info("Maintenance task completed", { taskId: task.id, title: task.title })
     return { success: true, data: task }
   } catch (error) {
-    console.error("Failed to complete task:", error)
+    log.error("Failed to complete maintenance task", { taskId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to complete task" }
   }
 }
 
 export async function deleteMaintenanceTask(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.maintenance")
   try {
+    const task = await queryOne<MaintenanceTask>("SELECT * FROM maintenance_tasks WHERE id = $1", [id])
+
     await query("DELETE FROM maintenance_tasks WHERE id = $1", [id])
+
+    if (task) {
+      await audit({
+        action: "delete",
+        entityType: "maintenance_task",
+        entityId: id,
+        entityName: task.title,
+      })
+    }
+
     revalidatePath("/maintenance")
+    log.info("Maintenance task deleted", { taskId: id })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete maintenance task:", error)
+    log.error("Failed to delete maintenance task", { taskId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete maintenance task" }
   }
 }
@@ -776,8 +1149,10 @@ export async function deleteMaintenanceTask(id: string): Promise<ActionResult> {
 // ============================================
 
 export async function createSharedTaskList(formData: unknown): Promise<ActionResult<SharedTaskList>> {
+  const log = getLogger("mutations.shared_task")
   const parsed = sharedTaskListSchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Shared task list validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -790,18 +1165,29 @@ export async function createSharedTaskList(formData: unknown): Promise<ActionRes
       [d.property_id, d.title, d.assigned_to || null, d.assigned_contact || null, d.is_active]
     )
 
+    await audit({
+      action: "create",
+      entityType: "shared_task_list",
+      entityId: list!.id,
+      entityName: list!.title,
+      metadata: { assignedTo: list!.assigned_to },
+    })
+
     revalidatePath("/maintenance")
     revalidatePath(`/properties/${d.property_id}`)
+    log.info("Shared task list created", { listId: list!.id, title: list!.title })
     return { success: true, data: list! }
   } catch (error) {
-    console.error("Failed to create shared task list:", error)
+    log.error("Failed to create shared task list", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create task list" }
   }
 }
 
 export async function updateSharedTaskList(id: string, formData: unknown): Promise<ActionResult<SharedTaskList>> {
+  const log = getLogger("mutations.shared_task")
   const parsed = sharedTaskListSchema.partial().safeParse(formData)
   if (!parsed.success) {
+    log.warn("Shared task list update validation failed", { listId: id, errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -820,32 +1206,50 @@ export async function updateSharedTaskList(id: string, formData: unknown): Promi
     )
 
     if (!list) {
+      log.warn("Shared task list not found for update", { listId: id })
       return { success: false, error: "Task list not found" }
     }
 
     revalidatePath("/maintenance")
+    log.info("Shared task list updated", { listId: list.id, title: list.title })
     return { success: true, data: list }
   } catch (error) {
-    console.error("Failed to update shared task list:", error)
+    log.error("Failed to update shared task list", { listId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update task list" }
   }
 }
 
 export async function deleteSharedTaskList(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.shared_task")
   try {
+    const list = await queryOne<SharedTaskList>("SELECT * FROM shared_task_lists WHERE id = $1", [id])
+
     await query("DELETE FROM shared_task_lists WHERE id = $1", [id])
+
+    if (list) {
+      await audit({
+        action: "delete",
+        entityType: "shared_task_list",
+        entityId: id,
+        entityName: list.title,
+      })
+    }
+
     revalidatePath("/maintenance")
+    log.info("Shared task list deleted", { listId: id })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete shared task list:", error)
+    log.error("Failed to delete shared task list", { listId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete task list" }
   }
 }
 
 // Shared Task Items
 export async function createSharedTaskItem(formData: unknown): Promise<ActionResult<SharedTaskItem>> {
+  const log = getLogger("mutations.shared_task")
   const parsed = sharedTaskItemSchema.safeParse(formData)
   if (!parsed.success) {
+    log.warn("Shared task item validation failed", { errors: parsed.error.errors })
     return { success: false, error: parsed.error.errors[0].message }
   }
 
@@ -859,14 +1263,16 @@ export async function createSharedTaskItem(formData: unknown): Promise<ActionRes
     )
 
     revalidatePath("/maintenance")
+    log.info("Shared task item created", { itemId: item!.id, task: item!.task })
     return { success: true, data: item! }
   } catch (error) {
-    console.error("Failed to create task item:", error)
+    log.error("Failed to create task item", { error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to create task item" }
   }
 }
 
 export async function toggleSharedTaskItem(id: string): Promise<ActionResult<SharedTaskItem>> {
+  const log = getLogger("mutations.shared_task")
   try {
     const item = await queryOne<SharedTaskItem>(
       `UPDATE shared_task_items SET
@@ -878,24 +1284,28 @@ export async function toggleSharedTaskItem(id: string): Promise<ActionResult<Sha
     )
 
     if (!item) {
+      log.warn("Task item not found for toggle", { itemId: id })
       return { success: false, error: "Task item not found" }
     }
 
     revalidatePath("/maintenance")
+    log.info("Shared task item toggled", { itemId: item.id, isCompleted: item.is_completed })
     return { success: true, data: item }
   } catch (error) {
-    console.error("Failed to toggle task item:", error)
+    log.error("Failed to toggle task item", { itemId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to toggle task item" }
   }
 }
 
 export async function deleteSharedTaskItem(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.shared_task")
   try {
     await query("DELETE FROM shared_task_items WHERE id = $1", [id])
     revalidatePath("/maintenance")
+    log.info("Shared task item deleted", { itemId: id })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to delete task item:", error)
+    log.error("Failed to delete task item", { itemId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete task item" }
   }
 }
@@ -908,6 +1318,7 @@ export async function updateVendorProperties(
   vendorId: string,
   propertyIds: string[]
 ): Promise<ActionResult> {
+  const log = getLogger("mutations.vendor")
   try {
     // Delete existing associations
     await query("DELETE FROM property_vendors WHERE vendor_id = $1", [vendorId])
@@ -923,11 +1334,20 @@ export async function updateVendorProperties(
       )
     }
 
+    await audit({
+      action: "update",
+      entityType: "vendor",
+      entityId: vendorId,
+      entityName: `Vendor ${vendorId}`,
+      metadata: { propertyCount: propertyIds.length },
+    })
+
     revalidatePath("/vendors")
     revalidatePath(`/vendors/${vendorId}`)
+    log.info("Vendor properties updated", { vendorId, propertyCount: propertyIds.length })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to update vendor properties:", error)
+    log.error("Failed to update vendor properties", { vendorId, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to update vendor properties" }
   }
 }
@@ -937,6 +1357,7 @@ export async function addVendorToProperty(
   propertyId: string,
   isPrimary: boolean = false
 ): Promise<ActionResult> {
+  const log = getLogger("mutations.vendor")
   try {
     await query(
       `INSERT INTO property_vendors (vendor_id, property_id, is_primary)
@@ -949,9 +1370,10 @@ export async function addVendorToProperty(
     revalidatePath("/vendors")
     revalidatePath(`/vendors/${vendorId}`)
     revalidatePath(`/properties/${propertyId}`)
+    log.info("Vendor added to property", { vendorId, propertyId, isPrimary })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to add vendor to property:", error)
+    log.error("Failed to add vendor to property", { vendorId, propertyId, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to add vendor to property" }
   }
 }
@@ -960,6 +1382,7 @@ export async function removeVendorFromProperty(
   vendorId: string,
   propertyId: string
 ): Promise<ActionResult> {
+  const log = getLogger("mutations.vendor")
   try {
     await query(
       "DELETE FROM property_vendors WHERE vendor_id = $1 AND property_id = $2",
@@ -969,9 +1392,10 @@ export async function removeVendorFromProperty(
     revalidatePath("/vendors")
     revalidatePath(`/vendors/${vendorId}`)
     revalidatePath(`/properties/${propertyId}`)
+    log.info("Vendor removed from property", { vendorId, propertyId })
     return { success: true, data: undefined }
   } catch (error) {
-    console.error("Failed to remove vendor from property:", error)
+    log.error("Failed to remove vendor from property", { vendorId, propertyId, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to remove vendor from property" }
   }
 }

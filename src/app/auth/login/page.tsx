@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Building2, Loader2 } from "lucide-react"
+import { Building2, Loader2, Mail, CheckCircle } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -14,28 +14,29 @@ export default function LoginPage() {
   const redirect = searchParams.get("redirect") || "/"
 
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [emailSent, setEmailSent] = useState(false)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Magic link login
+  const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       })
 
+      const data = await response.json()
+
       if (response.ok) {
-        router.push(redirect)
-        router.refresh()
+        setEmailSent(true)
       } else {
-        const data = await response.json()
-        setError(data.error || "Login failed")
+        setError(data.error || "Failed to send login link")
       }
     } catch {
       setError("An error occurred. Please try again.")
@@ -44,29 +45,41 @@ export default function LoginPage() {
     }
   }
 
-  const handleQuickLogin = async (userEmail: string) => {
-    setEmail(userEmail)
-    setLoading(true)
-    setError("")
-
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail }),
-      })
-
-      if (response.ok) {
-        router.push(redirect)
-        router.refresh()
-      } else {
-        setError("Login failed")
-      }
-    } catch {
-      setError("An error occurred")
-    } finally {
-      setLoading(false)
-    }
+  // Email sent confirmation
+  if (emailSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="rounded-xl bg-green-100 p-3">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl">Check Your Email</CardTitle>
+            <CardDescription>
+              We sent a login link to <strong>{email}</strong>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Click the link in the email to sign in. The link expires in 15 minutes.
+            </p>
+            <div className="pt-4 border-t">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setEmailSent(false)
+                  setEmail("")
+                }}
+              >
+                Use a different email
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -82,14 +95,14 @@ export default function LoginPage() {
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleMagicLink} className="space-y-4">
             {error && (
               <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
                 {error}
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email address</Label>
               <Input
                 id="email"
                 type="email"
@@ -99,67 +112,23 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Signing in...
+                  Sending...
                 </>
               ) : (
-                "Sign In"
+                <>
+                  <Mail className="h-5 w-5 mr-2" />
+                  Send Login Link
+                </>
               )}
             </Button>
-          </form>
-
-          <div className="mt-6">
-            <p className="text-sm text-center text-muted-foreground mb-3">
-              Quick login (development only):
+            <p className="text-xs text-center text-muted-foreground">
+              We&apos;ll email you a secure link to sign in.
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={loading}
-                onClick={() => handleQuickLogin("anne@example.com")}
-              >
-                Anne (Owner)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={loading}
-                onClick={() => handleQuickLogin("todd@example.com")}
-              >
-                Todd (Owner)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={loading}
-                onClick={() => handleQuickLogin("michael@example.com")}
-              >
-                Michael (Owner)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={loading}
-                onClick={() => handleQuickLogin("barbara@cbiz.com")}
-              >
-                Barbara (Bookkeeper)
-              </Button>
-            </div>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>

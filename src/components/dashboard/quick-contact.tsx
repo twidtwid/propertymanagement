@@ -18,19 +18,20 @@ interface QuickContactProps {
   properties: Property[]
 }
 
+// Common specialties for quick contact - sorted alphabetically by label
 const specialties: VendorSpecialty[] = [
-  "hvac",
-  "plumbing",
-  "electrical",
-  "roofing",
-  "general_contractor",
-  "landscaping",
-  "cleaning",
-  "pest_control",
-  "appliance",
-  "alarm_security",
-  "snow_removal",
-  "fuel_oil",
+  "alarm_security",   // Alarm & Security
+  "appliance",        // Appliance
+  "cleaning",         // Cleaning
+  "electrical",       // Electrical
+  "fuel_oil",         // Fuel Oil
+  "general_contractor", // General Contractor
+  "hvac",             // HVAC
+  "landscaping",      // Landscaping
+  "pest_control",     // Pest Control
+  "plumbing",         // Plumbing
+  "roofing",          // Roofing
+  "snow_removal",     // Snow Removal
 ]
 
 export function QuickContact({ properties }: QuickContactProps) {

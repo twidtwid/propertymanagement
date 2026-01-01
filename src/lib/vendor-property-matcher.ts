@@ -1,7 +1,7 @@
 "use server"
 
 import Anthropic from "@anthropic-ai/sdk"
-import { query, queryOne, execute } from "./db"
+import { query, queryOne } from "./db"
 import type { Vendor, Property } from "@/types/database"
 import type { VendorCommunication } from "./actions"
 
@@ -163,7 +163,7 @@ async function createPropertyVendorLink(
   notes: string
 ): Promise<boolean> {
   try {
-    await execute(
+    await query(
       `INSERT INTO property_vendors (property_id, vendor_id, notes)
        VALUES ($1, $2, $3)
        ON CONFLICT (property_id, vendor_id, specialty_override)

@@ -7,9 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/seed.ts"
+    "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/seed.ts",
+    "tax:sync": "python3 scripts/sync_all_taxes.py",
+    "tax:sync:live": "python3 scripts/sync_all_taxes.py --callback http://localhost:3000/api/taxes/sync/callback",
+    "tax:sync:scc": "python3 scripts/lookup_scc_tax.py",
+    "tax:sync:providence": "python3 scripts/lookup_providence_tax.py",
+    "tax:sync:vermont": "python3 scripts/lookup_vermont_tax.py"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.2",
@@ -45,6 +51,7 @@
     "lucide-react": "^0.460.0",
     "next": "14.2.35",
     "pg": "^8.13.1",
+    "pino": "^9.6.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.2",
@@ -55,6 +62,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
+    "pino-pretty": "^13.0.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

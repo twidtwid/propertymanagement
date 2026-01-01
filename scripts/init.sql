@@ -37,10 +37,23 @@ CREATE TABLE profiles (
   full_name TEXT,
   role user_role DEFAULT 'owner',
   phone TEXT,
-  password_hash TEXT, -- Stub auth - in production use proper auth
+  password_hash TEXT, -- Legacy field, not used with magic link auth
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Magic Link Tokens for passwordless authentication
+CREATE TABLE magic_link_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_magic_link_tokens_token ON magic_link_tokens(token);
+CREATE INDEX idx_magic_link_tokens_email ON magic_link_tokens(email);
 
 -- Properties
 CREATE TABLE properties (
@@ -608,8 +621,8 @@ CREATE INDEX idx_alerts_user ON alerts(user_id);
 INSERT INTO profiles (email, full_name, role, phone, password_hash) VALUES
 ('anne@annespalter.com', 'Anne', 'owner', '555-0100', 'stub'),
 ('todd@dailey.info', 'Todd', 'owner', '555-0101', 'stub'),
-('michael@example.com', 'Michael', 'owner', '555-0102', 'stub'),
-('amelia@example.com', 'Amelia', 'owner', '555-0103', 'stub'),
+('michael@michaelspalter.com', 'Michael', 'owner', '555-0102', 'stub'),
+('amelia.spalter@gmail.com', 'Amelia', 'owner', '555-0103', 'stub'),
 ('barbara@cbiz.com', 'Barbara Brady', 'bookkeeper', '555-0104', 'stub');
 
 -- Properties

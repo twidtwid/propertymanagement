@@ -10,6 +10,7 @@ import {
   Car,
   Users,
   CreditCard,
+  CalendarDays,
   Shield,
   Wrench,
   FileText,
@@ -21,6 +22,7 @@ import { GlobalSearch } from "@/components/shared/global-search"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
+  { name: "Calendar", href: "/calendar", icon: CalendarDays },
   { name: "Properties", href: "/properties", icon: Building2 },
   { name: "BuildingLink", href: "/buildinglink", icon: Building },
   { name: "Vehicles", href: "/vehicles", icon: Car },

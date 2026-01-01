@@ -78,7 +78,7 @@ export function UpcomingPayments({ bills, taxes }: UpcomingPaymentsProps) {
                   <div className="flex items-center gap-3 ml-4">
                     <div className="text-right">
                       <p className="text-base font-semibold">
-                        {formatCurrency(payment.amount)}
+                        {formatCurrency(Number(payment.amount))}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {formatDate(payment.due_date)}

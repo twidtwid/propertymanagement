@@ -103,7 +103,8 @@ export async function getVendorsFiltered(filters?: VendorFilters): Promise<Vendo
   }
 
   if (filters?.location && filters.location !== 'all') {
-    result = result.filter(v => v.locations.includes(filters.location))
+    const location = filters.location
+    result = result.filter(v => v.locations.includes(location))
   }
 
   if (filters?.search) {
@@ -507,9 +508,7 @@ export async function getAllPayments(filters?: UnifiedPaymentFilters): Promise<U
     SELECT * FROM unified
     ${whereClause}
     ${searchClause ? (whereClause ? ' AND ' + searchClause.replace('WHERE ', '') : searchClause) : ''}
-    ORDER BY
-      CASE WHEN is_overdue THEN 0 ELSE 1 END,
-      due_date ASC
+    ORDER BY due_date DESC
   `
 
   return query<UnifiedPayment>(sql, params)
@@ -1487,4 +1486,410 @@ export async function getBuildingLinkSecurityLog(limit = 50): Promise<BuildingLi
 export async function getBuildingLinkMaintenance(): Promise<BuildingLinkMessage[]> {
   const messages = await getBuildingLinkMessages({ limit: 200 })
   return messages.filter(m => m.category === 'maintenance')
+}
+
+// ============================================
+// BANK TRANSACTION MATCHING
+// ============================================
+
+export interface BankTransactionMatch {
+  id: string
+  import_batch_id: string
+  transaction_date: string
+  description: string
+  amount: number
+  check_number: string | null
+  matched_bill_id: string | null
+  matched_at: string | null
+  match_confidence: number | null
+  match_method: string | null
+  is_confirmed: boolean
+  created_at: string
+  // Joined bill data if matched
+  bill_description?: string
+  bill_amount?: number
+  property_name?: string
+  vendor_name?: string
+}
+
+export async function getPendingBankTransactionMatches(): Promise<BankTransactionMatch[]> {
+  return query<BankTransactionMatch>(`
+    SELECT
+      bt.*,
+      b.description as bill_description,
+      b.amount as bill_amount,
+      p.name as property_name,
+      v.name as vendor_name
+    FROM bank_transactions bt
+    LEFT JOIN bills b ON bt.matched_bill_id = b.id
+    LEFT JOIN properties p ON b.property_id = p.id
+    LEFT JOIN vendors v ON b.vendor_id = v.id
+    WHERE bt.is_confirmed = FALSE
+      AND bt.matched_bill_id IS NOT NULL
+    ORDER BY bt.match_confidence DESC, bt.transaction_date DESC
+  `)
+}
+
+export async function getUnmatchedBankTransactions(): Promise<BankTransactionMatch[]> {
+  return query<BankTransactionMatch>(`
+    SELECT bt.*
+    FROM bank_transactions bt
+    WHERE bt.matched_bill_id IS NULL
+      AND bt.is_confirmed = FALSE
+    ORDER BY bt.transaction_date DESC
+  `)
+}
+
+export async function getRecentBankImports(): Promise<Array<{
+  id: string
+  filename: string
+  account_type: string | null
+  date_range_start: string | null
+  date_range_end: string | null
+  transaction_count: number
+  matched_count: number
+  imported_at: string
+}>> {
+  return query(`
+    SELECT *
+    FROM bank_import_batches
+    ORDER BY imported_at DESC
+    LIMIT 10
+  `)
+}
+
+// ============================================
+// CALENDAR EVENTS
+// ============================================
+
+export type CalendarEventType =
+  | 'bill'
+  | 'property_tax'
+  | 'insurance_renewal'
+  | 'insurance_expiration'
+  | 'vehicle_registration'
+  | 'vehicle_inspection'
+  | 'maintenance'
+
+export interface CalendarEvent {
+  id: string
+  type: CalendarEventType
+  title: string
+  description: string | null
+  date: string
+  amount: number | null
+  status: string | null
+  propertyName: string | null
+  vehicleName: string | null
+  vendorName: string | null
+  isOverdue: boolean
+  isUrgent: boolean
+  href: string | null
+}
+
+export async function getCalendarEvents(
+  startDate: string,
+  endDate: string
+): Promise<CalendarEvent[]> {
+  const events: CalendarEvent[] = []
+
+  // Bills
+  const bills = await query<{
+    id: string
+    description: string | null
+    bill_type: string
+    amount: number
+    due_date: string
+    status: string
+    property_name: string | null
+    vehicle_name: string | null
+    vendor_name: string | null
+  }>(`
+    SELECT
+      b.id,
+      b.description,
+      b.bill_type,
+      b.amount,
+      b.due_date::text,
+      b.status,
+      p.name as property_name,
+      CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
+      vn.name as vendor_name
+    FROM bills b
+    LEFT JOIN properties p ON b.property_id = p.id
+    LEFT JOIN vehicles v ON b.vehicle_id = v.id
+    LEFT JOIN vendors vn ON b.vendor_id = vn.id
+    WHERE b.due_date BETWEEN $1 AND $2
+    ORDER BY b.due_date
+  `, [startDate, endDate])
+
+  for (const bill of bills) {
+    const isOverdue = bill.status === 'pending' && new Date(bill.due_date) < new Date()
+    events.push({
+      id: `bill-${bill.id}`,
+      type: 'bill',
+      title: bill.description || bill.bill_type,
+      description: bill.vendor_name,
+      date: bill.due_date,
+      amount: bill.amount,
+      status: bill.status,
+      propertyName: bill.property_name,
+      vehicleName: bill.vehicle_name,
+      vendorName: bill.vendor_name,
+      isOverdue,
+      isUrgent: isOverdue,
+      href: '/payments',
+    })
+  }
+
+  // Property Taxes
+  const taxes = await query<{
+    id: string
+    jurisdiction: string
+    tax_year: number
+    installment: number
+    amount: number
+    due_date: string
+    status: string
+    property_name: string
+  }>(`
+    SELECT
+      pt.id,
+      pt.jurisdiction,
+      pt.tax_year,
+      pt.installment,
+      pt.amount,
+      pt.due_date::text,
+      pt.status,
+      p.name as property_name
+    FROM property_taxes pt
+    JOIN properties p ON pt.property_id = p.id
+    WHERE pt.due_date BETWEEN $1 AND $2
+    ORDER BY pt.due_date
+  `, [startDate, endDate])
+
+  for (const tax of taxes) {
+    const isOverdue = tax.status === 'pending' && new Date(tax.due_date) < new Date()
+    events.push({
+      id: `tax-${tax.id}`,
+      type: 'property_tax',
+      title: `${tax.jurisdiction} Q${tax.installment} Tax`,
+      description: tax.property_name,
+      date: tax.due_date,
+      amount: tax.amount,
+      status: tax.status,
+      propertyName: tax.property_name,
+      vehicleName: null,
+      vendorName: null,
+      isOverdue,
+      isUrgent: isOverdue,
+      href: '/payments',
+    })
+  }
+
+  // Insurance Expirations
+  const policies = await query<{
+    id: string
+    carrier_name: string
+    policy_type: string
+    expiration_date: string
+    premium_amount: number | null
+    property_name: string | null
+    vehicle_name: string | null
+  }>(`
+    SELECT
+      ip.id,
+      ip.carrier_name,
+      ip.policy_type,
+      ip.expiration_date::text,
+      ip.premium_amount,
+      p.name as property_name,
+      CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name
+    FROM insurance_policies ip
+    LEFT JOIN properties p ON ip.property_id = p.id
+    LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+    WHERE ip.expiration_date BETWEEN $1 AND $2
+    ORDER BY ip.expiration_date
+  `, [startDate, endDate])
+
+  for (const policy of policies) {
+    const daysUntil = Math.ceil((new Date(policy.expiration_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    events.push({
+      id: `insurance-exp-${policy.id}`,
+      type: 'insurance_expiration',
+      title: `${policy.carrier_name} ${policy.policy_type} Expires`,
+      description: policy.property_name || policy.vehicle_name,
+      date: policy.expiration_date,
+      amount: policy.premium_amount,
+      status: daysUntil < 0 ? 'expired' : 'active',
+      propertyName: policy.property_name,
+      vehicleName: policy.vehicle_name,
+      vendorName: null,
+      isOverdue: daysUntil < 0,
+      isUrgent: daysUntil <= 30,
+      href: '/insurance',
+    })
+  }
+
+  // Vehicle Registrations
+  const registrations = await query<{
+    id: string
+    year: number
+    make: string
+    model: string
+    registration_expires: string | null
+  }>(`
+    SELECT id, year, make, model, registration_expires::text
+    FROM vehicles
+    WHERE registration_expires BETWEEN $1 AND $2
+      AND is_active = TRUE
+    ORDER BY registration_expires
+  `, [startDate, endDate])
+
+  for (const vehicle of registrations) {
+    if (vehicle.registration_expires) {
+      const daysUntil = Math.ceil((new Date(vehicle.registration_expires).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+      events.push({
+        id: `reg-${vehicle.id}`,
+        type: 'vehicle_registration',
+        title: `Registration Expires`,
+        description: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        date: vehicle.registration_expires,
+        amount: null,
+        status: daysUntil < 0 ? 'expired' : 'active',
+        propertyName: null,
+        vehicleName: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        vendorName: null,
+        isOverdue: daysUntil < 0,
+        isUrgent: daysUntil <= 30,
+        href: `/vehicles/${vehicle.id}`,
+      })
+    }
+  }
+
+  // Vehicle Inspections
+  const inspections = await query<{
+    id: string
+    year: number
+    make: string
+    model: string
+    inspection_expires: string | null
+  }>(`
+    SELECT id, year, make, model, inspection_expires::text
+    FROM vehicles
+    WHERE inspection_expires BETWEEN $1 AND $2
+      AND is_active = TRUE
+    ORDER BY inspection_expires
+  `, [startDate, endDate])
+
+  for (const vehicle of inspections) {
+    if (vehicle.inspection_expires) {
+      const daysUntil = Math.ceil((new Date(vehicle.inspection_expires).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+      events.push({
+        id: `insp-${vehicle.id}`,
+        type: 'vehicle_inspection',
+        title: `Inspection Due`,
+        description: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        date: vehicle.inspection_expires,
+        amount: null,
+        status: daysUntil < 0 ? 'overdue' : 'active',
+        propertyName: null,
+        vehicleName: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        vendorName: null,
+        isOverdue: daysUntil < 0,
+        isUrgent: daysUntil <= 14,
+        href: `/vehicles/${vehicle.id}`,
+      })
+    }
+  }
+
+  // Maintenance Tasks with due dates
+  const tasks = await query<{
+    id: string
+    title: string
+    due_date: string
+    priority: string
+    status: string
+    property_name: string | null
+    vehicle_name: string | null
+    vendor_name: string | null
+    estimated_cost: number | null
+  }>(`
+    SELECT
+      mt.id,
+      mt.title,
+      mt.due_date::text,
+      mt.priority,
+      mt.status,
+      p.name as property_name,
+      CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
+      vn.name as vendor_name,
+      mt.estimated_cost
+    FROM maintenance_tasks mt
+    LEFT JOIN properties p ON mt.property_id = p.id
+    LEFT JOIN vehicles v ON mt.vehicle_id = v.id
+    LEFT JOIN vendors vn ON mt.vendor_id = vn.id
+    WHERE mt.due_date BETWEEN $1 AND $2
+      AND mt.status IN ('pending', 'in_progress')
+    ORDER BY mt.due_date
+  `, [startDate, endDate])
+
+  for (const task of tasks) {
+    const isOverdue = new Date(task.due_date) < new Date()
+    events.push({
+      id: `task-${task.id}`,
+      type: 'maintenance',
+      title: task.title,
+      description: task.property_name || task.vehicle_name,
+      date: task.due_date,
+      amount: task.estimated_cost,
+      status: task.status,
+      propertyName: task.property_name,
+      vehicleName: task.vehicle_name,
+      vendorName: task.vendor_name,
+      isOverdue,
+      isUrgent: isOverdue || task.priority === 'urgent' || task.priority === 'high',
+      href: '/maintenance',
+    })
+  }
+
+  // Sort all events by date
+  events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+  return events
+}
+
+// Get all payments awaiting check confirmation (sent but not confirmed)
+export async function getPaymentsAwaitingConfirmation(): Promise<UnifiedPayment[]> {
+  return query<UnifiedPayment>(`
+    SELECT
+      b.id,
+      'bill'::text as source,
+      b.id as source_id,
+      b.bill_type as category,
+      COALESCE(b.description, b.bill_type::text) as description,
+      b.property_id,
+      p.name as property_name,
+      b.vehicle_id,
+      CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
+      b.vendor_id,
+      vn.name as vendor_name,
+      b.amount,
+      b.due_date::text,
+      b.status,
+      b.payment_method,
+      b.payment_date::text,
+      b.confirmation_date::text,
+      CURRENT_DATE - b.payment_date as days_waiting,
+      false as is_overdue,
+      b.recurrence
+    FROM bills b
+    LEFT JOIN properties p ON b.property_id = p.id
+    LEFT JOIN vehicles v ON b.vehicle_id = v.id
+    LEFT JOIN vendors vn ON b.vendor_id = vn.id
+    WHERE b.status = 'sent'
+      AND b.payment_date IS NOT NULL
+      AND b.confirmation_date IS NULL
+    ORDER BY b.payment_date ASC
+  `)
 }

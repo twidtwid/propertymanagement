@@ -374,6 +374,18 @@ export const VENDOR_SPECIALTY_LABELS: Record<VendorSpecialty, string> = {
   other: 'Other',
 }
 
+// Get vendor specialties sorted alphabetically by label, with "Other" at the end
+export function getVendorSpecialtyOptions(): Array<{ value: VendorSpecialty; label: string }> {
+  return Object.entries(VENDOR_SPECIALTY_LABELS)
+    .map(([value, label]) => ({ value: value as VendorSpecialty, label }))
+    .sort((a, b) => {
+      // "Other" always goes last
+      if (a.value === 'other') return 1
+      if (b.value === 'other') return -1
+      return a.label.localeCompare(b.label)
+    })
+}
+
 export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
   house: 'House',
   condo: 'Condo',

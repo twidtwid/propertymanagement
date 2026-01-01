@@ -1,6 +1,6 @@
 "use server"
 
-import { query, queryOne, execute } from "./db"
+import { query, queryOne } from "./db"
 import type { RecurringTemplate, Bill, Recurrence } from "@/types/database"
 import { addMonths, addDays, startOfMonth, setDate, isWithinInterval } from "date-fns"
 
@@ -201,7 +201,7 @@ async function updateTemplateLastGenerated(
   templateId: string,
   date: Date
 ): Promise<void> {
-  await execute(`
+  await query(`
     UPDATE recurring_templates
     SET last_generated_date = $1, updated_at = NOW()
     WHERE id = $2

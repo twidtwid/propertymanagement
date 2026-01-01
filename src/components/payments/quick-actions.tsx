@@ -93,7 +93,7 @@ export function QuickActions({ paymentsNeedingAttention }: QuickActionsProps) {
                     <ChevronDown className="h-4 w-4" />
                   )}
                   {overduePayments.length} overdue payment{overduePayments.length > 1 ? "s" : ""} (
-                  {formatCurrency(overduePayments.reduce((sum, p) => sum + p.amount, 0))})
+                  {formatCurrency(overduePayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0))})
                 </button>
                 {expandedSection === "overdue" && (
                   <div className="ml-6 space-y-2 border-l-2 border-red-200 pl-3">
@@ -112,7 +112,7 @@ export function QuickActions({ paymentsNeedingAttention }: QuickActionsProps) {
                           <span className="text-muted-foreground">
                             Due {formatDate(payment.due_date)}
                           </span>
-                          <span className="font-medium">{formatCurrency(payment.amount)}</span>
+                          <span className="font-medium">{formatCurrency(Number(payment.amount))}</span>
                         </div>
                       </div>
                     ))}
@@ -152,7 +152,7 @@ export function QuickActions({ paymentsNeedingAttention }: QuickActionsProps) {
                           <span className="text-amber-600 font-medium">
                             {payment.days_waiting}d waiting
                           </span>
-                          <span className="font-medium">{formatCurrency(payment.amount)}</span>
+                          <span className="font-medium">{formatCurrency(Number(payment.amount))}</span>
                         </div>
                       </div>
                     ))}

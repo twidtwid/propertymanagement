@@ -202,7 +202,7 @@ export default async function PropertyDetailPage({
                       Monthly Payment
                     </p>
                     <p className="text-base font-medium">
-                      {formatCurrency(property.mortgage_payment)}
+                      {formatCurrency(Number(property.mortgage_payment))}
                     </p>
                   </div>
                 )}
@@ -351,7 +351,7 @@ export default async function PropertyDetailPage({
                         <TableCell className="font-medium">{tax.tax_year}</TableCell>
                         <TableCell>{tax.jurisdiction}</TableCell>
                         <TableCell>{tax.installment}</TableCell>
-                        <TableCell>{formatCurrency(tax.amount)}</TableCell>
+                        <TableCell>{formatCurrency(Number(tax.amount))}</TableCell>
                         <TableCell>{formatDate(tax.due_date)}</TableCell>
                         <TableCell>
                           <Badge

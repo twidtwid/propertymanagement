@@ -44,7 +44,7 @@ export function ConfirmationAlerts({ bills }: ConfirmationAlertsProps) {
                 <div className="flex items-center gap-3 ml-4">
                   <div className="text-right">
                     <p className="text-base font-semibold">
-                      {formatCurrency(bill.amount)}
+                      {formatCurrency(Number(bill.amount))}
                     </p>
                     <Badge variant="destructive">
                       {days} days waiting

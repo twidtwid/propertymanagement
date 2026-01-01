@@ -173,7 +173,7 @@ export default async function InsurancePage() {
                           {policy.premium_amount ? (
                             <div>
                               <p className="font-medium">
-                                {formatCurrency(policy.premium_amount)}
+                                {formatCurrency(Number(policy.premium_amount))}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 /{policy.premium_frequency}
@@ -247,7 +247,7 @@ export default async function InsurancePage() {
                           {policy.premium_amount ? (
                             <div>
                               <p className="font-medium">
-                                {formatCurrency(policy.premium_amount)}
+                                {formatCurrency(Number(policy.premium_amount))}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 /{policy.premium_frequency}
@@ -312,7 +312,7 @@ export default async function InsurancePage() {
                         </TableCell>
                         <TableCell>
                           {policy.premium_amount
-                            ? formatCurrency(policy.premium_amount)
+                            ? formatCurrency(Number(policy.premium_amount))
                             : "-"}
                         </TableCell>
                         <TableCell>

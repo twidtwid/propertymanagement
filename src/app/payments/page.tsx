@@ -4,13 +4,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   getAllPayments,
   getPaymentsNeedingAttention,
+  getPaymentsAwaitingConfirmation,
   getActiveProperties,
   getActiveVehicles,
 } from "@/lib/actions"
 import { PaymentFilters } from "@/components/payments/payment-filters"
 import { PaymentTable } from "@/components/payments/payment-table"
 import { QuickActions } from "@/components/payments/quick-actions"
+import { AwaitingConfirmation } from "@/components/payments/awaiting-confirmation"
 import { AddBillButton } from "@/components/payments/add-bill-button"
+import { BankImportDialog } from "@/components/payments/bank-import-dialog"
 
 interface PaymentsPageProps {
   searchParams: Promise<{
@@ -25,15 +28,15 @@ interface PaymentsPageProps {
 async function PaymentsContent({ searchParams }: PaymentsPageProps) {
   const params = await searchParams
 
-  const [payments, attentionPayments, properties, vehicles] = await Promise.all([
+  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles] = await Promise.all([
     getAllPayments({
       category: params.category,
       status: params.status,
       propertyId: params.propertyId,
       search: params.search,
-      dateRange: params.dateRange as "week" | "month" | "quarter" | undefined,
     }),
     getPaymentsNeedingAttention(),
+    getPaymentsAwaitingConfirmation(),
     getActiveProperties(),
     getActiveVehicles(),
   ])
@@ -47,10 +50,15 @@ async function PaymentsContent({ searchParams }: PaymentsPageProps) {
             Track all bills, taxes, and payment confirmations
           </p>
         </div>
-        <AddBillButton properties={properties} vehicles={vehicles} />
+        <div className="flex items-center gap-2">
+          <BankImportDialog />
+          <AddBillButton properties={properties} vehicles={vehicles} />
+        </div>
       </div>
 
       <QuickActions paymentsNeedingAttention={attentionPayments} />
+
+      <AwaitingConfirmation payments={awaitingConfirmation} />
 
       <PaymentFilters properties={properties} />
 

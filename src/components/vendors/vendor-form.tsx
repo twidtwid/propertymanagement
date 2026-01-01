@@ -12,7 +12,7 @@ import { FormField, FormSelect, FormTextarea, SubmitButton } from "@/components/
 import { useToast } from "@/hooks/use-toast"
 import { createVendor, updateVendor, updateVendorProperties } from "@/lib/mutations"
 import { vendorSchema, type VendorFormData } from "@/lib/schemas"
-import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
+import { getVendorSpecialtyOptions } from "@/types/database"
 import type { Vendor, Property } from "@/types/database"
 import { Star, Home } from "lucide-react"
 
@@ -142,10 +142,7 @@ export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], 
             onChange={(value) =>
               setValue("specialty", value as VendorFormData["specialty"])
             }
-            options={Object.entries(VENDOR_SPECIALTY_LABELS).map(([value, label]) => ({
-              value,
-              label,
-            }))}
+            options={getVendorSpecialtyOptions()}
             error={errors.specialty?.message}
             required
           />

@@ -23,6 +23,7 @@ import type { UnifiedPayment } from "@/types/database"
 import { BILL_TYPE_LABELS, PAYMENT_STATUS_LABELS } from "@/types/database"
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils"
 import { ConfirmPaymentButton } from "./confirm-payment-button"
+import { MarkPaidButton } from "./mark-paid-button"
 
 interface PaymentTableProps {
   payments: UnifiedPayment[]
@@ -142,7 +143,7 @@ export function PaymentTable({ payments }: PaymentTableProps) {
                 </div>
               </TableCell>
               <TableCell className="text-right font-medium">
-                {formatCurrency(payment.amount)}
+                {formatCurrency(Number(payment.amount))}
               </TableCell>
               <TableCell>
                 <div className="flex flex-col gap-1">
@@ -158,10 +159,8 @@ export function PaymentTable({ payments }: PaymentTableProps) {
               </TableCell>
               <TableCell>
                 <div className="flex justify-end gap-2">
-                  {payment.status === "pending" && (
-                    <Button size="sm" variant="outline">
-                      Mark Paid
-                    </Button>
+                  {payment.status === "pending" && payment.source === "bill" && (
+                    <MarkPaidButton billId={payment.source_id} source={payment.source} />
                   )}
                   {payment.status === "sent" && payment.source === "bill" && (
                     <ConfirmPaymentButton billId={payment.source_id} />
