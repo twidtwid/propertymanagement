@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { QuickContact } from "@/components/dashboard/quick-contact"
 import { UpcomingPayments } from "@/components/dashboard/upcoming-payments"
