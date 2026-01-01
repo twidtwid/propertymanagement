@@ -27,6 +27,7 @@ export default function VerifyPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
+          credentials: "include",
         })
 
         const data = await response.json()
@@ -35,8 +36,8 @@ export default function VerifyPage() {
           setStatus("success")
           setMessage("Login successful! Redirecting...")
           setTimeout(() => {
-            router.push("/")
-            router.refresh()
+            // Use window.location for full page reload to pick up new cookie
+            window.location.href = "/"
           }, 1500)
         } else {
           setStatus("error")
