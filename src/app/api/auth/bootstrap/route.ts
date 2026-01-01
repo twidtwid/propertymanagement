@@ -36,6 +36,11 @@ export async function GET(request: NextRequest) {
   }
 
   // Set auth cookie
+  // Use COOKIE_SECURE env var to control secure flag (for HTTP testing in production)
+  const isSecure = process.env.COOKIE_SECURE === "false"
+    ? false
+    : process.env.NODE_ENV === "production"
+
   const cookieStore = cookies()
   cookieStore.set("auth_user", JSON.stringify({
     id: user.id,
@@ -44,7 +49,7 @@ export async function GET(request: NextRequest) {
     role: user.role,
   }), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: "/",
