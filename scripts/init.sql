@@ -74,6 +74,7 @@ CREATE TABLE properties (
   block_number TEXT, -- NYC Block
   lot_number TEXT,   -- NYC Lot
   parcel_id TEXT,    -- Generic parcel ID
+  tax_lookup_url TEXT,  -- URL to official tax lookup portal
   -- Mortgage
   has_mortgage BOOLEAN DEFAULT FALSE,
   mortgage_lender TEXT,
@@ -751,31 +752,34 @@ SELECT id, 2023, 'Dummerston, VT', 2, 4650.00, '2024-02-15', 'confirmed', '2024-
 FROM properties WHERE name = 'Vermont Main House';
 
 -- Property Taxes - Brooklyn Condo PH2E (421-a abatement through 2036)
+-- Data scraped from NYC Finance PTS Access Portal (a836-pts-access.nyc.gov) on 2026-01-01
+-- Tax Year = NYC Fiscal Year (July-June), e.g. tax_year 2026 = FY 2025-2026 = due July 1, 2025
 INSERT INTO property_taxes (property_id, tax_year, jurisdiction, installment, amount, due_date, status, payment_date, confirmation_date, notes)
-SELECT id, 2025, 'NYC', 1, 110.09, '2025-07-01', 'pending', NULL, NULL, '421-a abatement'
+SELECT id, 2026, 'NYC', 1, 151.91, '2025-07-01', 'confirmed', '2025-10-01', '2025-10-01', '421-a abatement. Paid via NYC Finance Oct 2025.'
 FROM properties WHERE name = 'Brooklyn Condo PH2E';
 INSERT INTO property_taxes (property_id, tax_year, jurisdiction, installment, amount, due_date, status, payment_date, confirmation_date, notes)
-SELECT id, 2024, 'NYC', 1, 108.50, '2024-07-01', 'confirmed', '2024-06-28', '2024-07-05', '421-a abatement'
+SELECT id, 2025, 'NYC', 1, 130.72, '2024-07-01', 'confirmed', '2024-08-01', '2024-08-01', '421-a abatement'
 FROM properties WHERE name = 'Brooklyn Condo PH2E';
 INSERT INTO property_taxes (property_id, tax_year, jurisdiction, installment, amount, due_date, status, payment_date, confirmation_date, notes)
-SELECT id, 2023, 'NYC', 1, 106.75, '2023-07-01', 'confirmed', '2023-06-25', '2023-07-03', '421-a abatement'
+SELECT id, 2024, 'NYC', 1, 128.90, '2023-07-01', 'confirmed', '2023-10-01', '2023-10-05', '421-a abatement'
 FROM properties WHERE name = 'Brooklyn Condo PH2E';
 INSERT INTO property_taxes (property_id, tax_year, jurisdiction, installment, amount, due_date, status, payment_date, confirmation_date, notes)
-SELECT id, 2022, 'NYC', 1, 104.25, '2022-07-01', 'confirmed', '2022-06-27', '2022-07-08', '421-a abatement'
+SELECT id, 2023, 'NYC', 1, 127.74, '2022-07-01', 'confirmed', '2022-07-01', '2022-07-08', '421-a abatement'
 FROM properties WHERE name = 'Brooklyn Condo PH2E';
 
 -- Property Taxes - Brooklyn Condo PH2F (421-a abatement through 2036)
+-- Data scraped from NYC Finance PTS Access Portal on 2026-01-01
 INSERT INTO property_taxes (property_id, tax_year, jurisdiction, installment, amount, due_date, status, payment_date, confirmation_date, notes)
-SELECT id, 2025, 'NYC', 1, 120.04, '2025-07-01', 'pending', NULL, NULL, '421-a abatement'
+SELECT id, 2026, 'NYC', 1, 120.04, '2025-07-01', 'confirmed', '2025-06-26', '2025-07-01', '421-a abatement. Paid via NYC Finance Jun 2025.'
 FROM properties WHERE name = 'Brooklyn Condo PH2F';
 INSERT INTO property_taxes (property_id, tax_year, jurisdiction, installment, amount, due_date, status, payment_date, confirmation_date, notes)
-SELECT id, 2024, 'NYC', 1, 118.25, '2024-07-01', 'confirmed', '2024-06-28', '2024-07-05', '421-a abatement'
+SELECT id, 2025, 'NYC', 1, 120.83, '2024-07-01', 'confirmed', '2024-07-14', '2024-07-16', '421-a abatement'
 FROM properties WHERE name = 'Brooklyn Condo PH2F';
 INSERT INTO property_taxes (property_id, tax_year, jurisdiction, installment, amount, due_date, status, payment_date, confirmation_date, notes)
-SELECT id, 2023, 'NYC', 1, 116.50, '2023-07-01', 'confirmed', '2023-06-25', '2023-07-03', '421-a abatement'
+SELECT id, 2024, 'NYC', 1, 117.86, '2023-07-01', 'confirmed', '2023-07-05', '2023-07-07', '421-a abatement'
 FROM properties WHERE name = 'Brooklyn Condo PH2F';
 INSERT INTO property_taxes (property_id, tax_year, jurisdiction, installment, amount, due_date, status, payment_date, confirmation_date, notes)
-SELECT id, 2022, 'NYC', 1, 114.00, '2022-07-01', 'confirmed', '2022-06-27', '2022-07-08', '421-a abatement'
+SELECT id, 2023, 'NYC', 1, 117.17, '2022-07-01', 'confirmed', '2022-06-21', '2022-07-01', '421-a abatement'
 FROM properties WHERE name = 'Brooklyn Condo PH2F';
 
 -- Property Taxes - Rhode Island House (quarterly)

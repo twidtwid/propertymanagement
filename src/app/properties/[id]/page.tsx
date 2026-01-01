@@ -22,6 +22,7 @@ import {
   Wrench,
   ClipboardList,
   Receipt,
+  ExternalLink,
 } from "lucide-react"
 import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory } from "@/lib/actions"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -170,6 +171,19 @@ export default async function PropertyDetailPage({
               !property.parcel_id && (
                 <p className="text-muted-foreground">No tax IDs on file</p>
               )}
+            {property.tax_lookup_url && (
+              <div className="pt-2 border-t">
+                <a
+                  href={property.tax_lookup_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View Tax Portal
+                </a>
+              </div>
+            )}
           </CardContent>
         </Card>
 

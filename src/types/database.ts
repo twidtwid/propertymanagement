@@ -48,6 +48,7 @@ export interface Property {
   block_number: string | null
   lot_number: string | null
   parcel_id: string | null
+  tax_lookup_url: string | null  // URL to official tax lookup portal
   has_mortgage: boolean
   mortgage_lender: string | null
   mortgage_account: string | null

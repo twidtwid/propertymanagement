@@ -55,6 +55,7 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
           block_number: property.block_number || "",
           lot_number: property.lot_number || "",
           parcel_id: property.parcel_id || "",
+          tax_lookup_url: property.tax_lookup_url || "",
           has_mortgage: property.has_mortgage || false,
           mortgage_lender: property.mortgage_lender || "",
           mortgage_account: property.mortgage_account || "",
@@ -217,6 +218,13 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
               error={errors.lot_number?.message}
             />
           </div>
+          <FormField
+            label="Tax Lookup URL"
+            {...register("tax_lookup_url")}
+            error={errors.tax_lookup_url?.message}
+            placeholder="https://..."
+            description="Link to official tax lookup portal for this property"
+          />
         </CardContent>
       </Card>
 

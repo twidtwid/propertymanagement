@@ -20,6 +20,7 @@ export const propertySchema = z.object({
   block_number: z.string().max(50).nullable().optional(),
   lot_number: z.string().max(50).nullable().optional(),
   parcel_id: z.string().max(50).nullable().optional(),
+  tax_lookup_url: z.string().url("Invalid URL").or(z.literal("")).nullable().optional(),
   has_mortgage: z.boolean().default(false),
   mortgage_lender: z.string().max(100).nullable().optional(),
   mortgage_account: z.string().max(50).nullable().optional(),

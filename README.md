@@ -100,15 +100,17 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ## Users
 
-Quick login buttons are available on the login page:
+Authentication uses magic links (passwordless). Enter your email and click the link sent to your inbox.
 
 | User | Email | Role | Access |
 |------|-------|------|--------|
 | Anne | anne@annespalter.com | Owner | Full access |
 | Todd | todd@dailey.info | Owner | Full access |
-| Michael | michael@example.com | Owner | Full access |
-| Amelia | amelia@example.com | Owner | Full access |
+| Michael | michael@michaelspalter.com | Owner | Full access |
+| Amelia | amelia.spalter@gmail.com | Owner | Full access |
 | Barbara Brady | barbara@cbiz.com | Bookkeeper | Bills & payments only |
+
+**Note:** Magic link emails are sent via Gmail OAuth. Ensure `NOTIFICATION_EMAIL` is configured and Gmail is connected.
 
 ---
 
@@ -221,6 +223,35 @@ docker exec -i propertymanagement-db-1 psql -U postgres -d propertymanagement < 
 | insurance_policies | Policy tracking with expiration alerts |
 | vendor_communications | Synced Gmail messages |
 | shared_task_lists | Contractor task lists |
+| user_audit_log | User action audit trail |
+
+---
+
+## Logging & Audit System
+
+The application includes a comprehensive logging and audit system:
+
+### User Audit Log
+- Full audit trail of all user actions stored in `user_audit_log` table
+- Tracks: who did what, when, with full change history (old/new values)
+- Query examples in CLAUDE.md
+
+### System Logging
+- Structured JSON logging (production) or pretty console output (development)
+- Request correlation IDs for tracing requests through the system
+- Automatic logging of API requests and responses
+- Sensitive field redaction (tokens, passwords)
+
+### Key Files
+```
+src/lib/logger/
+├── index.ts          # Core structured logger (console-based for Next.js compatibility)
+├── context.ts        # Request context (AsyncLocalStorage)
+├── contextual.ts     # Context-aware getLogger()
+├── audit.ts          # Audit service for user_audit_log
+├── api-wrapper.ts    # withLogging() for API routes
+└── action-wrapper.ts # withAudit() for mutations
+```
 
 ---
 
@@ -263,7 +294,10 @@ docker exec -i propertymanagement-db-1 psql -U postgres -d propertymanagement < 
 | `scripts/init.sql` | Database schema and seed data |
 | `scripts/sync-emails.js` | Standalone email sync (for cron) |
 | `scripts/import-emails.js` | Historical email import |
+| `scripts/daily-summary-scheduler.js` | Daily summary report scheduler |
 | `scripts/lookup_scc_tax.py` | Playwright automation for Santa Clara tax lookup |
+| `scripts/backup-db.sh` | Database backup with retention |
+| `scripts/deploy.sh` | Production deployment automation |
 
 ---
 
@@ -274,6 +308,114 @@ docker exec -i propertymanagement-db-1 psql -U postgres -d propertymanagement < 
 | app | Next.js application | 3000 |
 | db | PostgreSQL database | 5432 |
 | email-sync | Gmail sync (every 10 min) | - |
+| daily-summary | Daily report scheduler | - |
+
+---
+
+## Production Deployment (DigitalOcean)
+
+This section covers deploying to a DigitalOcean Droplet with automatic HTTPS via Caddy.
+
+### Requirements
+
+- DigitalOcean Droplet (Ubuntu 24.04 LTS, 2GB+ RAM recommended)
+- Domain name pointed to your droplet
+- SSH access
+
+### Server Setup
+
+```bash
+# 1. Create deploy user and security setup
+adduser deploy
+usermod -aG sudo deploy
+usermod -aG docker deploy
+
+# 2. Install Docker
+curl -fsSL https://get.docker.com | sh
+
+# 3. Install Caddy (reverse proxy with auto-HTTPS)
+apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+apt update && apt install caddy -y
+
+# 4. Configure firewall
+ufw allow OpenSSH
+ufw allow 80
+ufw allow 443
+ufw enable
+```
+
+### Application Deployment
+
+```bash
+# As deploy user
+cd /home/deploy
+git clone https://github.com/twidtwid/propertymanagement.git app
+cd app
+
+# Configure environment
+cp .env.example .env.production
+nano .env.production  # Fill in all values
+
+# Build and start
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### Caddy Configuration
+
+Copy `Caddyfile` to `/etc/caddy/Caddyfile`, update the domain name, then:
+
+```bash
+sudo systemctl reload caddy
+```
+
+### Daily Backups
+
+Set up automated database backups:
+
+```bash
+# Add to crontab (daily at 2 AM)
+crontab -e
+0 2 * * * /home/deploy/app/scripts/backup-db.sh >> /var/log/backup.log 2>&1
+```
+
+### Deployment Updates
+
+```bash
+# Standard deployment (with backup)
+./scripts/deploy.sh
+
+# Quick deployment (skip backup)
+./scripts/deploy.sh --quick
+
+# Rollback to previous version
+./scripts/deploy.sh --rollback
+```
+
+### Health Monitoring
+
+- Health endpoint: `https://your-domain.com/api/health`
+- Use DigitalOcean Uptime Monitoring or UptimeRobot
+- Alert on non-200 responses
+
+### Production Files
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.prod.yml` | Production Docker orchestration |
+| `.env.example` | Environment variable template |
+| `Caddyfile` | Reverse proxy configuration |
+| `scripts/backup-db.sh` | Database backup script |
+| `scripts/deploy.sh` | Deployment automation |
+
+### Gmail OAuth (Production)
+
+1. Update Google Cloud Console with production domain
+2. Add `https://your-domain.com/api/auth/gmail/callback` to authorized redirect URIs
+3. Set `GOOGLE_REDIRECT_URI` in `.env.production`
+4. Complete OAuth flow at `/settings/gmail`
 
 ---
 
@@ -281,6 +423,8 @@ docker exec -i propertymanagement-db-1 psql -U postgres -d propertymanagement < 
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v0.7.0 | Dec 2025 | Production deployment preparation (Docker Compose, Caddy, backup scripts) |
+| v0.6.0 | Dec 2025 | Comprehensive logging & audit system (structured logging + user_audit_log) |
 | v0.5.0 | Dec 2025 | BuildingLink page, vendor category cleanup, 7 new specialties |
 | v0.4.0 | Dec 2025 | Daily summary reports, vendor journal |
 | v0.3.0 | Dec 2025 | Gmail integration, email sync |
