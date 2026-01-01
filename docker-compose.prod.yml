@@ -8,6 +8,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     restart: always
     ports:
       - "3000:3000"
