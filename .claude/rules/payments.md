@@ -45,12 +45,57 @@ pending → sent → confirmed
 
 ## Tax Lookup Methods
 
-| Jurisdiction | Method | API/URL |
-|--------------|--------|---------|
-| NYC | NYC Open Data API | `data.cityofnewyork.us/resource/8y4t-faws.json` |
-| Providence RI | Manual lookup | `providenceri.gov/tax-calculator` |
-| Vermont | NEMRC Database | `nemrc.info/web_data/vtdumm/searchT.php` |
-| Santa Clara CA | Playwright script | `scripts/lookup_scc_tax.py` (requires browser automation) |
+| Jurisdiction | Method | Status | Script/API |
+|--------------|--------|--------|------------|
+| NYC | NYC Open Data API | ✅ Working | `src/lib/taxes/providers/nyc-open-data.ts` |
+| Santa Clara CA | Playwright | ✅ Working | `scripts/lookup_scc_tax.py` |
+| Providence RI | City Hall Systems | ✅ Working | `scripts/lookup_providence_tax.py` |
+| Vermont (Dummerston) | NEMRC | ✅ Working | `scripts/lookup_vermont_tax.py` |
+| Vermont (Brattleboro) | AxisGIS | ❌ Manual | `axisgis.com/BrattleboroVT/` |
+
+### Automated Tax Sync System
+
+**Architecture:**
+1. NYC syncs via web app API (serverless-compatible)
+2. Other jurisdictions use external Python/Playwright scripts
+3. Scripts POST results to `/api/taxes/sync/callback`
+4. Callback syncs data to both `tax_lookup_results` AND `property_taxes` tables
+5. `property_taxes` feeds the calendar and payments UI
+
+**Database Tables:**
+- `tax_lookup_configs` - Per-property lookup configuration
+- `tax_lookup_results` - Synced tax data (assessed values, amounts, installments)
+- `tax_sync_log` - Audit log of all sync attempts
+- `property_taxes` - Payment entries shown on calendar/payments
+
+**API Endpoints:**
+- `POST /api/cron/sync-taxes` - Run NYC tax sync
+- `POST /api/taxes/sync/callback` - Receive results from external scrapers
+- Uses `CRON_SECRET` for authentication
+
+**Running Tax Sync:**
+```bash
+npm run tax:sync:live      # Run all scrapers, post to local app
+npm run tax:sync:scc       # Santa Clara only
+npm run tax:sync:providence # Providence only
+npm run tax:sync:vermont   # Vermont only
+```
+
+**Weekly Cron (macOS/Linux):**
+```bash
+# Add to crontab -e
+0 6 * * 1 cd /Users/toddhome/repo/propertymanagement && python3 scripts/sync_all_taxes.py --callback http://localhost:3000/api/taxes/sync/callback
+```
+
+**Manual Sync:**
+```bash
+curl -X POST http://localhost:3000/api/cron/sync-taxes
+```
+
+**Provider Implementation Files:**
+- `src/lib/taxes/providers/nyc-open-data.ts` - NYC Open Data API
+- `src/lib/taxes/providers/santa-clara-county.ts` - SCC (requires Playwright)
+- `src/lib/taxes/sync.ts` - Main sync orchestration
 
 ## Bill Types
 

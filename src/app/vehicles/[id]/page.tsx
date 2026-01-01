@@ -11,9 +11,12 @@ import {
   MapPin,
   FileText,
   AlertTriangle,
+  Shield,
+  DollarSign,
 } from "lucide-react"
-import { getVehicle } from "@/lib/actions"
-import { formatDate, daysUntil } from "@/lib/utils"
+import { getVehicle, getInsurancePoliciesForVehicle } from "@/lib/actions"
+import { formatDate, formatCurrency, daysUntil } from "@/lib/utils"
+import { INSURANCE_TYPE_LABELS, RECURRENCE_LABELS } from "@/types/database"
 
 export default async function VehicleDetailPage({
   params,
@@ -21,7 +24,10 @@ export default async function VehicleDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const vehicle = await getVehicle(id)
+  const [vehicle, insurancePolicies] = await Promise.all([
+    getVehicle(id),
+    getInsurancePoliciesForVehicle(id),
+  ])
 
   if (!vehicle) {
     notFound()
@@ -154,21 +160,132 @@ export default async function VehicleDetailPage({
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Location
+              Location & Value
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {vehicle.garage_location ? (
+            {vehicle.garage_location && (
               <div>
                 <p className="text-sm text-muted-foreground">Garage Location</p>
                 <p className="text-base font-medium">{vehicle.garage_location}</p>
               </div>
-            ) : (
-              <p className="text-muted-foreground">No location on file</p>
+            )}
+            {vehicle.agreed_value && (
+              <div>
+                <p className="text-sm text-muted-foreground">Insurance Agreed Value</p>
+                <p className="text-base font-medium">{formatCurrency(vehicle.agreed_value)}</p>
+              </div>
+            )}
+            {!vehicle.garage_location && !vehicle.agreed_value && (
+              <p className="text-muted-foreground">No location or value on file</p>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Insurance Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Insurance
+          </CardTitle>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/insurance/new?vehicle_id=${vehicle.id}`}>
+              Add Policy
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {insurancePolicies.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">
+              No insurance policies on file
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {insurancePolicies.map((policy) => {
+                const expDate = policy.expiration_date ? new Date(policy.expiration_date) : null
+                const today = new Date()
+                const policyDaysUntil = expDate
+                  ? Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                  : null
+
+                return (
+                  <Link
+                    key={policy.id}
+                    href={`/insurance/${policy.id}`}
+                    className="block p-4 rounded-xl border hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{policy.carrier_name}</span>
+                          <Badge variant="outline">
+                            {INSURANCE_TYPE_LABELS[policy.policy_type]}
+                          </Badge>
+                          {policyDaysUntil !== null && policyDaysUntil <= 60 && (
+                            <Badge variant={policyDaysUntil <= 0 ? "destructive" : "warning"}>
+                              {policyDaysUntil <= 0 ? "Expired" : `Expires in ${policyDaysUntil}d`}
+                            </Badge>
+                          )}
+                        </div>
+                        {policy.policy_number && (
+                          <p className="text-sm text-muted-foreground font-mono">
+                            Policy #{policy.policy_number}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {policy.premium_amount && (
+                          <p className="font-medium">
+                            {formatCurrency(policy.premium_amount)}
+                            <span className="text-sm text-muted-foreground">
+                              /{RECURRENCE_LABELS[policy.premium_frequency].toLowerCase().replace("-", "")}
+                            </span>
+                          </p>
+                        )}
+                        {policy.expiration_date && (
+                          <p className="text-sm text-muted-foreground">
+                            Expires {formatDate(policy.expiration_date)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {policy.coverage_details && Object.keys(policy.coverage_details).length > 0 && (
+                      <div className="mt-3 pt-3 border-t grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        {policy.coverage_details.collision !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Collision:</span>{" "}
+                            {formatCurrency(policy.coverage_details.collision)}
+                          </div>
+                        )}
+                        {policy.coverage_details.comprehensive !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Comprehensive:</span>{" "}
+                            {formatCurrency(policy.coverage_details.comprehensive)}
+                          </div>
+                        )}
+                        {policy.coverage_details.bodily_injury !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Bodily Injury:</span>{" "}
+                            {formatCurrency(policy.coverage_details.bodily_injury)}
+                          </div>
+                        )}
+                        {policy.coverage_details.property_damage !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Property Damage:</span>{" "}
+                            {formatCurrency(policy.coverage_details.property_damage)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Alerts Section */}
       {((regDays !== null && regDays <= 30) ||

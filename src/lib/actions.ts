@@ -1,6 +1,11 @@
 "use server"
 
 import { query, queryOne } from "./db"
+import {
+  getVisibilityContext,
+  getVisibleVehicleIds,
+  getVisibleVendorIds,
+} from "./visibility"
 import type {
   Property,
   Vehicle,
@@ -17,47 +22,95 @@ import type {
 
 // Properties
 export async function getProperties(): Promise<Property[]> {
-  return query<Property>("SELECT * FROM properties ORDER BY name")
+  const ctx = await getVisibilityContext()
+  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
+
+  return query<Property>(
+    `SELECT * FROM properties WHERE id = ANY($1::uuid[]) ORDER BY name`,
+    [ctx.visiblePropertyIds]
+  )
 }
 
 export async function getProperty(id: string): Promise<Property | null> {
+  const ctx = await getVisibilityContext()
+  if (!ctx || !ctx.visiblePropertyIds.includes(id)) return null
+
   return queryOne<Property>("SELECT * FROM properties WHERE id = $1", [id])
 }
 
 export async function getActiveProperties(): Promise<Property[]> {
-  return query<Property>("SELECT * FROM properties WHERE status = 'active' ORDER BY name")
+  const ctx = await getVisibilityContext()
+  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
+
+  return query<Property>(
+    `SELECT * FROM properties WHERE status = 'active' AND id = ANY($1::uuid[]) ORDER BY name`,
+    [ctx.visiblePropertyIds]
+  )
 }
 
 // Vehicles
 export async function getVehicles(): Promise<Vehicle[]> {
-  return query<Vehicle>("SELECT * FROM vehicles ORDER BY year DESC, make, model")
+  const visibleIds = await getVisibleVehicleIds()
+  if (visibleIds.length === 0) return []
+
+  return query<Vehicle>(
+    `SELECT * FROM vehicles WHERE id = ANY($1::uuid[]) ORDER BY year DESC, make, model`,
+    [visibleIds]
+  )
 }
 
 export async function getVehicle(id: string): Promise<Vehicle | null> {
+  const visibleIds = await getVisibleVehicleIds()
+  if (!visibleIds.includes(id)) return null
+
   return queryOne<Vehicle>("SELECT * FROM vehicles WHERE id = $1", [id])
 }
 
 export async function getActiveVehicles(): Promise<Vehicle[]> {
-  return query<Vehicle>("SELECT * FROM vehicles WHERE is_active = TRUE ORDER BY year DESC, make, model")
+  const visibleIds = await getVisibleVehicleIds()
+  if (visibleIds.length === 0) return []
+
+  return query<Vehicle>(
+    `SELECT * FROM vehicles WHERE is_active = TRUE AND id = ANY($1::uuid[]) ORDER BY year DESC, make, model`,
+    [visibleIds]
+  )
 }
 
 // Vendors
 export async function getVendors(): Promise<Vendor[]> {
-  return query<Vendor>("SELECT * FROM vendors ORDER BY name")
+  const visibleIds = await getVisibleVendorIds()
+  if (visibleIds.length === 0) return []
+
+  return query<Vendor>(
+    `SELECT * FROM vendors WHERE id = ANY($1::uuid[]) ORDER BY name`,
+    [visibleIds]
+  )
 }
 
 export async function getVendor(id: string): Promise<Vendor | null> {
+  const visibleIds = await getVisibleVendorIds()
+  if (!visibleIds.includes(id)) return null
+
   return queryOne<Vendor>("SELECT * FROM vendors WHERE id = $1", [id])
 }
 
 export async function getActiveVendors(): Promise<Vendor[]> {
-  return query<Vendor>("SELECT * FROM vendors WHERE is_active = TRUE ORDER BY name")
+  const visibleIds = await getVisibleVendorIds()
+  if (visibleIds.length === 0) return []
+
+  return query<Vendor>(
+    `SELECT * FROM vendors WHERE is_active = TRUE AND id = ANY($1::uuid[]) ORDER BY name`,
+    [visibleIds]
+  )
 }
 
 export async function getVendorsBySpecialty(specialty: string): Promise<Vendor[]> {
+  const visibleIds = await getVisibleVendorIds()
+  if (visibleIds.length === 0) return []
+
   return query<Vendor>(
-    "SELECT * FROM vendors WHERE specialty = $1 AND is_active = TRUE ORDER BY rating DESC NULLS LAST, name",
-    [specialty]
+    `SELECT * FROM vendors WHERE specialty = $1 AND is_active = TRUE AND id = ANY($2::uuid[]) ORDER BY rating DESC NULLS LAST, name`,
+    [specialty, visibleIds]
   )
 }
 
@@ -74,7 +127,14 @@ interface VendorFilters {
 
 // Get vendors with filters and location info
 export async function getVendorsFiltered(filters?: VendorFilters): Promise<VendorWithLocations[]> {
+  const visibleVendorIds = await getVisibleVendorIds()
+  if (visibleVendorIds.length === 0) return []
+
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
   // Base query gets vendors with their associated property locations
+  // Only include locations from visible properties
   const vendors = await query<Vendor & { property_locations: string | null }>(`
     SELECT
       v.*,
@@ -87,10 +147,11 @@ export async function getVendorsFiltered(filters?: VendorFilters): Promise<Vendo
       ) as property_locations
     FROM vendors v
     LEFT JOIN property_vendors pv ON v.id = pv.vendor_id
-    LEFT JOIN properties p ON pv.property_id = p.id
+    LEFT JOIN properties p ON pv.property_id = p.id AND p.id = ANY($2::uuid[])
+    WHERE v.id = ANY($1::uuid[])
     GROUP BY v.id
     ORDER BY v.name
-  `)
+  `, [visibleVendorIds, ctx.visiblePropertyIds])
 
   // Transform and filter in memory
   let result: VendorWithLocations[] = vendors.map(v => ({
@@ -299,27 +360,39 @@ export async function getBillsNeedingConfirmation(): Promise<Bill[]> {
 
 // Property Taxes
 export async function getPropertyTaxes(): Promise<PropertyTax[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
+
   return query<PropertyTax>(
     `SELECT pt.*, row_to_json(p.*) as property
      FROM property_taxes pt
      JOIN properties p ON pt.property_id = p.id
-     ORDER BY pt.due_date`
+     WHERE pt.property_id = ANY($1::uuid[])
+     ORDER BY pt.due_date`,
+    [ctx.visiblePropertyIds]
   )
 }
 
 export async function getUpcomingPropertyTaxes(days: number = 90): Promise<PropertyTax[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
+
   return query<PropertyTax>(
     `SELECT pt.*, row_to_json(p.*) as property
      FROM property_taxes pt
      JOIN properties p ON pt.property_id = p.id
      WHERE pt.status = 'pending'
        AND pt.due_date <= CURRENT_DATE + ($1::INTEGER)
+       AND pt.property_id = ANY($2::uuid[])
      ORDER BY pt.due_date`,
-    [days]
+    [days, ctx.visiblePropertyIds]
   )
 }
 
 export async function getPropertyTaxHistory(propertyId: string): Promise<PropertyTax[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx || !ctx.visiblePropertyIds.includes(propertyId)) return []
+
   return query<PropertyTax>(
     `SELECT * FROM property_taxes
      WHERE property_id = $1
@@ -330,24 +403,84 @@ export async function getPropertyTaxHistory(propertyId: string): Promise<Propert
 
 // Insurance
 export async function getInsurancePolicies(): Promise<InsurancePolicy[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
   return query<InsurancePolicy>(
     `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
      FROM insurance_policies ip
      LEFT JOIN properties p ON ip.property_id = p.id
      LEFT JOIN vehicles v ON ip.vehicle_id = v.id
-     ORDER BY ip.expiration_date`
+     WHERE (
+       (ip.property_id IS NULL AND ip.vehicle_id IS NULL) OR
+       (ip.property_id IS NOT NULL AND ip.property_id = ANY($1::uuid[])) OR
+       (ip.vehicle_id IS NOT NULL AND ip.vehicle_id = ANY($2::uuid[]))
+     )
+     ORDER BY ip.expiration_date`,
+    [ctx.visiblePropertyIds, visibleVehicleIds]
   )
 }
 
 export async function getExpiringPolicies(days: number = 60): Promise<InsurancePolicy[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
   return query<InsurancePolicy>(
     `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
      FROM insurance_policies ip
      LEFT JOIN properties p ON ip.property_id = p.id
      LEFT JOIN vehicles v ON ip.vehicle_id = v.id
      WHERE ip.expiration_date <= CURRENT_DATE + ($1::INTEGER)
+       AND (
+         (ip.property_id IS NULL AND ip.vehicle_id IS NULL) OR
+         (ip.property_id IS NOT NULL AND ip.property_id = ANY($2::uuid[])) OR
+         (ip.vehicle_id IS NOT NULL AND ip.vehicle_id = ANY($3::uuid[]))
+       )
      ORDER BY ip.expiration_date`,
-    [days]
+    [days, ctx.visiblePropertyIds, visibleVehicleIds]
+  )
+}
+
+export async function getInsurancePolicy(id: string): Promise<InsurancePolicy | null> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return null
+
+  const results = await query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     WHERE ip.id = $1`,
+    [id]
+  )
+  return results[0] || null
+}
+
+export async function getInsurancePoliciesForProperty(propertyId: string): Promise<InsurancePolicy[]> {
+  return query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     WHERE ip.property_id = $1
+     ORDER BY ip.expiration_date`,
+    [propertyId]
+  )
+}
+
+export async function getInsurancePoliciesForVehicle(vehicleId: string): Promise<InsurancePolicy[]> {
+  return query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     WHERE ip.vehicle_id = $1
+     ORDER BY ip.expiration_date`,
+    [vehicleId]
   )
 }
 
@@ -776,19 +909,40 @@ export async function globalSearch(searchTerm: string): Promise<SearchResult[]> 
 
 // Dashboard Stats
 export async function getDashboardStats() {
+  const ctx = await getVisibilityContext()
+  if (!ctx) {
+    return { properties: 0, vehicles: 0, upcomingBills: 0, urgentTasks: 0 }
+  }
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
   const [
     propertyCount,
     vehicleCount,
     upcomingBillsCount,
     urgentTasksCount,
   ] = await Promise.all([
-    queryOne<{ count: string }>("SELECT COUNT(*) as count FROM properties WHERE status = 'active'"),
-    queryOne<{ count: string }>("SELECT COUNT(*) as count FROM vehicles WHERE is_active = TRUE"),
     queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM bills WHERE status = 'pending' AND due_date <= CURRENT_DATE + 30"
+      "SELECT COUNT(*) as count FROM properties WHERE status = 'active' AND id = ANY($1::uuid[])",
+      [ctx.visiblePropertyIds]
     ),
     queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM maintenance_tasks WHERE status IN ('pending', 'in_progress') AND priority IN ('urgent', 'high')"
+      "SELECT COUNT(*) as count FROM vehicles WHERE is_active = TRUE AND id = ANY($1::uuid[])",
+      [visibleVehicleIds]
+    ),
+    queryOne<{ count: string }>(
+      `SELECT COUNT(*) as count FROM bills
+       WHERE status = 'pending' AND due_date <= CURRENT_DATE + 30
+         AND (property_id IS NULL OR property_id = ANY($1::uuid[]))
+         AND (vehicle_id IS NULL OR vehicle_id = ANY($2::uuid[]))`,
+      [ctx.visiblePropertyIds, visibleVehicleIds]
+    ),
+    queryOne<{ count: string }>(
+      `SELECT COUNT(*) as count FROM maintenance_tasks
+       WHERE status IN ('pending', 'in_progress') AND priority IN ('urgent', 'high')
+         AND (property_id IS NULL OR property_id = ANY($1::uuid[]))
+         AND (vehicle_id IS NULL OR vehicle_id = ANY($2::uuid[]))`,
+      [ctx.visiblePropertyIds, visibleVehicleIds]
     ),
   ])
 

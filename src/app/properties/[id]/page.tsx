@@ -23,10 +23,11 @@ import {
   ClipboardList,
   Receipt,
   ExternalLink,
+  Shield,
 } from "lucide-react"
-import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory } from "@/lib/actions"
+import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory, getInsurancePoliciesForProperty } from "@/lib/actions"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { PROPERTY_TYPE_LABELS, VENDOR_SPECIALTY_LABELS } from "@/types/database"
+import { PROPERTY_TYPE_LABELS, VENDOR_SPECIALTY_LABELS, INSURANCE_TYPE_LABELS, RECURRENCE_LABELS } from "@/types/database"
 
 export default async function PropertyDetailPage({
   params,
@@ -40,10 +41,11 @@ export default async function PropertyDetailPage({
     notFound()
   }
 
-  const [vendors, taskLists, taxHistory] = await Promise.all([
+  const [vendors, taskLists, taxHistory, insurancePolicies] = await Promise.all([
     getPropertyVendors(id),
     getSharedTaskListsForProperty(id),
     getPropertyTaxHistory(id),
+    getInsurancePoliciesForProperty(id),
   ])
 
   return (
@@ -272,6 +274,10 @@ export default async function PropertyDetailPage({
             <ClipboardList className="h-4 w-4" />
             Task Lists ({taskLists.length})
           </TabsTrigger>
+          <TabsTrigger value="insurance" className="gap-2">
+            <Shield className="h-4 w-4" />
+            Insurance ({insurancePolicies.length})
+          </TabsTrigger>
           <TabsTrigger value="maintenance" className="gap-2">
             <Wrench className="h-4 w-4" />
             Maintenance
@@ -429,6 +435,102 @@ export default async function PropertyDetailPage({
                     </Link>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="insurance">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Insurance Policies</CardTitle>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/insurance/new?property_id=${property.id}`}>
+                  Add Policy
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {insurancePolicies.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No insurance policies for this property
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Carrier</TableHead>
+                      <TableHead>Policy #</TableHead>
+                      <TableHead>Coverage</TableHead>
+                      <TableHead>Premium</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {insurancePolicies.map((policy) => {
+                      const expDate = policy.expiration_date ? new Date(policy.expiration_date) : null
+                      const today = new Date()
+                      const daysUntil = expDate
+                        ? Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                        : null
+                      const statusVariant = !expDate
+                        ? "secondary"
+                        : daysUntil && daysUntil < 0
+                        ? "destructive"
+                        : daysUntil && daysUntil <= 60
+                        ? "warning"
+                        : "success"
+                      const statusText = !expDate
+                        ? "No date"
+                        : daysUntil && daysUntil < 0
+                        ? "Expired"
+                        : daysUntil && daysUntil <= 30
+                        ? `${daysUntil}d`
+                        : "Active"
+
+                      return (
+                        <TableRow key={policy.id}>
+                          <TableCell>
+                            <Link href={`/insurance/${policy.id}`} className="block">
+                              <Badge variant="outline">
+                                {INSURANCE_TYPE_LABELS[policy.policy_type]}
+                              </Badge>
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            <Link href={`/insurance/${policy.id}`} className="block font-medium hover:underline">
+                              {policy.carrier_name}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {policy.policy_number || "—"}
+                          </TableCell>
+                          <TableCell>
+                            {policy.coverage_amount ? formatCurrency(policy.coverage_amount) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {policy.premium_amount ? (
+                              <>
+                                {formatCurrency(policy.premium_amount)}
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  /{RECURRENCE_LABELS[policy.premium_frequency].toLowerCase().replace("-", "")}
+                                </span>
+                              </>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {policy.expiration_date ? formatDate(policy.expiration_date) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={statusVariant}>{statusText}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

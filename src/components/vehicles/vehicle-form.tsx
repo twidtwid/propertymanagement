@@ -3,22 +3,30 @@
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { FormField, FormTextarea, SubmitButton } from "@/components/forms"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { createVehicle, updateVehicle } from "@/lib/mutations"
 import { vehicleSchema, type VehicleFormData } from "@/lib/schemas"
-import type { Vehicle } from "@/types/database"
+import type { Vehicle, Property } from "@/types/database"
 
 interface VehicleFormProps {
   vehicle?: Vehicle
+  properties?: Property[]
   onSuccess?: (vehicle: Vehicle) => void
 }
 
-export function VehicleForm({ vehicle, onSuccess }: VehicleFormProps) {
+export function VehicleForm({ vehicle, properties = [], onSuccess }: VehicleFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const isEditing = !!vehicle
@@ -43,6 +51,7 @@ export function VehicleForm({ vehicle, onSuccess }: VehicleFormProps) {
           registration_expires: vehicle.registration_expires || "",
           inspection_expires: vehicle.inspection_expires || "",
           garage_location: vehicle.garage_location || "",
+          property_id: vehicle.property_id || undefined,
           notes: vehicle.notes || "",
           is_active: vehicle.is_active,
         }
@@ -190,6 +199,31 @@ export function VehicleForm({ vehicle, onSuccess }: VehicleFormProps) {
             error={errors.garage_location?.message}
             placeholder="NYC Garage spot #43"
           />
+
+          {properties.length > 0 && (
+            <div className="space-y-2">
+              <Label>Home Property</Label>
+              <Select
+                value={watch("property_id") || "none"}
+                onValueChange={(value) => setValue("property_id", value === "none" ? undefined : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select home property (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {properties.map((property) => (
+                    <SelectItem key={property.id} value={property.id}>
+                      {property.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Vehicle inherits visibility settings from this property
+              </p>
+            </div>
+          )}
 
           <FormTextarea
             label="Notes"

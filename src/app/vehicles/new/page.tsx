@@ -2,8 +2,11 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { VehicleForm } from "@/components/vehicles/vehicle-form"
+import { getActiveProperties } from "@/lib/actions"
 
-export default function NewVehiclePage() {
+export default async function NewVehiclePage() {
+  const properties = await getActiveProperties()
+
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
@@ -20,7 +23,7 @@ export default function NewVehiclePage() {
         </div>
       </div>
 
-      <VehicleForm />
+      <VehicleForm properties={properties} />
     </div>
   )
 }

@@ -69,9 +69,10 @@ export default async function InsurancePage() {
               {expiring.map((policy) => {
                 const days = daysUntil(policy.expiration_date!)
                 return (
-                  <div
+                  <Link
                     key={policy.id}
-                    className="flex items-center justify-between p-4 rounded-xl border border-amber-200 bg-white"
+                    href={`/insurance/${policy.id}`}
+                    className="flex items-center justify-between p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       {policy.property_id ? (
@@ -104,7 +105,7 @@ export default async function InsurancePage() {
                         <Badge variant="outline">Auto-renew</Badge>
                       )}
                     </div>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
@@ -153,18 +154,20 @@ export default async function InsurancePage() {
                       : null
                     return (
                       <TableRow key={policy.id}>
-                        <TableCell className="font-medium">
-                          {policy.property?.name}
+                        <TableCell>
+                          <Link href={`/insurance/${policy.id}`} className="font-medium hover:underline">
+                            {policy.property?.name}
+                          </Link>
                         </TableCell>
                         <TableCell>
-                          <div>
+                          <Link href={`/insurance/${policy.id}`} className="block hover:underline">
                             <p>{policy.carrier_name}</p>
                             {policy.policy_number && (
                               <p className="text-sm text-muted-foreground font-mono">
                                 {policy.policy_number}
                               </p>
                             )}
-                          </div>
+                          </Link>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
@@ -230,20 +233,22 @@ export default async function InsurancePage() {
                       : null
                     return (
                       <TableRow key={policy.id}>
-                        <TableCell className="font-medium">
-                          {policy.vehicle
-                            ? `${policy.vehicle.year} ${policy.vehicle.make} ${policy.vehicle.model}`
-                            : "-"}
+                        <TableCell>
+                          <Link href={`/insurance/${policy.id}`} className="font-medium hover:underline">
+                            {policy.vehicle
+                              ? `${policy.vehicle.year} ${policy.vehicle.make} ${policy.vehicle.model}`
+                              : "-"}
+                          </Link>
                         </TableCell>
                         <TableCell>
-                          <div>
+                          <Link href={`/insurance/${policy.id}`} className="block hover:underline">
                             <p>{policy.carrier_name}</p>
                             {policy.policy_number && (
                               <p className="text-sm text-muted-foreground font-mono">
                                 {policy.policy_number}
                               </p>
                             )}
-                          </div>
+                          </Link>
                         </TableCell>
                         <TableCell>
                           {policy.premium_amount ? (
@@ -299,31 +304,50 @@ export default async function InsurancePage() {
                       <TableHead>Type</TableHead>
                       <TableHead>Premium</TableHead>
                       <TableHead>Expiration</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {otherPolicies.map((policy) => (
-                      <TableRow key={policy.id}>
-                        <TableCell className="font-medium">
-                          {policy.carrier_name}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {INSURANCE_TYPE_LABELS[policy.policy_type]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {policy.premium_amount
-                            ? formatCurrency(Number(policy.premium_amount))
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          {policy.expiration_date
-                            ? formatDate(policy.expiration_date)
-                            : "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {otherPolicies.map((policy) => {
+                      const days = policy.expiration_date
+                        ? daysUntil(policy.expiration_date)
+                        : null
+                      return (
+                        <TableRow key={policy.id}>
+                          <TableCell>
+                            <Link href={`/insurance/${policy.id}`} className="font-medium hover:underline">
+                              {policy.carrier_name}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {INSURANCE_TYPE_LABELS[policy.policy_type]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {policy.premium_amount
+                              ? formatCurrency(Number(policy.premium_amount))
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {policy.expiration_date
+                              ? formatDate(policy.expiration_date)
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {days !== null && days <= 60 ? (
+                              <Badge
+                                variant={days <= 14 ? "destructive" : "warning"}
+                              >
+                                {days <= 0 ? "Expired" : `${days}d left`}
+                              </Badge>
+                            ) : (
+                              <Badge variant="success">Active</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               )}

@@ -79,6 +79,7 @@ export const vehicleSchema = z.object({
   registration_expires: z.string().nullable().optional(),
   inspection_expires: z.string().nullable().optional(),
   garage_location: z.string().max(100).nullable().optional(),
+  property_id: z.string().uuid().nullable().optional(), // Home property for visibility inheritance
   notes: z.string().nullable().optional(),
   is_active: z.boolean().default(true),
 })

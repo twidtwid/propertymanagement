@@ -66,6 +66,28 @@ npm run dev                   # Local dev (if not using Docker)
 - Run build before committing significant changes
 - Commit messages: imperative mood, explain why not what
 
+### Local Tools (User Homebrew)
+
+The system homebrew (`/opt/homebrew`) is for work - don't touch it. Use the local user homebrew for this project:
+
+```bash
+# Local homebrew location
+~/homebrew/bin/brew
+
+# Install packages
+~/homebrew/bin/brew install <package>
+```
+
+**Installed Python packages** (via pip3 --user):
+- `pymupdf` - PDF text extraction (import as `fitz`)
+
+```python
+# Extract text from PDF
+import fitz
+doc = fitz.open("file.pdf")
+text = doc[0].get_text()  # First page
+```
+
 ## Authorization Matrix
 
 | Resource | Owner | Bookkeeper |

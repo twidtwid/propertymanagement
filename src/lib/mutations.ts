@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { query, queryOne } from "./db"
 import { getLogger } from "./logger/contextual"
 import { audit } from "./logger/audit"
+import { canAccessProperty, canAccessVehicle } from "./visibility"
 import type {
   Property,
   Vehicle,
@@ -78,6 +79,14 @@ export async function createProperty(formData: unknown): Promise<ActionResult<Pr
 
 export async function updateProperty(id: string, formData: unknown): Promise<ActionResult<Property>> {
   const log = getLogger("mutations.property")
+
+  // Authorization check
+  const hasAccess = await canAccessProperty(id)
+  if (!hasAccess) {
+    log.warn("Property update access denied", { propertyId: id })
+    return { success: false, error: "Access denied" }
+  }
+
   const parsed = propertySchema.partial().safeParse(formData)
   if (!parsed.success) {
     log.warn("Property update validation failed", { propertyId: id, errors: parsed.error.errors })
@@ -157,6 +166,14 @@ export async function updateProperty(id: string, formData: unknown): Promise<Act
 
 export async function deleteProperty(id: string): Promise<ActionResult> {
   const log = getLogger("mutations.property")
+
+  // Authorization check
+  const hasAccess = await canAccessProperty(id)
+  if (!hasAccess) {
+    log.warn("Property delete access denied", { propertyId: id })
+    return { success: false, error: "Access denied" }
+  }
+
   try {
     // Get property details for audit before deletion
     const property = await queryOne<Property>("SELECT * FROM properties WHERE id = $1", [id])
@@ -339,13 +356,13 @@ export async function createVehicle(formData: unknown): Promise<ActionResult<Veh
       `INSERT INTO vehicles (
         year, make, model, color, vin, license_plate,
         registration_state, registration_expires, inspection_expires,
-        garage_location, notes, is_active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        garage_location, property_id, notes, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
         d.year, d.make, d.model, d.color || null, d.vin || null, d.license_plate || null,
         d.registration_state, d.registration_expires || null, d.inspection_expires || null,
-        d.garage_location || null, d.notes || null, d.is_active
+        d.garage_location || null, d.property_id || null, d.notes || null, d.is_active
       ]
     )
 
@@ -367,6 +384,14 @@ export async function createVehicle(formData: unknown): Promise<ActionResult<Veh
 
 export async function updateVehicle(id: string, formData: unknown): Promise<ActionResult<Vehicle>> {
   const log = getLogger("mutations.vehicle")
+
+  // Authorization check
+  const hasAccess = await canAccessVehicle(id)
+  if (!hasAccess) {
+    log.warn("Vehicle update access denied", { vehicleId: id })
+    return { success: false, error: "Access denied" }
+  }
+
   const parsed = vehicleSchema.partial().safeParse(formData)
   if (!parsed.success) {
     log.warn("Vehicle update validation failed", { vehicleId: id, errors: parsed.error.errors })
@@ -389,8 +414,9 @@ export async function updateVehicle(id: string, formData: unknown): Promise<Acti
         registration_expires = $9,
         inspection_expires = $10,
         garage_location = $11,
-        notes = $12,
-        is_active = COALESCE($13, is_active),
+        property_id = $12,
+        notes = $13,
+        is_active = COALESCE($14, is_active),
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -398,7 +424,7 @@ export async function updateVehicle(id: string, formData: unknown): Promise<Acti
         id,
         d.year, d.make, d.model, d.color ?? null, d.vin ?? null, d.license_plate ?? null,
         d.registration_state, d.registration_expires ?? null, d.inspection_expires ?? null,
-        d.garage_location ?? null, d.notes ?? null, d.is_active
+        d.garage_location ?? null, d.property_id ?? null, d.notes ?? null, d.is_active
       ]
     )
 
@@ -432,6 +458,14 @@ export async function updateVehicle(id: string, formData: unknown): Promise<Acti
 
 export async function deleteVehicle(id: string): Promise<ActionResult> {
   const log = getLogger("mutations.vehicle")
+
+  // Authorization check
+  const hasAccess = await canAccessVehicle(id)
+  if (!hasAccess) {
+    log.warn("Vehicle delete access denied", { vehicleId: id })
+    return { success: false, error: "Access denied" }
+  }
+
   try {
     const vehicle = await queryOne<Vehicle>("SELECT * FROM vehicles WHERE id = $1", [id])
 

@@ -31,6 +31,16 @@ export interface Profile {
   updated_at: string
 }
 
+// Property visibility restrictions (whitelist model)
+// If a property has rows in property_visibility, only those users can see it
+// If no rows exist for a property, all owners can see it (default)
+export interface PropertyVisibility {
+  id: string
+  property_id: string
+  user_id: string
+  created_at: string
+}
+
 export interface Property {
   id: string
   name: string
@@ -54,6 +64,9 @@ export interface Property {
   mortgage_account: string | null
   mortgage_payment: number | null
   mortgage_due_day: number | null
+  hoa_monthly_amount: number | null  // Monthly HOA/condo fee
+  hoa_management_company: string | null  // HOA/condo management company name
+  ownership_entity: string | null  // Legal entity that owns property (e.g., SCI for Paris)
   notes: string | null
   status: PropertyStatus
   created_at: string
@@ -72,10 +85,14 @@ export interface Vehicle {
   registration_expires: string | null
   inspection_expires: string | null
   garage_location: string | null
+  property_id: string | null  // Home property for visibility inheritance
+  agreed_value: number | null  // Insurance agreed value
   notes: string | null
   is_active: boolean
   created_at: string
   updated_at: string
+  // Joined fields
+  property?: Property
 }
 
 export interface Vendor {
@@ -174,6 +191,22 @@ export interface PropertyTax {
   property?: Property
 }
 
+// Coverage details structure for insurance policies
+export interface CoverageDetails {
+  dwelling?: number
+  other_structures?: number
+  contents?: number
+  personal_liability?: number
+  medical_payments?: number
+  loss_of_use?: number
+  collision?: number
+  comprehensive?: number
+  bodily_injury?: number
+  property_damage?: number
+  uninsured_motorist?: number
+  [key: string]: number | undefined  // Allow additional coverage types
+}
+
 export interface InsurancePolicy {
   id: string
   property_id: string | null
@@ -193,6 +226,7 @@ export interface InsurancePolicy {
   auto_renew: boolean
   payment_method: PaymentMethod | null
   document_url: string | null
+  coverage_details: CoverageDetails | null  // Detailed coverage breakdown
   notes: string | null
   created_at: string
   updated_at: string
@@ -417,6 +451,26 @@ export const BILL_TYPE_LABELS: Record<BillType, string> = {
   mortgage: 'Mortgage',
   hoa: 'HOA',
   other: 'Other',
+}
+
+export const INSURANCE_TYPE_LABELS: Record<InsuranceType, string> = {
+  homeowners: 'Homeowners',
+  auto: 'Auto',
+  umbrella: 'Umbrella',
+  flood: 'Flood',
+  earthquake: 'Earthquake',
+  liability: 'Liability',
+  health: 'Health',
+  travel: 'Travel',
+  other: 'Other',
+}
+
+export const RECURRENCE_LABELS: Record<Recurrence, string> = {
+  one_time: 'One-Time',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  semi_annual: 'Semi-Annual',
+  annual: 'Annual',
 }
 
 // Unified Payment type for consolidated payment view

@@ -2,7 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
-import { getVehicle } from "@/lib/actions"
+import { getVehicle, getActiveProperties } from "@/lib/actions"
 import { VehicleForm } from "@/components/vehicles/vehicle-form"
 
 export default async function EditVehiclePage({
@@ -11,7 +11,10 @@ export default async function EditVehiclePage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const vehicle = await getVehicle(id)
+  const [vehicle, properties] = await Promise.all([
+    getVehicle(id),
+    getActiveProperties(),
+  ])
 
   if (!vehicle) {
     notFound()
@@ -35,7 +38,7 @@ export default async function EditVehiclePage({
         </div>
       </div>
 
-      <VehicleForm vehicle={vehicle} />
+      <VehicleForm vehicle={vehicle} properties={properties} />
     </div>
   )
 }
