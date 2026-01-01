@@ -19,14 +19,20 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-// Read .env.local
-const envPath = path.join(__dirname, '..', '.env.local');
-const envContent = fs.readFileSync(envPath, 'utf8');
+// Read .env.local (for local development) - optional in production
 const envVars = {};
-envContent.split('\n').forEach(line => {
-  const match = line.match(/^([^=]+)=(.*)$/);
-  if (match) envVars[match[1]] = match[2];
-});
+try {
+  const envPath = path.join(__dirname, '..', '.env.local');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    envContent.split('\n').forEach(line => {
+      const match = line.match(/^([^=]+)=(.*)$/);
+      if (match) envVars[match[1]] = match[2];
+    });
+  }
+} catch (err) {
+  // .env.local not found - using process.env only (expected in Docker)
+}
 
 // Use process.env first (for Docker), then .env.local file, then default
 const DATABASE_URL = process.env.DATABASE_URL || envVars.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/propertymanagement';
@@ -36,7 +42,11 @@ console.log('Using database:', DATABASE_URL.replace(/:[^:@]+@/, ':***@'));
 
 // Decryption
 function decryptToken(encryptedBase64) {
-  const key = Buffer.from(envVars.TOKEN_ENCRYPTION_KEY, 'hex');
+  const encryptionKey = process.env.TOKEN_ENCRYPTION_KEY || envVars.TOKEN_ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    throw new Error('TOKEN_ENCRYPTION_KEY not set in environment');
+  }
+  const key = Buffer.from(encryptionKey, 'hex');
   const combined = Buffer.from(encryptedBase64, 'base64');
   const iv = combined.subarray(0, 16);
   const authTag = combined.subarray(combined.length - 16);
@@ -313,9 +323,9 @@ async function syncEmails() {
 
     // Set up OAuth client
     const oauth2Client = new google.auth.OAuth2(
-      envVars.GOOGLE_CLIENT_ID,
-      envVars.GOOGLE_CLIENT_SECRET,
-      envVars.GOOGLE_REDIRECT_URI
+      process.env.GOOGLE_CLIENT_ID || envVars.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET || envVars.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI || envVars.GOOGLE_REDIRECT_URI
     );
 
     oauth2Client.setCredentials({

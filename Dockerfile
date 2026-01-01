@@ -19,7 +19,7 @@ ENV NODE_OPTIONS="--max-old-space-size=3072"
 
 RUN npm run build
 
-# Runner
+# Runner (Next.js app)
 FROM base AS runner
 WORKDIR /app
 
@@ -45,3 +45,21 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]
+
+# Worker (background scripts)
+FROM base AS worker
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy node_modules and scripts
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/package.json ./
+
+USER nextjs
+
+CMD ["node", "scripts/sync-emails.js", "--watch", "--interval=10"]

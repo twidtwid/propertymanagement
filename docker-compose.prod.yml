@@ -68,6 +68,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: worker
     restart: always
     command: node scripts/sync-emails.js --watch --interval=10
     env_file:
@@ -95,6 +96,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: worker
     restart: always
     command: node scripts/daily-summary-scheduler.js
     env_file:
