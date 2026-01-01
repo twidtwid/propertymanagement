@@ -11,9 +11,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Plus, Phone, Mail, Star, MapPin } from "lucide-react"
-import { getVendorsFiltered, getVendorLocations } from "@/lib/actions"
+import { getVendorsFiltered, getVendorLocations, getProperties } from "@/lib/actions"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
 import { VendorFilters } from "@/components/vendors/vendor-filters"
+import { QuickContact } from "@/components/dashboard/quick-contact"
 
 interface VendorsPageProps {
   searchParams: Promise<{
@@ -25,13 +26,14 @@ interface VendorsPageProps {
 
 export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   const params = await searchParams
-  const [vendors, locations] = await Promise.all([
+  const [vendors, locations, properties] = await Promise.all([
     getVendorsFiltered({
       specialty: params.specialty,
       location: params.location,
       search: params.search,
     }),
     getVendorLocations(),
+    getProperties(),
   ])
 
   // Group vendors by specialty for the grid view
@@ -57,6 +59,10 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
             Add Vendor
           </Link>
         </Button>
+      </div>
+
+      <div className="max-w-md">
+        <QuickContact properties={properties} />
       </div>
 
       <Card>
