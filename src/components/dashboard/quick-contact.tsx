@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
@@ -96,17 +97,20 @@ export function QuickContact({ properties }: QuickContactProps) {
 
         {!loading && vendor && (
           <div className="p-4 border rounded-xl bg-muted/30">
-            <div className="flex items-start gap-3">
+            <Link
+              href={`/vendors/${vendor.id}`}
+              className="flex items-start gap-3 hover:opacity-80 transition-opacity"
+            >
               <div className="rounded-full bg-primary/10 p-2">
                 <User className="h-5 w-5 text-primary" />
               </div>
               <div className="flex-1">
-                <h4 className="text-lg font-semibold">{vendor.name}</h4>
-                {vendor.company && (
-                  <p className="text-base text-muted-foreground">{vendor.company}</p>
+                <h4 className="text-lg font-semibold">{vendor.company || vendor.name}</h4>
+                {vendor.primary_contact?.name && (
+                  <p className="text-base text-muted-foreground">{vendor.primary_contact.name}</p>
                 )}
               </div>
-            </div>
+            </Link>
             <div className="flex flex-wrap gap-2 mt-4">
               {vendor.phone && (
                 <Button size="lg" className="flex-1" asChild>

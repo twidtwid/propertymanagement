@@ -121,17 +121,17 @@ export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], 
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <FormField
-              label="Contact Name"
+              label="Vendor Name"
               {...register("name")}
               error={errors.name?.message}
-              placeholder="John Smith"
+              placeholder="ABC Plumbing Inc."
               required
             />
             <FormField
-              label="Company"
+              label="DBA / Trade Name"
               {...register("company")}
               error={errors.company?.message}
-              placeholder="ABC Plumbing Inc."
+              placeholder="Optional alternate name"
             />
           </div>
 

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Phone, Mail, Star, MapPin } from "lucide-react"
+import { Plus, Phone, Mail, MapPin } from "lucide-react"
 import { getVendorsFiltered, getVendorLocations, getProperties } from "@/lib/actions"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
 import { VendorFilters } from "@/components/vendors/vendor-filters"
@@ -35,14 +35,6 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
     getVendorLocations(),
     getProperties(),
   ])
-
-  // Group vendors by specialty for the grid view
-  const vendorsBySpecialty = vendors.reduce((acc, vendor) => {
-    const specialty = vendor.specialty
-    if (!acc[specialty]) acc[specialty] = []
-    acc[specialty].push(vendor)
-    return acc
-  }, {} as Record<string, typeof vendors>)
 
   return (
     <div className="space-y-8">
@@ -75,10 +67,9 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Specialty</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead className="hidden sm:table-cell">Location</TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead>Rating</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="hidden sm:table-cell">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -86,10 +77,16 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                 <TableRow key={vendor.id} className="cursor-pointer hover:bg-muted/50">
                   <TableCell>
                     <Link href={`/vendors/${vendor.id}`} className="block">
-                      <p className="font-medium text-base">{vendor.name}</p>
-                      {vendor.company && (
+                      <p className="font-medium text-base">{vendor.company || vendor.name}</p>
+                      {vendor.company && vendor.name && (
                         <p className="text-sm text-muted-foreground">
-                          {vendor.company}
+                          {vendor.name}
+                        </p>
+                      )}
+                      {/* Show location on mobile under name */}
+                      {vendor.locations.length > 0 && (
+                        <p className="text-sm text-muted-foreground sm:hidden">
+                          {vendor.locations.join(", ")}
                         </p>
                       )}
                     </Link>
@@ -99,7 +96,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                       {VENDOR_SPECIALTY_LABELS[vendor.specialty]}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {vendor.locations.length > 0 ? (
                       <div className="flex items-center gap-1 text-sm">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -133,29 +130,12 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                           </a>
                         </div>
                       )}
+                      {!vendor.phone && !vendor.email && (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    {vendor.rating ? (
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < vendor.rating!
-                                ? "text-yellow-400 fill-yellow-400"
-                                : "text-gray-200"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">
-                        Not rated
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Badge
                       variant={vendor.is_active ? "success" : "secondary"}
                     >
@@ -166,7 +146,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
               ))}
               {vendors.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No vendors found matching your filters.
                   </TableCell>
                 </TableRow>
@@ -175,50 +155,6 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
           </Table>
         </CardContent>
       </Card>
-
-      <div>
-        <h2 className="text-xl font-semibold mb-4">By Specialty</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Object.entries(vendorsBySpecialty)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([specialty, specialtyVendors]) => (
-              <Card key={specialty}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">
-                    {VENDOR_SPECIALTY_LABELS[specialty as keyof typeof VENDOR_SPECIALTY_LABELS]}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {specialtyVendors.map((vendor) => (
-                      <div
-                        key={vendor.id}
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors"
-                      >
-                        <Link href={`/vendors/${vendor.id}`} className="flex-1">
-                          <span className="text-base">{vendor.name}</span>
-                          {vendor.locations.length > 0 && (
-                            <span className="text-sm text-muted-foreground ml-2">
-                              ({vendor.locations.join(", ")})
-                            </span>
-                          )}
-                        </Link>
-                        {vendor.phone && (
-                          <a
-                            href={`tel:${vendor.phone}`}
-                            className="p-2 hover:bg-muted rounded-md"
-                          >
-                            <Phone className="h-4 w-4" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-        </div>
-      </div>
     </div>
   )
 }

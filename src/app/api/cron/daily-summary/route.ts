@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateDailySummary, formatSummaryAsText, formatSummaryAsHtml } from "@/lib/daily-summary"
 import { sendDailySummaryEmail, checkAndSendUrgentNotifications } from "@/lib/notifications"
+import { generateAlerts, cleanupAlerts } from "@/lib/alerts/generate"
 
 /**
  * GET /api/cron/daily-summary
@@ -103,7 +104,20 @@ export async function POST(request: NextRequest) {
   try {
     console.log("[Daily Summary] Starting scheduled summary...")
 
-    // Check and send urgent notifications first
+    // Generate UI alerts first
+    console.log("[Daily Summary] Generating UI alerts...")
+    const alertResults = await generateAlerts()
+    console.log("[Daily Summary] Alert generation:", {
+      created: alertResults.created,
+      resolved: alertResults.resolved,
+      errors: alertResults.errors.length,
+    })
+
+    // Clean up old alerts
+    const cleanupResults = await cleanupAlerts()
+    console.log("[Daily Summary] Alert cleanup:", cleanupResults)
+
+    // Check and send urgent notifications (email)
     const urgentResult = await checkAndSendUrgentNotifications()
     console.log("[Daily Summary] Urgent notifications:", urgentResult)
 
@@ -116,6 +130,12 @@ export async function POST(request: NextRequest) {
         emailSent: summaryResult.success,
         messageId: summaryResult.messageId,
         error: summaryResult.error,
+      },
+      alerts: {
+        created: alertResults.created,
+        resolved: alertResults.resolved,
+        errors: alertResults.errors,
+        cleanup: cleanupResults,
       },
       urgentNotifications: urgentResult,
       message: summaryResult.success

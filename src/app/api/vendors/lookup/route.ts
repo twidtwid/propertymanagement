@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { queryOne } from "@/lib/db"
-import type { Vendor } from "@/types/database"
+import type { Vendor, VendorContact } from "@/types/database"
 import { z } from "zod"
 
 const lookupSchema = z.object({
@@ -48,7 +48,18 @@ export async function GET(request: NextRequest) {
     )
 
     if (vendor) {
-      return NextResponse.json(sanitizeVendor(vendor))
+      // Get primary contact
+      const primaryContact = await queryOne<VendorContact>(
+        `SELECT id, name, title, email, phone FROM vendor_contacts
+         WHERE vendor_id = $1 AND is_primary = TRUE`,
+        [vendor.id]
+      )
+
+      const response = {
+        ...sanitizeVendor(vendor),
+        primary_contact: primaryContact || null,
+      }
+      return NextResponse.json(response)
     } else {
       return NextResponse.json(null, { status: 404 })
     }

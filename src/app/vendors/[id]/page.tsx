@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
   ArrowLeft,
   Edit,
   Phone,
@@ -18,6 +23,8 @@ import {
   MessageSquare,
   User,
   Home,
+  ChevronDown,
+  CreditCard,
 } from "lucide-react"
 import { getVendor, getVendorCommunications, getPropertiesForVendor } from "@/lib/actions"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
@@ -41,57 +48,71 @@ export default async function VendorDetailPage({
     getPropertiesForVendor(id),
   ])
 
+  const hasAccountInfo = vendor.account_number || vendor.login_info || vendor.payment_method
+
   return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start gap-4">
+        <Button variant="ghost" size="icon" asChild className="mt-1">
           <Link href="/vendors">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-3xl font-semibold tracking-tight">
-              {vendor.name}
+              {vendor.company || vendor.name}
             </h1>
             <Badge variant={vendor.is_active ? "success" : "secondary"}>
               {vendor.is_active ? "Active" : "Inactive"}
             </Badge>
           </div>
-          {vendor.company && (
-            <div className="flex items-center gap-1 mt-1 text-muted-foreground">
-              <Building className="h-4 w-4" />
-              <p className="text-lg">{vendor.company}</p>
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {vendor.primary_contact?.phone && (
-            <Button size="lg" asChild>
-              <a href={`tel:${vendor.primary_contact.phone}`}>
-                <Phone className="h-5 w-5 mr-2" />
-                Call {vendor.primary_contact.name.split(" ")[0]}
-              </a>
-            </Button>
-          )}
-          <Button size="lg" variant="outline" asChild>
-            <Link href={`/vendors/${vendor.id}/edit`}>
-              <Edit className="h-5 w-5 mr-2" />
-              Edit
-            </Link>
-          </Button>
+          <div className="flex items-center gap-4 mt-1 text-muted-foreground">
+            {vendor.primary_contact && (
+              <div className="flex items-center gap-1">
+                <User className="h-4 w-4" />
+                <span className="text-lg">{vendor.primary_contact.name}</span>
+              </div>
+            )}
+            <Badge variant="outline">
+              {VENDOR_SPECIALTY_LABELS[vendor.specialty]}
+            </Badge>
+          </div>
         </div>
       </div>
 
-      <Tabs defaultValue="contacts" className="space-y-6">
+      {/* Action Buttons - Hero Section */}
+      <div className="flex flex-wrap gap-3">
+        {vendor.primary_contact?.phone && (
+          <Button size="lg" asChild>
+            <a href={`tel:${vendor.primary_contact.phone}`}>
+              <Phone className="h-5 w-5 mr-2" />
+              Call {vendor.primary_contact.name.split(" ")[0]}
+            </a>
+          </Button>
+        )}
+        {vendor.emergency_phone && (
+          <Button size="lg" variant="destructive" asChild>
+            <a href={`tel:${vendor.emergency_phone}`}>
+              <AlertCircle className="h-5 w-5 mr-2" />
+              Emergency
+            </a>
+          </Button>
+        )}
+        <Button size="lg" variant="outline" asChild>
+          <Link href={`/vendors/${vendor.id}/edit`}>
+            <Edit className="h-5 w-5 mr-2" />
+            Edit
+          </Link>
+        </Button>
+      </div>
+
+      <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="contacts" className="gap-2">
-            <User className="h-4 w-4" />
-            Contacts ({vendor.contacts?.length || 0})
-          </TabsTrigger>
           <TabsTrigger value="overview" className="gap-2">
-            <FileText className="h-4 w-4" />
-            Details
+            <User className="h-4 w-4" />
+            Overview
           </TabsTrigger>
           <TabsTrigger value="journal" className="gap-2">
             <MessageSquare className="h-4 w-4" />
@@ -99,137 +120,30 @@ export default async function VendorDetailPage({
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="contacts">
-          <Card>
-            <CardContent className="pt-6">
-              <VendorContactsList vendorId={vendor.id} contacts={vendor.contacts || []} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Company Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {vendor.website && (
-                  <div className="flex items-center gap-3">
-                    <Globe className="h-5 w-5 text-muted-foreground" />
-                    <a
-                      href={vendor.website.startsWith("http") ? vendor.website : `https://${vendor.website}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-base font-medium hover:underline"
-                    >
-                      {vendor.website}
-                    </a>
-                  </div>
-                )}
-                {vendor.address && (
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <p className="text-base">{vendor.address}</p>
-                  </div>
-                )}
-                {vendor.emergency_phone && (
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-destructive" />
-                    <div>
-                      <a
-                        href={`tel:${vendor.emergency_phone}`}
-                        className="text-base font-medium hover:underline"
-                      >
-                        {vendor.emergency_phone}
-                      </a>
-                      <p className="text-sm text-muted-foreground">Emergency Line</p>
-                    </div>
-                  </div>
-                )}
-                {!vendor.website && !vendor.address && !vendor.emergency_phone && (
-                  <p className="text-muted-foreground">No company info on file</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Service Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Specialty</p>
-                  <Badge variant="outline" className="mt-1">
-                    {VENDOR_SPECIALTY_LABELS[vendor.specialty]}
-                  </Badge>
-                </div>
-                {vendor.rating && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Rating</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-5 w-5 ${
-                            i < vendor.rating!
-                              ? "text-yellow-400 fill-yellow-400"
-                              : "text-gray-200"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {vendor.payment_method && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Payment Method</p>
-                    <p className="text-base font-medium capitalize">
-                      {vendor.payment_method.replace("_", " ")}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Account Info</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {vendor.account_number && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Account Number</p>
-                    <p className="text-base font-medium font-mono">
-                      {vendor.account_number}
-                    </p>
-                  </div>
-                )}
-                {vendor.login_info && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Login Info</p>
-                    <p className="text-base font-medium font-mono">
-                      {vendor.login_info}
-                    </p>
-                  </div>
-                )}
-                {!vendor.account_number && !vendor.login_info && (
-                  <p className="text-muted-foreground">No account info on file</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Properties Served */}
+          {/* Contacts Section */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Home className="h-5 w-5" />
-                Properties Served
+                <User className="h-5 w-5" />
+                Contacts
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {assignedProperties.length > 0 ? (
+              <VendorContactsList vendorId={vendor.id} contacts={vendor.contacts || []} />
+            </CardContent>
+          </Card>
+
+          {/* Properties Served */}
+          {assignedProperties.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Home className="h-5 w-5" />
+                  Properties Served
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {assignedProperties.map((property) => (
                     <Link
@@ -247,24 +161,112 @@ export default async function VendorDetailPage({
                     </Link>
                   ))}
                 </div>
-              ) : (
-                <p className="text-muted-foreground">No properties assigned</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {vendor.notes && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-base whitespace-pre-wrap">{vendor.notes}</p>
               </CardContent>
             </Card>
+          )}
+
+          {/* Company Details */}
+          {(vendor.website || vendor.address || vendor.rating || vendor.notes) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {vendor.website && (
+                    <div className="flex items-center gap-3">
+                      <Globe className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <a
+                        href={vendor.website.startsWith("http") ? vendor.website : `https://${vendor.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-base font-medium hover:underline truncate"
+                      >
+                        {vendor.website}
+                      </a>
+                    </div>
+                  )}
+                  {vendor.address && (
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <p className="text-base">{vendor.address}</p>
+                    </div>
+                  )}
+                  {vendor.rating && (
+                    <div className="flex items-center gap-3">
+                      <Star className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${
+                              i < vendor.rating!
+                                ? "text-yellow-400 fill-yellow-400"
+                                : "text-gray-200"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {vendor.notes && (
+                  <div className="pt-2 border-t">
+                    <p className="text-base whitespace-pre-wrap">{vendor.notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Account & Billing - Collapsible */}
+          {hasAccountInfo && (
+            <Collapsible>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Account & Billing
+                      <ChevronDown className="h-4 w-4 ml-auto transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+                    </CardTitle>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {vendor.account_number && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Account Number</p>
+                          <p className="text-base font-medium font-mono">
+                            {vendor.account_number}
+                          </p>
+                        </div>
+                      )}
+                      {vendor.payment_method && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Payment Method</p>
+                          <p className="text-base font-medium capitalize">
+                            {vendor.payment_method.replace("_", " ")}
+                          </p>
+                        </div>
+                      )}
+                      {vendor.login_info && (
+                        <div className="sm:col-span-2 lg:col-span-1">
+                          <p className="text-sm text-muted-foreground">Login Info</p>
+                          <p className="text-base font-medium font-mono whitespace-pre-wrap">
+                            {vendor.login_info}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           )}
         </TabsContent>
 

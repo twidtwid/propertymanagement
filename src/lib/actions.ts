@@ -163,7 +163,7 @@ export async function getVendorsFiltered(filters?: VendorFilters): Promise<Vendo
     LEFT JOIN properties p ON pv.property_id = p.id AND p.id = ANY($2::uuid[])
     WHERE v.id = ANY($1::uuid[])
     GROUP BY v.id
-    ORDER BY v.name
+    ORDER BY COALESCE(v.company, v.name)
   `, [visibleVendorIds, ctx.visiblePropertyIds])
 
   // Transform and filter in memory
