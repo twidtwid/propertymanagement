@@ -1,0 +1,16 @@
+{
+  "lastSentDate": "2026-01-01",
+  "lastSentTime": "2026-01-01T23:00:30.044Z",
+  "lastResult": {
+    "success": true,
+    "summary": {
+      "emailSent": true,
+      "messageId": "19b7bca893cfadcb"
+    },
+    "urgentNotifications": {
+      "checked": 0,
+      "sent": 0
+    },
+    "message": "Daily summary sent successfully"
+  }
+}

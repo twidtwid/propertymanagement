@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { exchangeCodeForTokens, storeTokens } from "@/lib/dropbox/auth"
 
 /**
+ * Get the base URL for redirects (handles reverse proxy correctly)
+ */
+function getBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || "https://spmsystem.com"
+}
+
+/**
  * GET /api/auth/dropbox/callback
  * Handles the OAuth callback from Dropbox.
  */
@@ -10,19 +17,20 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
+  const baseUrl = getBaseUrl()
 
   // Handle errors from Dropbox
   if (error) {
     console.error("OAuth error from Dropbox:", error, errorDescription)
     return NextResponse.redirect(
-      new URL(`/settings/dropbox?error=${encodeURIComponent(errorDescription || error)}`, request.url)
+      `${baseUrl}/settings/dropbox?error=${encodeURIComponent(errorDescription || error)}`
     )
   }
 
   // Validate code parameter
   if (!code) {
     return NextResponse.redirect(
-      new URL("/settings/dropbox?error=missing_code", request.url)
+      `${baseUrl}/settings/dropbox?error=missing_code`
     )
   }
 
@@ -38,17 +46,14 @@ export async function GET(request: NextRequest) {
 
     // Redirect to settings page with success
     return NextResponse.redirect(
-      new URL(`/settings/dropbox?success=true`, request.url)
+      `${baseUrl}/settings/dropbox?success=true`
     )
   } catch (error) {
     console.error("Error handling Dropbox OAuth callback:", error)
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error"
     return NextResponse.redirect(
-      new URL(
-        `/settings/dropbox?error=${encodeURIComponent(errorMessage)}`,
-        request.url
-      )
+      `${baseUrl}/settings/dropbox?error=${encodeURIComponent(errorMessage)}`
     )
   }
 }
