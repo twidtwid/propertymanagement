@@ -5,8 +5,8 @@ Generated: 2026-01-02
 ## Immediate (This Week)
 
 - [ ] **Verify session cookie signing** - Security risk: if cookies are unsigned, attackers could forge sessions with `role: owner`
-- [ ] **Implement automated database backups** - Data loss risk: current manual `backups/` approach requires human intervention. Add cron job to upload to S3/DigitalOcean Spaces with 30-day retention
-- [ ] **Add confirmation dialogs for cascade deletes** - Vendor deletion cascades to all email communications without warning. Add explicit confirmation stating consequences
+- [x] **Implement automated database backups** - DigitalOcean Droplet backups enabled (host-level)
+- [x] **Add confirmation dialogs for cascade deletes** - Vendor deletion cascades to all email communications without warning. Add explicit confirmation stating consequences
 
 ## Short Term (This Month)
 

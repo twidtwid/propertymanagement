@@ -84,7 +84,27 @@ export async function GET(request: NextRequest) {
     hasVisibilityRestrictions ? [user.id, limit, visiblePropertyIds] : [user.id, limit]
   )
 
-  // Get unread count (with same visibility filter)
+  // Get unread count (with same visibility filter, but using $2 for property IDs since no LIMIT param)
+  const countVisibilityFilter = hasVisibilityRestrictions
+    ? `AND (
+        a.related_table NOT IN ('properties', 'bills', 'property_taxes', 'insurance_policies', 'vehicles')
+        OR a.related_id IS NULL
+        OR (a.related_table = 'properties' AND a.related_id = ANY($2::uuid[]))
+        OR (a.related_table = 'bills' AND EXISTS (
+          SELECT 1 FROM bills b WHERE b.id = a.related_id AND (b.property_id IS NULL OR b.property_id = ANY($2::uuid[]))
+        ))
+        OR (a.related_table = 'property_taxes' AND EXISTS (
+          SELECT 1 FROM property_taxes pt WHERE pt.id = a.related_id AND pt.property_id = ANY($2::uuid[])
+        ))
+        OR (a.related_table = 'insurance_policies' AND EXISTS (
+          SELECT 1 FROM insurance_policies ip WHERE ip.id = a.related_id AND (ip.property_id IS NULL OR ip.property_id = ANY($2::uuid[]))
+        ))
+        OR (a.related_table = 'vehicles' AND EXISTS (
+          SELECT 1 FROM vehicles v WHERE v.id = a.related_id AND (v.property_id IS NULL OR v.property_id = ANY($2::uuid[]))
+        ))
+      )`
+    : ""
+
   const countResult = await query<{ count: string }>(
     `SELECT COUNT(*) as count
      FROM alerts a
@@ -92,7 +112,7 @@ export async function GET(request: NextRequest) {
        AND a.is_dismissed = FALSE
        AND a.resolved_at IS NULL
        AND a.is_read = FALSE
-       ${visibilityFilter}`,
+       ${countVisibilityFilter}`,
     hasVisibilityRestrictions ? [user.id, visiblePropertyIds] : [user.id]
   )
 
