@@ -1,4 +1,6 @@
-# /prod-db
+---
+description: Run SQL queries against the production database.
+---
 
 Run SQL queries against the production database.
 
@@ -8,7 +10,7 @@ Run SQL queries against the production database.
 - **User:** propman
 - **Server:** 143.110.229.185
 
-## What this skill does:
+## What this command does:
 1. Connects to the production PostgreSQL database
 2. Runs queries as requested by the user
 3. Returns results

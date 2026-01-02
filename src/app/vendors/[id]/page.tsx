@@ -30,6 +30,7 @@ import { getVendor, getVendorCommunications, getPropertiesForVendor } from "@/li
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
 import { VendorJournal } from "@/components/vendors/vendor-journal"
 import { VendorContactsList } from "@/components/vendors/vendor-contacts-list"
+import { DeleteVendorButton } from "@/components/vendors/delete-vendor-button"
 
 export default async function VendorDetailPage({
   params,
@@ -106,6 +107,7 @@ export default async function VendorDetailPage({
             Edit
           </Link>
         </Button>
+        <DeleteVendorButton vendorId={vendor.id} vendorName={vendor.company || vendor.name} />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">

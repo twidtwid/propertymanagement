@@ -1,4 +1,6 @@
-# /prod-logs
+---
+description: View production application logs from spmsystem.com.
+---
 
 View production application logs.
 
@@ -6,7 +8,7 @@ View production application logs.
 - **IP:** 143.110.229.185
 - **App Container:** app-app-1
 
-## What this skill does:
+## What this command does:
 1. Fetches recent logs from the production app container
 2. Displays them for troubleshooting
 3. Can filter for errors if requested

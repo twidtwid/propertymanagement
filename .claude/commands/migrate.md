@@ -1,4 +1,6 @@
-# /migrate
+---
+description: Run database migrations on production.
+---
 
 Run database migrations on production.
 
@@ -8,7 +10,7 @@ Run database migrations on production.
 - **User:** propman
 - **Server:** 143.110.229.185
 
-## What this skill does:
+## What this command does:
 1. Lists available migrations
 2. Asks which migration(s) to run
 3. Shows migration contents for review
@@ -66,8 +68,10 @@ Where XXX is a sequential number (002, 003, etc.)
 | 008 | 008_dropbox_data.sql | Dropbox schema updates |
 | 009 | 009_import_dropbox_data.sql | Import Dropbox data |
 | 010 | 010_insurance_portfolio.sql | Insurance Portfolio + multi-asset policies |
+| 011 | 011_audiovisual_specialty.sql | Audiovisual vendor specialty |
+| 012 | 012_vendor_contacts.sql | Vendor contacts table |
 
 ## After running migration:
-- Update this list in the skill file
+- Update this list in the command file
 - Update CLAUDE.md migrations table
 - Report success/failure to user

@@ -146,7 +146,7 @@ npm run dev                   # Local dev (if not using Docker)
 - Branch format: `feature/description` or `fix/description`
 - Run build before committing significant changes
 - Commit messages: imperative mood, explain why not what
-- Use `/proddeploy` skill for production deployments
+- Use `/deploy` skill for production deployments (runs tests, bumps version, commits, deploys)
 
 ---
 
@@ -453,7 +453,7 @@ Available skills for common operations (invoke with `/skillname`):
 
 | Skill | Purpose |
 |-------|---------|
-| `/proddeploy` | Deploy code to production with version bump |
+| `/deploy` | **THE deployment command** - runs tests, bumps version, commits, deploys to production |
 | `/backup` | Full production database backup to local |
 | `/prod-logs` | View production application logs |
 | `/prod-db` | Open production database shell |

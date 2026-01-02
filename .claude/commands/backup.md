@@ -1,4 +1,6 @@
-# /backup
+---
+description: Create a full backup of the production database to local backups/ directory.
+---
 
 Create a full backup of the production database to local backups/ directory.
 
@@ -8,7 +10,7 @@ Create a full backup of the production database to local backups/ directory.
 - **User:** propman
 - **Server:** 143.110.229.185
 
-## What this skill does:
+## What this command does:
 1. Creates a full pg_dump of the production database
 2. Saves it to the local backups/ directory with timestamp
 3. Verifies the backup file size and contents
