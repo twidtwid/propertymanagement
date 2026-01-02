@@ -17,6 +17,8 @@ interface PolicyFormProps {
   policy?: InsurancePolicy
   properties: Property[]
   vehicles: Vehicle[]
+  defaultPropertyId?: string
+  defaultVehicleId?: string
   onSuccess?: (policy: InsurancePolicy) => void
 }
 
@@ -47,10 +49,13 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: "other", label: "Other" },
 ]
 
-export function PolicyForm({ policy, properties, vehicles, onSuccess }: PolicyFormProps) {
+export function PolicyForm({ policy, properties, vehicles, defaultPropertyId, defaultVehicleId, onSuccess }: PolicyFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const isEditing = !!policy
+
+  // Determine default policy type based on whether vehicle or property is pre-selected
+  const defaultPolicyType = defaultVehicleId ? "auto" : "homeowners"
 
   const {
     register,
@@ -82,7 +87,9 @@ export function PolicyForm({ policy, properties, vehicles, onSuccess }: PolicyFo
           notes: policy.notes || "",
         }
       : {
-          policy_type: "homeowners",
+          property_id: defaultPropertyId || undefined,
+          vehicle_id: defaultVehicleId || undefined,
+          policy_type: defaultPolicyType,
           premium_frequency: "annual",
           auto_renew: true,
         },
