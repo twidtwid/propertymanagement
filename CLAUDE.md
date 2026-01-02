@@ -15,6 +15,80 @@ Personal property management app for Anne managing 10 properties across 6 jurisd
 - 7 vehicles: 5 RI-registered (Anne), 2 CA-registered (Todd)
 - 70+ vendors organized by specialty and location
 
+---
+
+## PRODUCTION ENVIRONMENT
+
+### Server Details
+| Item | Value |
+|------|-------|
+| Provider | DigitalOcean Droplet |
+| IP Address | 143.110.229.185 |
+| Domain | spmsystem.com |
+| SSH User | root |
+| App Directory | /root/app |
+
+### Database
+| Item | Value |
+|------|-------|
+| Container | app-db-1 |
+| Database Name | propertymanagement |
+| User | propman |
+| Port | 5432 (internal) |
+
+### Docker Containers
+| Container | Purpose |
+|-----------|---------|
+| app-app-1 | Next.js web application |
+| app-db-1 | PostgreSQL database |
+| app-daily-summary-1 | Daily summary email scheduler |
+| app-email-sync-1 | Gmail sync service |
+
+### Production Commands
+```bash
+# SSH to production
+ssh root@143.110.229.185
+
+# View app logs
+ssh root@143.110.229.185 "docker logs app-app-1 --tail 100"
+
+# Database shell
+ssh root@143.110.229.185 "docker exec -it app-db-1 psql -U propman -d propertymanagement"
+
+# Run migration
+ssh root@143.110.229.185 "docker exec -i app-db-1 psql -U propman -d propertymanagement" < scripts/migrations/XXX.sql
+
+# Restart app
+ssh root@143.110.229.185 "cd /root/app && docker compose -f docker-compose.prod.yml --env-file .env.production restart app"
+
+# Full rebuild and deploy
+ssh root@143.110.229.185 "cd /root/app && git pull && docker compose -f docker-compose.prod.yml --env-file .env.production build app && docker compose -f docker-compose.prod.yml --env-file .env.production up -d app"
+
+# Health check
+curl -s https://spmsystem.com/api/health
+```
+
+### Backup to Local
+```bash
+# Full database backup to local backups/ directory
+ssh root@143.110.229.185 "docker exec app-db-1 pg_dump -U propman -d propertymanagement --no-owner --no-acl" > backups/backup_full_$(date +%Y%m%d_%H%M%S).sql
+```
+
+### Migrations Applied to Production
+| Migration | Description | Date |
+|-----------|-------------|------|
+| 002 | Tax lookup system | Dec 2024 |
+| 003 | Seed tax configs | Dec 2024 |
+| 004 | Seed property taxes | Jan 2025 |
+| 005 | Audit log | Jan 2025 |
+| 006 | Tax lookup URL field | Jan 2025 |
+| 007 | Property visibility | Jan 2025 |
+| 008 | Dropbox schema (agreed_value, HOA fields, coverage_details) | Jan 2025 |
+| 009 | Import Dropbox data (vehicles, insurance, vendors) | Jan 2025 |
+| 010 | Insurance Portfolio + umbrella/auto/fine art policies | Jan 2025 |
+
+---
+
 ## WHY: Business Requirements
 
 **CRITICAL - Never miss:**
@@ -30,9 +104,11 @@ Personal property management app for Anne managing 10 properties across 6 jurisd
 
 **Mobile-first:** All interfaces optimized for iPhone. Large touch targets, simple navigation.
 
+---
+
 ## HOW: Development Patterns
 
-### Commands
+### Local Development Commands
 ```bash
 docker compose up -d          # Start app + database
 docker compose logs -f app    # View app logs
@@ -44,9 +120,11 @@ npm run dev                   # Local dev (if not using Docker)
 |---------|----------|
 | Database schema | `scripts/init.sql` |
 | TypeScript types | `src/types/database.ts` |
-| Server actions | `src/lib/actions.ts` |
+| Server actions (queries) | `src/lib/actions.ts` |
 | Mutations | `src/lib/mutations.ts` |
 | Gmail sync | `src/lib/gmail/` |
+| Visibility filtering | `src/lib/visibility.ts` |
+| Insurance forms | `src/components/insurance/` |
 
 ### Code Conventions
 - Server Components by default, "use client" only when needed
@@ -60,33 +138,82 @@ npm run dev                   # Local dev (if not using Docker)
 - UUID primary keys via `gen_random_uuid()`
 - `updated_at` triggers on all mutable tables
 - Cast integers in date arithmetic: `CURRENT_DATE + ($1::INTEGER)`
+- CASCADE DELETE on vendor_communications FK (deleting vendor deletes all linked emails)
 
 ### Git Workflow
 - Branch format: `feature/description` or `fix/description`
 - Run build before committing significant changes
 - Commit messages: imperative mood, explain why not what
+- Use `/proddeploy` skill for production deployments
 
-### Local Tools (User Homebrew)
+---
 
-The system homebrew (`/opt/homebrew`) is for work - don't touch it. Use the local user homebrew for this project:
+## FEATURE: Property Visibility
 
-```bash
-# Local homebrew location
-~/homebrew/bin/brew
+Per-property access control for sensitive properties (e.g., 125 Dana Avenue restricted to Anne + Todd).
 
-# Install packages
-~/homebrew/bin/brew install <package>
+### How It Works
+- `property_visibility` table: if rows exist for a property, ONLY those users can see it
+- If no rows exist, all owners can see the property (default)
+- Vehicles can be linked to properties via `vehicles.property_id` and inherit visibility
+
+### Current Configuration
+| Property | Visible To |
+|----------|------------|
+| 125 Dana Avenue | Anne, Todd only |
+| All others | All owners |
+
+### Key Files
+| Purpose | Location |
+|---------|----------|
+| Visibility helper | `src/lib/visibility.ts` |
+| Migration | `scripts/migrations/007_property_visibility.sql` |
+
+---
+
+## FEATURE: Insurance Management
+
+Full CRUD for insurance policies with detail pages and cross-linking.
+
+### Insurance Pages
+| Route | Purpose |
+|-------|---------|
+| `/insurance` | List all policies (tabbed: Property, Auto, Other, Claims) |
+| `/insurance/[id]` | Policy detail page |
+| `/insurance/[id]/edit` | Edit policy |
+| `/insurance/new` | Add new policy |
+
+### Cross-Linking
+- Property detail pages show "Insurance" tab with linked policies
+- Vehicle detail pages show "Insurance" section with linked policies
+- Click policy row → navigate to policy detail
+
+### Coverage Details
+Insurance policies have a `coverage_details` JSONB field for line-item coverage:
+```json
+{
+  "dwelling": 500000,
+  "contents": 250000,
+  "liability": 300000,
+  "deductible": 5000,
+  "collision": 50000,
+  "comprehensive": 50000,
+  "bodily_injury": 100000,
+  "property_damage": 100000
+}
 ```
 
-**Installed Python packages** (via pip3 --user):
-- `pymupdf` - PDF text extraction (import as `fitz`)
+### Key Files
+| Purpose | Location |
+|---------|----------|
+| List page | `src/app/insurance/page.tsx` |
+| Detail page | `src/app/insurance/[id]/page.tsx` |
+| Edit page | `src/app/insurance/[id]/edit/page.tsx` |
+| Form component | `src/components/insurance/policy-form.tsx` |
+| Actions | `src/lib/actions.ts` (getInsurancePolicy, getInsurancePoliciesForProperty, etc.) |
+| Mutations | `src/lib/mutations.ts` (updateInsurancePolicy) |
 
-```python
-# Extract text from PDF
-import fitz
-doc = fitz.open("file.pdf")
-text = doc[0].get_text()  # First page
-```
+---
 
 ## Authorization Matrix
 
@@ -102,6 +229,8 @@ text = doc[0].get_text()  # First page
 
 Bookkeeper access enforced via middleware restricting routes to: `/`, `/payments/**`, `/settings` (profile only)
 
+---
+
 ## Property Tax Identifiers
 
 | Property | Jurisdiction | ID Type | Value |
@@ -114,6 +243,8 @@ Bookkeeper access enforced via middleware restricting routes to: `/`, `/payments
 | Brooklyn PH2F | NYC | Block/Lot | 02324/1306 |
 | Rhode Island House | Providence, RI | Parcel | 016-0200-0000 |
 | 125 Dana Avenue | Santa Clara, CA | APN | 274-15-034 |
+
+---
 
 ## Automated Property Tax Lookup System
 
@@ -172,37 +303,69 @@ npm run tax:sync:vermont     # Vermont (Dummerston)
 curl -X POST http://localhost:3000/api/cron/sync-taxes
 ```
 
-### Weekly Cron Setup
+---
 
-Add to crontab (macOS/Linux):
+## Dropbox Document Sync
+
+Automated sync of documents from Dropbox with AI-generated summaries.
+
+### What It Does
+- Scans mapped Dropbox folders for new/changed files
+- Generates one-line AI summaries using Claude Haiku
+- Removes summaries for deleted files
+- Updates document counts for each property/vehicle
+
+### Running Sync
+
 ```bash
-# Run tax sync every Monday at 6 AM (ensure app is running)
-0 6 * * 1 cd /Users/toddhome/repo/propertymanagement && python3 scripts/sync_all_taxes.py --callback http://localhost:3000/api/taxes/sync/callback >> /tmp/tax-sync.log 2>&1
+# Incremental sync (new files only)
+npm run dropbox:sync
+
+# Force regenerate all summaries
+npm run dropbox:sync:force
+
+# Via API (requires CRON_SECRET)
+curl -X POST "http://localhost:3000/api/cron/dropbox-sync" \
+  -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-### Database Tables
+### Cron Setup (Production)
 
-- `tax_lookup_configs` - Per-property lookup configuration (provider, params)
-- `tax_lookup_results` - Raw sync results with full data for debugging
-- `tax_sync_log` - Audit log of all sync attempts
-- `property_taxes` - Payment entries shown on calendar/payments page
+Add to crontab on production server to run every 15 minutes:
+
+```bash
+# Edit crontab
+ssh root@143.110.229.185 "crontab -e"
+
+# Add this line (runs every 15 minutes)
+*/15 * * * * curl -s -X GET "http://localhost:3000/api/cron/dropbox-sync" -H "Authorization: Bearer YOUR_CRON_SECRET" >> /var/log/dropbox-sync.log 2>&1
+```
 
 ### Key Files
 
 | Purpose | Location |
 |---------|----------|
-| Tax types | `src/lib/taxes/types.ts` |
-| Sync orchestration | `src/lib/taxes/sync.ts` |
-| Sync to payments | `src/lib/taxes/sync-to-payments.ts` |
-| NYC provider | `src/lib/taxes/providers/nyc-open-data.ts` |
-| Callback endpoint | `src/app/api/taxes/sync/callback/route.ts` |
-| Cron endpoint | `src/app/api/cron/sync-taxes/route.ts` |
-| Master runner | `scripts/sync_all_taxes.py` |
-| SCC scraper | `scripts/lookup_scc_tax.py` |
-| Providence scraper | `scripts/lookup_providence_tax.py` |
-| Vermont scraper | `scripts/lookup_vermont_tax.py` |
-| Seed configs | `scripts/migrations/003_seed_tax_configs.sql` |
-| Seed payments | `scripts/migrations/004_seed_property_taxes.sql` |
+| Sync library | `src/lib/dropbox/sync.ts` |
+| Cron endpoint | `src/app/api/cron/dropbox-sync/route.ts` |
+| Manual endpoint | `src/app/api/dropbox/sync/route.ts` |
+| CLI script | `scripts/dropbox_sync.ts` |
+| Folder mappings | `dropbox_folder_mappings` table |
+| File summaries | `dropbox_file_summaries` table |
+
+### Folder Mappings
+
+Properties and vehicles are mapped to Dropbox folders:
+
+| Entity | Dropbox Path |
+|--------|--------------|
+| Rhode Island House | `/88 Williams St - Providence RI` |
+| Brooklyn PH2E | `/34 N 7th St - Brooklyn` |
+| Vermont (all 4) | `/Vermont` |
+| Paris | `/Paris - 8 Rue Guynemer` |
+| Insurance Portfolio | `/non-House-specific Insurance` |
+| Vehicles | `/Vehicles/{name}` |
+
+---
 
 ## Vendor Specialties
 
@@ -210,12 +373,17 @@ Add to crontab (macOS/Linux):
 
 See `src/types/database.ts` for `VendorSpecialty` type and `VENDOR_SPECIALTY_LABELS`.
 
+---
+
 ## Important Constraints
 
 - **Check confirmation:** Bills paid by check must track `payment_date` and `confirmation_date`. Alert if unconfirmed >14 days.
 - **BuildingLink:** Brooklyn condos use BuildingLink for building management. Most messages are package notifications (noise). Surface elevator outages, maintenance, HOA notices prominently.
 - **Insurance carriers:** Berkley One (Anne's properties/vehicles), GEICO (Todd's CA property/vehicles)
 - **Caretaker:** Justin @ Parker Construction oversees RI and VT properties
+- **CASCADE DELETE:** `vendor_communications` has ON DELETE CASCADE - deleting a vendor deletes all linked emails
+
+---
 
 ## Logging & Audit System
 
@@ -224,33 +392,6 @@ See `src/types/database.ts` for `VendorSpecialty` type and `VENDOR_SPECIALTY_LAB
 Two-tier logging system:
 1. **User Audit Log** - PostgreSQL table (`user_audit_log`) for compliance and user action tracking
 2. **System Log** - Pino structured JSON logging for debugging and AI troubleshooting
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      APPLICATION LAYER                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
-│  │ API Routes   │  │ Server       │  │ Cron Jobs              │ │
-│  │ (withLogging)│  │ Actions      │  │                        │ │
-│  └──────┬───────┘  └──────┬───────┘  └───────────┬────────────┘ │
-│         │                 │                      │              │
-│         └────────────┬────┴──────────────────────┘              │
-│                      ▼                                          │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │              REQUEST CONTEXT (AsyncLocalStorage)            ││
-│  │   requestId | userId | userEmail | path | ip | userAgent   ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                      │                                          │
-│         ┌────────────┴────────────┐                             │
-│         ▼                         ▼                             │
-│  ┌─────────────────┐    ┌─────────────────────┐                 │
-│  │   PINO LOGGER   │    │   AUDIT SERVICE     │                 │
-│  │ (structured)    │    │ (user_audit_log)    │                 │
-│  └────────┬────────┘    └──────────┬──────────┘                 │
-│           │                        │                            │
-└───────────┼────────────────────────┼────────────────────────────┘
-            ▼                        ▼
-    Console/stdout           PostgreSQL
-```
 
 ### Key Files
 
@@ -263,40 +404,6 @@ Two-tier logging system:
 | API route wrapper | `src/lib/logger/api-wrapper.ts` |
 | Server action wrapper | `src/lib/logger/action-wrapper.ts` |
 | Database migration | `scripts/migrations/005_audit_log.sql` |
-
-### Usage
-
-**In API routes:**
-```typescript
-import { withLogging } from "@/lib/logger/api-wrapper"
-import { getLogger } from "@/lib/logger/contextual"
-
-export const POST = withLogging(async (request) => {
-  const log = getLogger("api.banking")
-  log.info("Processing request", { data: "..." })
-  // ... handler code
-})
-```
-
-**In server actions/mutations:**
-```typescript
-import { getLogger } from "@/lib/logger/contextual"
-import { audit } from "@/lib/logger/audit"
-
-export async function createProperty(data) {
-  const log = getLogger("mutations.property")
-  log.info("Creating property", { name: data.name })
-
-  // ... create property
-
-  await audit({
-    action: "create",
-    entityType: "property",
-    entityId: property.id,
-    entityName: property.name,
-  })
-}
-```
 
 ### Audit Log Queries
 
@@ -313,17 +420,23 @@ SELECT created_at, action, changes, user_email
 FROM user_audit_log
 WHERE entity_type = 'bill' AND entity_id = 'bill-uuid'
 ORDER BY created_at;
-
--- Trace a request
-SELECT * FROM user_audit_log
-WHERE request_id = 'request-uuid';
 ```
 
-### Audit Actions
+---
 
-Standard action types: `create`, `update`, `delete`, `login`, `logout`, `confirm`, `mark_paid`, `import`, `export`
+## Claude Skills
 
-All mutations in `src/lib/mutations.ts` are instrumented with audit logging.
+Available skills for common operations (invoke with `/skillname`):
+
+| Skill | Purpose |
+|-------|---------|
+| `/proddeploy` | Deploy code to production with version bump |
+| `/backup` | Full production database backup to local |
+| `/prod-logs` | View production application logs |
+| `/prod-db` | Open production database shell |
+| `/migrate` | Run a specific migration on production |
+
+---
 
 ## Detailed Rules
 

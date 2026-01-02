@@ -8,11 +8,12 @@ A web application for managing properties, vehicles, vendors, payments, insuranc
 - **Properties** - Manage 10 properties across 6 jurisdictions (VT, NY, RI, CA, France, Martinique)
 - **Vehicles** - Track 7 vehicles with registration and inspection dates
 - **Vendors** - Directory with specialty-based lookup ("Who handles HVAC in Rhode Island?")
-- **Payments** - Track bills with check confirmation workflow (Bank of America reliability issues)
-- **Insurance** - Monitor policies and expiration dates
+- **Payments** - Track bills with check confirmation workflow
+- **Insurance** - Full policy management with coverage details and expiration tracking
 - **Maintenance** - Task tracking and shared task lists for contractors
 - **BuildingLink** - Aggregated building management messages for Brooklyn condos
 - **Gmail Integration** - Automatic vendor email sync and communication tracking
+- **Dropbox Integration** - Document browsing with AI-generated summaries and QuickLook previews
 
 ---
 
@@ -20,56 +21,175 @@ A web application for managing properties, vehicles, vendors, payments, insuranc
 
 ### Prerequisites
 
-- Docker and Docker Compose installed
+- Docker and Docker Compose
 - Git
 
-### Running the Application
-
-1. **Clone and navigate to the project:**
-   ```bash
-   git clone https://github.com/twidtwid/propertymanagement.git
-   cd propertymanagement
-   ```
-
-2. **Start the application:**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Open your browser:**
-   - Application: http://localhost:3000
-   - Database: localhost:5432
-
-4. **First run:** Database auto-initializes with schema and seed data.
-
-### Development Commands
+### Running Locally
 
 ```bash
-# Start all services
+# Clone the repository
+git clone https://github.com/twidtwid/propertymanagement.git
+cd propertymanagement
+
+# Start everything
 docker-compose up -d
 
-# View logs
-docker-compose logs -f app
-
-# Rebuild after code changes
-docker-compose up --build
-
-# Stop application
-docker-compose down
-
-# Reset database (deletes all data)
-docker-compose down -v && docker-compose up -d
+# Open http://localhost:3000
 ```
 
-### Local Development (without Docker)
+Database auto-initializes with schema and seed data on first run.
+
+### Common Commands
 
 ```bash
-# Install dependencies
-npm install
-
-# Start PostgreSQL separately, then:
-npm run dev
+docker-compose up -d           # Start all services
+docker-compose logs -f app     # View app logs
+docker-compose down            # Stop all services
+docker-compose down -v         # Stop and reset database
 ```
+
+---
+
+## Production
+
+### Server Details
+
+| | |
+|-|-|
+| **Domain** | spmsystem.com |
+| **Server** | DigitalOcean Droplet (143.110.229.185) |
+| **SSH** | `ssh root@143.110.229.185` |
+| **App Dir** | /root/app |
+
+### Quick Production Commands
+
+```bash
+# Deploy latest code
+ssh root@143.110.229.185 "cd /root/app && git pull && \
+  docker compose -f docker-compose.prod.yml --env-file .env.production build app && \
+  docker compose -f docker-compose.prod.yml --env-file .env.production up -d app"
+
+# View logs
+ssh root@143.110.229.185 "docker logs app-app-1 --tail 100"
+
+# Database shell
+ssh root@143.110.229.185 "docker exec -it app-db-1 psql -U propman -d propertymanagement"
+
+# Health check
+curl -s https://spmsystem.com/api/health
+
+# Full backup to local machine
+ssh root@143.110.229.185 "docker exec app-db-1 pg_dump -U propman -d propertymanagement --no-owner --no-acl" \
+  > backups/backup_full_$(date +%Y%m%d_%H%M%S).sql
+```
+
+### Running Migrations
+
+```bash
+# Run a migration on production
+ssh root@143.110.229.185 "docker exec -i app-db-1 psql -U propman -d propertymanagement" \
+  < scripts/migrations/XXX_migration_name.sql
+```
+
+### Docker Containers
+
+| Container | Purpose |
+|-----------|---------|
+| app-app-1 | Next.js web application |
+| app-db-1 | PostgreSQL database |
+| app-daily-summary-1 | Daily email scheduler |
+| app-email-sync-1 | Gmail sync service |
+
+---
+
+## Users
+
+Authentication uses magic links (passwordless email).
+
+| User | Role | Access |
+|------|------|--------|
+| Anne | Owner | Full access |
+| Todd | Owner | Full access |
+| Michael | Owner | Full access |
+| Amelia | Owner | Full access |
+| Barbara Brady | Bookkeeper | Bills & payments only |
+
+---
+
+## Technology Stack
+
+- **Frontend:** Next.js 14 (App Router), React, TypeScript
+- **Styling:** Tailwind CSS, shadcn/ui
+- **Database:** PostgreSQL 16
+- **Deployment:** Docker, DigitalOcean
+- **Email:** Gmail API with OAuth
+
+---
+
+## Project Structure
+
+```
+src/
+├── app/                    # Next.js pages
+│   ├── page.tsx           # Dashboard
+│   ├── properties/        # Property management
+│   ├── vehicles/          # Vehicle tracking
+│   ├── vendors/           # Vendor directory
+│   ├── payments/          # Bills and taxes
+│   ├── insurance/         # Policy management
+│   └── ...
+├── components/            # React components
+│   ├── ui/               # shadcn/ui components
+│   └── ...
+├── lib/                   # Utilities
+│   ├── actions.ts        # Server actions (queries)
+│   ├── mutations.ts      # Server actions (writes)
+│   ├── db.ts             # Database client
+│   └── gmail/            # Gmail integration
+└── types/                 # TypeScript types
+
+scripts/
+├── init.sql              # Database schema
+├── migrations/           # Database migrations
+└── *.py                  # Tax lookup scrapers
+```
+
+---
+
+## Key Features
+
+### Payment Confirmation Workflow
+
+Checks are tracked: Pending → Sent → Confirmed
+
+Payments in "Sent" status for over 14 days are flagged (Bank of America reliability tracking).
+
+### Property Visibility
+
+Some properties (e.g., 125 Dana Avenue) are restricted to specific users. The `property_visibility` table controls who can see each property.
+
+### Insurance Management
+
+Full CRUD for insurance policies:
+- Policy detail pages with coverage breakdown
+- Property and vehicle pages show linked policies
+- Expiration tracking with alerts
+
+### Tax Automation
+
+Automated scrapers fetch property tax data from:
+- NYC Open Data API
+- Santa Clara County
+- Providence, RI
+- Vermont (NEMRC)
+
+### Dropbox Document Integration
+
+- Browse documents from mapped Dropbox folders
+- AI-generated one-line summaries for each file (Claude Haiku)
+- QuickLook-style previews for images and PDFs
+- Document counts displayed on property/vehicle pages
+- Automated sync every 15 minutes via cron
 
 ---
 
@@ -78,344 +198,49 @@ npm run dev
 Create `.env.local` for local development:
 
 ```env
-# Database
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/propertymanagement
 
-# Gmail OAuth (optional - for email sync)
+# Gmail OAuth (optional)
 GOOGLE_CLIENT_ID=your_client_id
 GOOGLE_CLIENT_SECRET=your_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/gmail/callback
 
-# Token encryption (generate with: openssl rand -hex 32)
+# Token encryption (openssl rand -hex 32)
 TOKEN_ENCRYPTION_KEY=your_32_byte_hex_key
 
-# Notification recipient
 NOTIFICATION_EMAIL=anne@annespalter.com
-
-# App URL
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Dropbox OAuth (optional)
+DROPBOX_APP_KEY=your_app_key
+DROPBOX_APP_SECRET=your_app_secret
+DROPBOX_REDIRECT_URI=http://localhost:3000/api/auth/dropbox/callback
+
+# Cron authentication (openssl rand -hex 32)
+CRON_SECRET=your_cron_secret
 ```
 
 ---
 
-## Users
+## Backup & Restore
 
-Authentication uses magic links (passwordless). Enter your email and click the link sent to your inbox.
-
-| User | Email | Role | Access |
-|------|-------|------|--------|
-| Anne | anne@annespalter.com | Owner | Full access |
-| Todd | todd@dailey.info | Owner | Full access |
-| Michael | michael@michaelspalter.com | Owner | Full access |
-| Amelia | amelia.spalter@gmail.com | Owner | Full access |
-| Barbara Brady | barbara@cbiz.com | Bookkeeper | Bills & payments only |
-
-**Note:** Magic link emails are sent via Gmail OAuth. Ensure `NOTIFICATION_EMAIL` is configured and Gmail is connected.
-
----
-
-## Technology Stack
-
-- **Frontend:** Next.js 14 (App Router), React, TypeScript
-- **Styling:** Tailwind CSS, shadcn/ui components
-- **Database:** PostgreSQL 16
-- **Container:** Docker
-- **Email:** Gmail API with OAuth
-
----
-
-## Project Structure
-
-```
-/src
-├── /app                    # Next.js App Router pages
-│   ├── page.tsx            # Dashboard
-│   ├── /properties         # Property management
-│   ├── /vehicles           # Vehicle tracking
-│   ├── /vendors            # Vendor directory
-│   ├── /payments           # Bills and taxes
-│   ├── /insurance          # Policies and claims
-│   ├── /maintenance        # Tasks and history
-│   ├── /buildinglink       # Building management messages
-│   ├── /documents          # Document storage
-│   ├── /reports            # Analytics
-│   └── /settings           # User preferences & Gmail
-├── /components             # React components
-│   ├── /ui                 # shadcn/ui components
-│   ├── /layout             # App shell, sidebar, header
-│   ├── /dashboard          # Dashboard widgets
-│   ├── /payments           # Payment components
-│   └── /buildinglink       # BuildingLink components
-├── /lib                    # Utilities and database
-│   ├── db.ts               # PostgreSQL client
-│   ├── actions.ts          # Server actions (queries)
-│   ├── mutations.ts        # Server actions (mutations)
-│   └── /gmail              # Gmail integration
-└── /types                  # TypeScript types
-    └── database.ts         # Type definitions
-```
-
----
-
-## Key Features Explained
-
-### Payment Confirmation Workflow
-
-Checks are tracked through a confirmation workflow:
-1. **Pending** - Bill created, not yet paid
-2. **Sent** - Payment sent (check mailed, online payment initiated)
-3. **Confirmed** - Payment verified (check cashed, transaction cleared)
-
-Payments that remain in "Sent" status for more than 14 days are flagged for Bank of America verification.
-
-### Quick Vendor Lookup
-
-From the dashboard, select a property and service type to instantly find the assigned vendor with contact information. Vendors are assigned to properties with specialty designations.
-
-### Shared Task Lists
-
-Create task lists for contractors (like Justin from Parker Construction) that can be shared via link and tracked. Items can be checked off and converted to maintenance history.
-
-### BuildingLink Integration
-
-The Brooklyn condos use BuildingLink for building management. The system categorizes messages:
-- **Critical** - Water shutoffs, gas leaks, building emergencies
-- **Important** - Elevator outages, building notices
-- **Maintenance** - Scheduled work, inspections
-- **Security** - Key access log events
-- **Routine** - Meeting minutes, general updates
-- **Noise** - Package deliveries (filtered by default)
-
-### Gmail Sync
-
-Automatically syncs emails from connected Gmail accounts:
-- Matches emails to vendors by sender address/domain
-- Stores communications for reference on vendor pages
-- Runs every 10 minutes via Docker service
-
----
-
-## Database
-
-### Accessing the Database
+### Create Backup
 
 ```bash
-# Connect via Docker
-docker exec -it propertymanagement-db-1 psql -U postgres -d propertymanagement
-
-# Run a query
-docker exec propertymanagement-db-1 psql -U postgres -d propertymanagement -c "SELECT * FROM properties;"
-
-# Reset database
-docker exec -i propertymanagement-db-1 psql -U postgres -d propertymanagement < scripts/init.sql
+# From production to local
+ssh root@143.110.229.185 "docker exec app-db-1 pg_dump -U propman -d propertymanagement --no-owner --no-acl" \
+  > backups/backup_full_$(date +%Y%m%d_%H%M%S).sql
 ```
 
-### Key Tables
-
-| Table | Purpose |
-|-------|---------|
-| properties | 10 managed properties |
-| vehicles | 7 vehicles with registration tracking |
-| vendors | 70+ service providers |
-| property_vendors | Many-to-many property/vendor assignments |
-| bills | Payment tracking with confirmation workflow |
-| property_taxes | Structured property tax records |
-| insurance_policies | Policy tracking with expiration alerts |
-| vendor_communications | Synced Gmail messages |
-| shared_task_lists | Contractor task lists |
-| user_audit_log | User action audit trail |
-
----
-
-## Logging & Audit System
-
-The application includes a comprehensive logging and audit system:
-
-### User Audit Log
-- Full audit trail of all user actions stored in `user_audit_log` table
-- Tracks: who did what, when, with full change history (old/new values)
-- Query examples in CLAUDE.md
-
-### System Logging
-- Structured JSON logging (production) or pretty console output (development)
-- Request correlation IDs for tracing requests through the system
-- Automatic logging of API requests and responses
-- Sensitive field redaction (tokens, passwords)
-
-### Key Files
-```
-src/lib/logger/
-├── index.ts          # Core structured logger (console-based for Next.js compatibility)
-├── context.ts        # Request context (AsyncLocalStorage)
-├── contextual.ts     # Context-aware getLogger()
-├── audit.ts          # Audit service for user_audit_log
-├── api-wrapper.ts    # withLogging() for API routes
-└── action-wrapper.ts # withAudit() for mutations
-```
-
----
-
-## Property Tax Reference
-
-| Property | Jurisdiction | ID Type | Value |
-|----------|-------------|---------|-------|
-| Vermont Main House | Dummerston, VT | SPAN | 186-059-10695 |
-| Booth House | Dummerston, VT | SPAN | 186-059-10098 |
-| Vermont Land | Brattleboro, VT | SPAN | 081-025-11151 |
-| Brooklyn PH2E | NYC | Block/Lot | 02324/1305 |
-| Brooklyn PH2F | NYC | Block/Lot | 02324/1306 |
-| Brooklyn Storage 44 | NYC | Block/Lot | 02324/1352 |
-| Brooklyn Storage 72 | NYC | Block/Lot | 02324/1380 |
-| Rhode Island House | Providence, RI | Address | 88 Williams St |
-| 125 Dana Avenue | Santa Clara, CA | APN | 274-15-034 |
-
-### Tax Lookup Resources
-
-- **NYC:** [NYC Open Data](https://data.cityofnewyork.us/resource/8y4t-faws.json) or [Finance Portal](https://a836-pts-access.nyc.gov)
-- **Providence RI:** [Tax Calculator](https://www.providenceri.gov/tax-calculator/)
-- **Vermont:** [NEMRC Database](https://www.nemrc.info) or [SPAN Finder](https://tax.vermont.gov/span-finder)
-- **Santa Clara CA:** [County Portal](https://santaclaracounty.telleronline.net) (use `scripts/lookup_scc_tax.py` for automation)
-
----
-
-## Insurance Summary
-
-| Carrier | Coverage |
-|---------|----------|
-| Berkley One | All Anne's properties (VT, Brooklyn, RI, Martinique, Paris) and vehicles (5 RI-registered) |
-| GEICO | Todd's property (125 Dana Ave, San Jose) and vehicles (2 CA-registered) |
-
----
-
-## Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/init.sql` | Database schema and seed data |
-| `scripts/sync-emails.js` | Standalone email sync (for cron) |
-| `scripts/import-emails.js` | Historical email import |
-| `scripts/daily-summary-scheduler.js` | Daily summary report scheduler |
-| `scripts/lookup_scc_tax.py` | Playwright automation for Santa Clara tax lookup |
-| `scripts/backup-db.sh` | Database backup with retention |
-| `scripts/deploy.sh` | Production deployment automation |
-
----
-
-## Docker Services
-
-| Service | Description | Port |
-|---------|-------------|------|
-| app | Next.js application | 3000 |
-| db | PostgreSQL database | 5432 |
-| email-sync | Gmail sync (every 10 min) | - |
-| daily-summary | Daily report scheduler | - |
-
----
-
-## Production Deployment (DigitalOcean)
-
-This section covers deploying to a DigitalOcean Droplet with automatic HTTPS via Caddy.
-
-### Requirements
-
-- DigitalOcean Droplet (Ubuntu 24.04 LTS, 2GB+ RAM recommended)
-- Domain name pointed to your droplet
-- SSH access
-
-### Server Setup
+### Restore Backup
 
 ```bash
-# 1. Create deploy user and security setup
-adduser deploy
-usermod -aG sudo deploy
-usermod -aG docker deploy
+# To local dev
+docker exec -i propertymanagement-db-1 psql -U postgres -d propertymanagement < backups/backup_file.sql
 
-# 2. Install Docker
-curl -fsSL https://get.docker.com | sh
-
-# 3. Install Caddy (reverse proxy with auto-HTTPS)
-apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-apt update && apt install caddy -y
-
-# 4. Configure firewall
-ufw allow OpenSSH
-ufw allow 80
-ufw allow 443
-ufw enable
+# To production (careful!)
+ssh root@143.110.229.185 "docker exec -i app-db-1 psql -U propman -d propertymanagement" < backups/backup_file.sql
 ```
-
-### Application Deployment
-
-```bash
-# As deploy user
-cd /home/deploy
-git clone https://github.com/twidtwid/propertymanagement.git app
-cd app
-
-# Configure environment
-cp .env.example .env.production
-nano .env.production  # Fill in all values
-
-# Build and start
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml up -d
-```
-
-### Caddy Configuration
-
-Copy `Caddyfile` to `/etc/caddy/Caddyfile`, update the domain name, then:
-
-```bash
-sudo systemctl reload caddy
-```
-
-### Daily Backups
-
-Set up automated database backups:
-
-```bash
-# Add to crontab (daily at 2 AM)
-crontab -e
-0 2 * * * /home/deploy/app/scripts/backup-db.sh >> /var/log/backup.log 2>&1
-```
-
-### Deployment Updates
-
-```bash
-# Standard deployment (with backup)
-./scripts/deploy.sh
-
-# Quick deployment (skip backup)
-./scripts/deploy.sh --quick
-
-# Rollback to previous version
-./scripts/deploy.sh --rollback
-```
-
-### Health Monitoring
-
-- Health endpoint: `https://your-domain.com/api/health`
-- Use DigitalOcean Uptime Monitoring or UptimeRobot
-- Alert on non-200 responses
-
-### Production Files
-
-| File | Purpose |
-|------|---------|
-| `docker-compose.prod.yml` | Production Docker orchestration |
-| `.env.example` | Environment variable template |
-| `Caddyfile` | Reverse proxy configuration |
-| `scripts/backup-db.sh` | Database backup script |
-| `scripts/deploy.sh` | Deployment automation |
-
-### Gmail OAuth (Production)
-
-1. Update Google Cloud Console with production domain
-2. Add `https://your-domain.com/api/auth/gmail/callback` to authorized redirect URIs
-3. Set `GOOGLE_REDIRECT_URI` in `.env.production`
-4. Complete OAuth flow at `/settings/gmail`
 
 ---
 
@@ -423,12 +248,30 @@ crontab -e
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| v0.7.0 | Dec 2025 | Production deployment preparation (Docker Compose, Caddy, backup scripts) |
-| v0.6.0 | Dec 2025 | Comprehensive logging & audit system (structured logging + user_audit_log) |
-| v0.5.0 | Dec 2025 | BuildingLink page, vendor category cleanup, 7 new specialties |
-| v0.4.0 | Dec 2025 | Daily summary reports, vendor journal |
-| v0.3.0 | Dec 2025 | Gmail integration, email sync |
-| v0.2.0 | Dec 2025 | Property tax tracking, vendor data import |
+| v0.3.0 | Jan 2026 | Dropbox document browser with AI summaries, QuickLook previews, automated 15-min sync |
+| v0.2.0 | Jan 2026 | Insurance detail/edit pages, property visibility, Dropbox data import |
+| v0.1.1 | Jan 2026 | Worker container fixes, health check improvements |
+| v0.1.0 | Dec 2025 | Initial production deployment |
+
+---
+
+## Claude Code Integration
+
+This project uses Claude Code for AI-assisted development. Key resources:
+
+- `CLAUDE.md` - AI-optimized project context and commands
+- `.claude/rules/` - Domain-specific rules (database, payments, security)
+- `.claude/skills/` - Automated workflows (deploy, backup, etc.)
+
+### Available Skills
+
+| Command | Description |
+|---------|-------------|
+| `/proddeploy` | Deploy to production with version bump |
+| `/backup` | Full database backup from prod |
+| `/prod-logs` | View production logs |
+| `/prod-db` | Open production database shell |
+| `/migrate` | Run migration on production |
 
 ---
 

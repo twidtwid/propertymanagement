@@ -1,6 +1,6 @@
 {
   "name": "property-management",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,7 +12,9 @@
     "tax:sync:live": "python3 scripts/sync_all_taxes.py --callback http://localhost:3000/api/taxes/sync/callback",
     "tax:sync:scc": "python3 scripts/lookup_scc_tax.py",
     "tax:sync:providence": "python3 scripts/lookup_providence_tax.py",
-    "tax:sync:vermont": "python3 scripts/lookup_vermont_tax.py"
+    "tax:sync:vermont": "python3 scripts/lookup_vermont_tax.py",
+    "dropbox:sync": "npx tsx scripts/dropbox_sync.ts",
+    "dropbox:sync:force": "npx tsx scripts/dropbox_sync.ts --force"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -47,9 +49,11 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dropbox": "^10.34.0",
     "googleapis": "^169.0.0",
     "lucide-react": "^0.460.0",
     "next": "14.2.35",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.13.1",
     "pino": "^9.6.0",
     "react": "^18.3.1",
@@ -62,13 +66,13 @@
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
-    "pino-pretty": "^13.0.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.35",
+    "pino-pretty": "^13.0.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "ts-node": "^10.9.2",

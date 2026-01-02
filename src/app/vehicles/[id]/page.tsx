@@ -13,8 +13,11 @@ import {
   AlertTriangle,
   Shield,
   DollarSign,
+  FolderOpen,
 } from "lucide-react"
+import { EntityDocuments } from "@/components/documents/entity-documents"
 import { getVehicle, getInsurancePoliciesForVehicle } from "@/lib/actions"
+import { getDocumentCountForEntity } from "@/lib/dropbox/files"
 import { formatDate, formatCurrency, daysUntil } from "@/lib/utils"
 import { INSURANCE_TYPE_LABELS, RECURRENCE_LABELS } from "@/types/database"
 
@@ -24,9 +27,10 @@ export default async function VehicleDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const [vehicle, insurancePolicies] = await Promise.all([
+  const [vehicle, insurancePolicies, documentCount] = await Promise.all([
     getVehicle(id),
     getInsurancePoliciesForVehicle(id),
+    getDocumentCountForEntity("vehicle", id),
   ])
 
   if (!vehicle) {
@@ -286,6 +290,14 @@ export default async function VehicleDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Documents Section */}
+      <EntityDocuments
+        entityType="vehicle"
+        entityId={vehicle.id}
+        entityName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+        documentCount={documentCount}
+      />
 
       {/* Alerts Section */}
       {((regDays !== null && regDays <= 30) ||

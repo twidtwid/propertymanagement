@@ -1,0 +1,413 @@
+{
+  "extraction_date": "2026-01-01",
+  "source": "Dropbox Property Management folders",
+  "properties": {
+    "88 Williams St - Providence RI": {
+      "address": "88 Williams Street, Providence, RI 02906-1031",
+      "parcel_id": "016-0200-0000",
+      "owner": "Michael H Spalter",
+      "insurance": {
+        "carrier": "Berkley One",
+        "agent": "Starkweather & Shepley Insurance Brokerage, Inc.",
+        "agent_phone": "(401) 435-3600",
+        "policies": [
+          {
+            "policy_number": "HO04383034",
+            "type": "homeowners",
+            "property_address": "88 Williams ST, Providence, RI 02906-1031",
+            "policy_period": "11/01/2025 to 11/01/2026",
+            "dwelling_coverage": "$4,000,000",
+            "other_structures_coverage": "$400,000",
+            "contents_coverage": "$2,000,000",
+            "personal_liability": "$300,000",
+            "medical_payments": "$50,000",
+            "deductible": "$10,000",
+            "earthquake_deductible": "15% / $600,000",
+            "base_premium": "$6,038",
+            "endorsement_premium": "$1,998",
+            "valuation_method": "Guaranteed Replacement Cost"
+          },
+          {
+            "policy_number": "HO04383038",
+            "type": "homeowners",
+            "description": "2055 Sunset Lake property policy",
+            "dwelling_coverage": "$2,682,000",
+            "contents_coverage": "$1,072,800",
+            "personal_liability": "$300,000",
+            "deductible": "$10,000",
+            "annual_premium": "$5,527"
+          },
+          {
+            "policy_number": "HO04383039",
+            "type": "homeowners",
+            "description": "1910 Sunset Lake property policy",
+            "dwelling_coverage": "$814,000",
+            "contents_coverage": "$407,000",
+            "personal_liability": "$300,000",
+            "deductible": "$10,000",
+            "annual_premium": "$2,057"
+          },
+          {
+            "policy_number": "HO04383040",
+            "type": "homeowners",
+            "description": "2001 property policy",
+            "dwelling_coverage": "$854,000",
+            "other_structures_coverage": "$85,400",
+            "contents_coverage": "$341,600",
+            "personal_liability": "$300,000",
+            "deductible": "$5,000",
+            "annual_premium": "$3,333"
+          }
+        ],
+        "security_system": {
+          "provider": "Alarm monitoring company",
+          "installation_date": "June 14, 2004",
+          "features": [
+            "Multiple zone burglar/fire alarm",
+            "UL Listed control/communicator",
+            "Standby battery backup",
+            "Photoelectric smoke and heat detection",
+            "Low temperature sensors (45 degrees)",
+            "Water detection devices",
+            "24-hour central station monitoring",
+            "Dual LTE cellular communication"
+          ]
+        }
+      },
+      "taxes": {
+        "jurisdiction": "City of Providence, RI",
+        "tax_year": "2025",
+        "bill_number": "2586811",
+        "assessed_values": {
+          "land": "$554,000.00",
+          "building_improvements": "$643,700.00",
+          "total_value": "$1,197,700.00"
+        },
+        "exemptions": {
+          "elderly_owner_occupied": "$89,286.00",
+          "exemption_credit": "$750.00"
+        },
+        "total_annual_tax": "$9,310.68",
+        "quarterly_payment": "$2,327.67",
+        "payment_schedule": "quarterly",
+        "due_dates": {
+          "q1": "07/24/2025",
+          "q2": "10/24/2025",
+          "q3": "01/24/2026",
+          "q4": "04/24/2026"
+        },
+        "tax_rates_per_1000": {
+          "owner_occupied_single_unit": {
+            "municipal": "$6.42",
+            "school": "$1.98",
+            "total": "$8.40"
+          }
+        },
+        "late_penalty": "12% per annum on unpaid balance from July 1"
+      },
+      "elevator_maintenance": {
+        "equipment": "Elevette residential elevator",
+        "equipment_id": "97193",
+        "service_frequency": "semi-annual with testing",
+        "contracts": [
+          {
+            "description": "Semi Annual with Testing",
+            "date": "2025-02-26",
+            "amounts": ["$150.00", "$156.00"]
+          },
+          {
+            "description": "Service Proposal",
+            "date": "2025-07-14",
+            "total": "$1,515.36"
+          }
+        ]
+      },
+      "utilities_contacts": {
+        "electronic_payments": "1-508-381-5455",
+        "tax_assessor": "401-680-5229",
+        "tax_collector": "401-331-5252",
+        "tax_payment_url": "www.providenceri.gov/tax-collector"
+      }
+    },
+    "34 N 7th St - Brooklyn NY": {
+      "address": "34 North 7th Street, Brooklyn, NY 11249",
+      "building_name": "Edge 11211 Condominium",
+      "units": {
+        "PH2E": {
+          "block": "2324",
+          "lot": "1305"
+        },
+        "PH2F": {
+          "block": "2324",
+          "lot": "1306",
+          "building_class": "R4 - CONDO; RESIDENTIAL UNIT IN ELEVATOR BLDG",
+          "tax_class": "2",
+          "condo_development": "302850"
+        }
+      },
+      "owners": ["Michael Spalter", "Anne Spalter"],
+      "insurance": {
+        "carrier": "Berkley One",
+        "type": "condo",
+        "mortgage_info": {
+          "lender": "Wells Fargo Home Mortgage",
+          "loan_number": "0489088823",
+          "mortgagee_clause": "Wells Fargo Home Mortgage, Client 936, Its Successors and/or Assigns, P.O. Box 100515, Florence, SC 29502-0515"
+        },
+        "coverage_amounts": {
+          "contents": "$1,700,000",
+          "improvements": "$221,000",
+          "personal_liability": "$300,000"
+        },
+        "annual_premium_ph2e": "$6,927",
+        "annual_premium_ph2f": "$7,081"
+      },
+      "taxes": {
+        "note": "421-a tax abatement through 2036 - very low taxes",
+        "ph2f": {
+          "tax_year": "2025/26",
+          "semi_annual_tax": "$59.72 to $60.32 per period",
+          "annual_estimate": "~$120",
+          "payment_schedule": "semi-annual (July 1 and January 1)"
+        }
+      },
+      "hoa": {
+        "management_company": "AKAM Associates, Inc.",
+        "management_address": "99 Park Avenue, 14th Floor, New York, NY 10016",
+        "payment_portal": "https://login.clickpay.com/akam/",
+        "clickpay_phone": "1-800-533-7901",
+        "building_contacts": {
+          "phone": "718-302-1076",
+          "fax": "718-302-1078"
+        },
+        "monthly_charges_ph2f": {
+          "common_charges_residential": "$3,258.70",
+          "air_conditioner_fee": "$72.58",
+          "total_monthly": "$3,331.28"
+        },
+        "account_number_ph2f": "t0080255",
+        "registration_code": "5TQXLR13"
+      },
+      "hvac_contracts": {
+        "vendor": "Major Air",
+        "service_type": "HVAC maintenance",
+        "pricing": {
+          "1_unit": "$14.52/month",
+          "2_units": "$29.04/month",
+          "3_units": "$43.55/month",
+          "4_units": "$58.08/month",
+          "5_units": "$72.60/month"
+        },
+        "recent_quotes": {
+          "unit_replacement": "$78,048.00 - $84,974.76"
+        }
+      },
+      "building_fees": {
+        "actuator_valve": "$38",
+        "key_fob": "$25",
+        "keylink_keychain": "$25",
+        "front_door_lock_replacement": "$75",
+        "mailbox_lock_replacement": "$25",
+        "bathroom_hinges": "$10",
+        "toilet_part_installation": "$75",
+        "smoke_detector_installation": "$65",
+        "laundry_cards": "$10",
+        "flooring": "$6 per sq. ft.",
+        "smoke_detector_only": "$35",
+        "low_level_alteration": {
+          "fee": "$50",
+          "damage_deposit": "$1,000"
+        },
+        "major_alteration": {
+          "fee": "$500",
+          "damage_deposit": "$15,000"
+        }
+      }
+    },
+    "Paris - 8 Rue Guynemer": {
+      "address": "6-8 Rue Guynemer, 75006 Paris, France",
+      "ownership_entity": "SCI Amelia's Way II",
+      "legal_address": "c/o UGGC Avocats, 47 Rue de Monceau, 75008 Paris",
+      "insurance": {
+        "carrier": "Generali Iard",
+        "contract_number": "AU 466 050",
+        "product": "L'Habitation Generali",
+        "broker": {
+          "name": "Groupe Gritchen Bourges",
+          "reference": "122952",
+          "address": "27 Rue Charles Durand, CS70139, 18021 Bourges",
+          "phone": "02 48 65 64 04",
+          "fax": "02 48 65 42 14",
+          "email": "contact@gritchen-assurances.com"
+        },
+        "client_reference": "093 349 402",
+        "policy_period": "17 March 2025 to 16 March 2026",
+        "insured_status": "co-propriétaire occupant (owner-occupant)",
+        "covered_risks": [
+          "Incendie et évènements assimilés (Fire)",
+          "Évènements climatiques - gel (Climate events/frost)",
+          "Catastrophes naturelles (Natural disasters)",
+          "Catastrophes technologiques (Technological disasters)",
+          "Attentats et actes de terrorisme (Terrorism)",
+          "Dégâts des eaux (Water damage)",
+          "Vol – vandalisme détériorations immobilières (Theft/vandalism - property)",
+          "Vol – vandalisme dommages mobiliers (Theft/vandalism - contents)",
+          "Bris des glaces (Broken glass)",
+          "Responsabilité civile occupant (Occupant liability)",
+          "Responsabilité civile vie privée (Personal liability)",
+          "Défense pénale et recours suite à accident (Legal defense)",
+          "Assistance"
+        ],
+        "coverage_amounts_eur": {
+          "contents": "30,000.00 EUR",
+          "annual_premium": "294.88 EUR"
+        }
+      }
+    },
+    "Vermont Properties": {
+      "properties": [
+        {
+          "name": "Main House",
+          "address": "2055 Sunset Lake Rd, Dummerston, VT",
+          "span": "186-059-10695",
+          "jurisdiction": "Dummerston",
+          "insurance_policy": "HO04383038"
+        },
+        {
+          "name": "Booth House",
+          "address": "Dummerston, VT",
+          "span": "186-059-10098",
+          "jurisdiction": "Dummerston"
+        },
+        {
+          "name": "Guest House",
+          "address": "1910 Sunset Lake Rd, Dummerston, VT",
+          "span": "186-059-10693",
+          "jurisdiction": "Dummerston",
+          "insurance_policy": "HO04383039"
+        },
+        {
+          "name": "Vermont Land (22 Kelly Rd)",
+          "address": "22 Kelly Road, Brattleboro, VT",
+          "span": "081-025-11151",
+          "parcel_id": "00010009.000",
+          "jurisdiction": "Town of Brattleboro",
+          "total_acres": "51.46",
+          "scl_code": "025"
+        }
+      ],
+      "taxes": {
+        "22_kelly_rd_brattleboro": {
+          "tax_year": "2025",
+          "owner": "Michael H Spalter & Anne Morgan Spalter",
+          "mailing_address": "88 Williams St, Providence RI 02906",
+          "description": "Dwellings/Barns/Land",
+          "assessed_values": {
+            "real": "$211,130",
+            "nonhomestead": "$211,130",
+            "grand_list": "2,111.30"
+          },
+          "tax_rates": {
+            "municipal": "1.5822",
+            "local_agreement": "0.0013",
+            "nonhomestead_education": "1.7539"
+          },
+          "taxes": {
+            "municipal_tax": "$3,343.23",
+            "education_tax": "$3,703.01",
+            "total_annual": "$7,046.24"
+          },
+          "payment_schedule": "quarterly",
+          "quarterly_payment": "$1,761.56",
+          "due_dates": {
+            "q1": "08/15/2025",
+            "q2": "11/17/2025",
+            "q3": "02/17/2026",
+            "q4": "05/15/2026"
+          },
+          "late_penalties": {
+            "interest": "1% monthly from due date",
+            "penalty_after_may_15": "8% plus interest"
+          }
+        },
+        "dummerston_properties": {
+          "payment_schedule": "semi-annual",
+          "due_dates": {
+            "first": "August 15",
+            "second": "February 15"
+          },
+          "note": "Tax documents reference 2055 and 1910 Sunset Lake properties"
+        }
+      },
+      "forestry": {
+        "management_plans": [
+          "Spalter_stewardship_2026.pdf",
+          "Spalter_1910SunsetLake_MPU_2026_draft.pdf",
+          "Spalter_22Kelly_MP_2026_draft.pdf"
+        ],
+        "forest_management_work": "FMP_WOC_2026 for 22 Kelly property"
+      }
+    }
+  },
+  "vendors_identified": {
+    "insurance": [
+      {
+        "name": "Berkley One",
+        "type": "homeowners insurance carrier",
+        "phone": "1-855-ONE (663)-8551",
+        "client_portal": "my.berkleyone.com",
+        "address": "101 Bellevue Parkway, Wilmington, DE 19809"
+      },
+      {
+        "name": "Starkweather & Shepley Insurance Brokerage, Inc.",
+        "type": "insurance agent",
+        "phone": "(401) 435-3600",
+        "address": "PO Box 549, Providence, RI 02901"
+      },
+      {
+        "name": "Generali Iard",
+        "type": "insurance carrier (France)",
+        "broker": "Groupe Gritchen Bourges"
+      }
+    ],
+    "property_management": [
+      {
+        "name": "AKAM Associates, Inc.",
+        "type": "condo management",
+        "phone": "1-800-533-7901 (ClickPay)",
+        "address": "99 Park Avenue, 14th Floor, New York, NY 10016"
+      }
+    ],
+    "maintenance": [
+      {
+        "name": "Major Air",
+        "type": "HVAC",
+        "services": "maintenance contracts, unit replacement",
+        "location": "Brooklyn"
+      },
+      {
+        "name": "City & Estate Gardener",
+        "type": "landscaping",
+        "phone": "401-935-2312",
+        "email": "office@cityestategardener.com",
+        "website": "www.CityEstateGardener.com",
+        "address": "PO Box 3429, Providence, RI 02909"
+      }
+    ],
+    "mortgage": [
+      {
+        "name": "Wells Fargo Home Mortgage",
+        "phone": "1-866-826-4884",
+        "insurance_email": "wellsfargo@mycoverageinfo.com",
+        "address": "PO Box 100515, Florence, SC 29502-0515"
+      }
+    ]
+  },
+  "key_contacts": {
+    "providence_tax_collector": "401-331-5252",
+    "providence_tax_assessor": "401-680-5229",
+    "providence_payments": "www.providenceri.gov/tax-collector",
+    "brattleboro_tax": "802-251-8153",
+    "nyc_finance": "a836-pts-access.nyc.gov"
+  }
+}

@@ -17,8 +17,11 @@ import {
   FileText,
   AlertTriangle,
   Trash2,
+  FolderOpen,
 } from "lucide-react"
+import { EntityDocuments } from "@/components/documents/entity-documents"
 import { getInsurancePolicy } from "@/lib/actions"
+import { getDocumentCountForPath } from "@/lib/dropbox/files"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { INSURANCE_TYPE_LABELS, RECURRENCE_LABELS } from "@/types/database"
 import { CoverageDetails } from "@/types/database"
@@ -91,6 +94,16 @@ export default async function InsurancePolicyDetailPage({
   if (!policy) {
     notFound()
   }
+
+  // Calculate folder path for documents
+  const folderPath = policy.property
+    ? `/Properties/${policy.property.name}/Insurance`
+    : policy.vehicle
+    ? `/Vehicles/${policy.vehicle.year} ${policy.vehicle.make} ${policy.vehicle.model}/Insurance`
+    : `/Insurance/${policy.carrier_name}`
+
+  // Get cached document count
+  const documentCount = await getDocumentCountForPath(folderPath)
 
   return (
     <div className="space-y-8">
@@ -322,6 +335,15 @@ export default async function InsurancePolicyDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Policy Documents */}
+      <EntityDocuments
+        entityType="insurance"
+        entityId={policy.id}
+        entityName={`${policy.carrier_name}/${INSURANCE_TYPE_LABELS[policy.policy_type]}`}
+        folderPath={folderPath}
+        documentCount={documentCount}
+      />
 
       {/* Notes */}
       {policy.notes && (

@@ -1,0 +1,527 @@
+{
+  "extraction_date": "2026-01-01",
+  "properties": {
+    "88 Williams St - Providence RI": {
+      "address": "88 Williams Street, Providence, RI 02906",
+      "parcel_id": "016-0200-0000",
+      "insurance": {
+        "property": "88 Williams St, Providence, RI",
+        "policies": [
+          {
+            "filename": "2001 new-policy-documents.pdf",
+            "type": "homeowners",
+            "policy_number": "HO04383040",
+            "dwelling_coverage": "$854,000",
+            "other_structures_coverage": "$85,400",
+            "contents_coverage": "$341,600",
+            "personal_liability": "$300,000",
+            "deductible": "$5,000",
+            "annual_premium": "$3,333",
+            "carrier": "Berkley One"
+          },
+          {
+            "filename": "new-policy-documents.pdf",
+            "type": "homeowners",
+            "policy_number": "HO04383034",
+            "dwelling_coverage": "$4,000,000",
+            "other_structures_coverage": "$400,000",
+            "contents_coverage": "$2,000,000",
+            "personal_liability": "$300,000",
+            "deductible": "$10,000",
+            "annual_premium": "$6,038",
+            "carrier": "Berkley One",
+            "property_address": "88 Williams ST, Providence, RI 02906"
+          },
+          {
+            "filename": "1910 new-policy-documents.pdf",
+            "type": "homeowners",
+            "policy_number": "HO04383039",
+            "dwelling_coverage": "$814,000",
+            "contents_coverage": "$407,000",
+            "personal_liability": "$300,000",
+            "deductible": "$10,000",
+            "annual_premium": "$2,057",
+            "carrier": "Berkley One"
+          },
+          {
+            "filename": "policy-change-documents.pdf",
+            "type": "homeowners",
+            "policy_number": "HO04383034",
+            "dwelling_coverage": "$4,000,000",
+            "other_structures_coverage": "$400,000",
+            "contents_coverage": "$2,000,000",
+            "personal_liability": "$300,000",
+            "deductible": "$10,000",
+            "annual_premium": "$6,038",
+            "carrier": "Berkley One",
+            "property_address": "88 Williams ST, Providence, RI 02906"
+          },
+          {
+            "filename": "2055 new homeowners Berkeley.pdf",
+            "type": "homeowners",
+            "policy_number": "HO04383038",
+            "dwelling_coverage": "$2,682,000",
+            "contents_coverage": "$1,072,800",
+            "personal_liability": "$300,000",
+            "deductible": "$10,000",
+            "annual_premium": "$5,527",
+            "carrier": "Berkley One"
+          }
+        ]
+      },
+      "taxes": {
+        "property": "88 Williams St, Providence, RI",
+        "parcel_id": "016-0200-0000",
+        "tax_records": [
+          {
+            "filename": "mortgage clause.pdf"
+          },
+          {
+            "filename": "Anne Spalter Studios Mail - Providence, RI Receipt_ htl-providence-ri-us-14466543.pdf",
+            "parcel_id": "016-0200-0000",
+            "payment_method": "eCheck"
+          },
+          {
+            "filename": "RI quarterly stubs 2025-2026.pdf",
+            "amounts_found": [
+              "$1.78",
+              "$3.44",
+              "$10.71",
+              "$6.42",
+              "$9,310.68",
+              "$11.16",
+              "$3.29",
+              "$29.20",
+              "$8.40",
+              "$21.79",
+              "$2,327.67",
+              "$6.87",
+              "$1.98",
+              "$22.33",
+              "$14.60",
+              "$19.88",
+              "$6.71",
+              "$26.00",
+              "$1000",
+              "$6.12",
+              "$7.55",
+              "$28.50",
+              "$5.77",
+              "$14.00"
+            ],
+            "payment_schedule": "quarterly"
+          }
+        ]
+      },
+      "elevator_maintenance": {
+        "property": "88 Williams St, Providence, RI",
+        "contracts": [
+          {
+            "filename": "signed_ CustomerProposal - 2025-07-14T085146.954.pdf",
+            "service_type": "elevator",
+            "contract_amounts": [
+              "$17.50",
+              "$898.30",
+              "$74.66",
+              "$525.00",
+              "$935.05",
+              "$36.75",
+              "$373.30"
+            ]
+          },
+          {
+            "filename": "2025-02-26-OG-Semi Annual w Testing-97193, Elevette, 88 Williams Street, Providence, RI.pdf",
+            "service_type": "elevator",
+            "service_frequency": "semi-annual",
+            "contract_amounts": [
+              "$150.00",
+              "$156.00"
+            ]
+          },
+          {
+            "filename": "Inspection Report Oct Q.pdf",
+            "service_type": "elevator"
+          },
+          {
+            "filename": "Maintenance time ticket T-35655 97193 Elevette 88 Williams Street.pdf",
+            "service_type": "elevator"
+          },
+          {
+            "filename": "signed_2025-02-26-OG-Semi Annual w Testing-97193, Elevette, 88 Williams Street, Providence, RI.pdf",
+            "service_type": "elevator",
+            "service_frequency": "semi-annual",
+            "contract_amounts": [
+              "$150.00",
+              "$156.00"
+            ]
+          },
+          {
+            "filename": "ServiceProposal - 2025-07-14T085405.282.pdf",
+            "service_type": "elevator",
+            "contract_amounts": [
+              "$65.70",
+              "$182.00",
+              "$360.00",
+              "$985.50",
+              "$93.60",
+              "$66.00",
+              "$862.20",
+              "$660.00",
+              "$287.40",
+              "$183.30",
+              "$64.00",
+              "$1,503.06",
+              "$187.20",
+              "$1,515.36"
+            ]
+          },
+          {
+            "filename": "signed_ServiceProposal - 2025-07-14T085405.282.pdf",
+            "service_type": "elevator",
+            "contract_amounts": [
+              "$65.70",
+              "$182.00",
+              "$360.00",
+              "$985.50",
+              "$93.60",
+              "$66.00",
+              "$862.20",
+              "$660.00",
+              "$287.40",
+              "$183.30",
+              "$64.00",
+              "$1,503.06",
+              "$187.20",
+              "$1,515.36"
+            ]
+          },
+          {
+            "filename": "CustomerProposal - 2025-07-14T085146.954.pdf",
+            "service_type": "elevator",
+            "contract_amounts": [
+              "$17.50",
+              "$898.30",
+              "$74.66",
+              "$525.00",
+              "$935.05",
+              "$36.75",
+              "$373.30"
+            ]
+          }
+        ]
+      }
+    },
+    "34 N 7th St - Brooklyn": {
+      "address": "34 N 7th Street, Brooklyn, NY 11249",
+      "units": [
+        "PH2E",
+        "PH2F"
+      ],
+      "block_lot": {
+        "block": "02324",
+        "lot_ph2e": "1305",
+        "lot_ph2f": "1306"
+      },
+      "insurance": {
+        "property": "34 N 7th St, Brooklyn, NY (PH2E & PH2F)",
+        "policies": [
+          {
+            "filename": "add Wells to PH2F policy-change-documents (1).pdf",
+            "policy_number": "Period",
+            "type": "condo",
+            "mortgage_info": true,
+            "coverage_amounts": [
+              "$221,000",
+              "$1,700,000",
+              "$300,000",
+              "$6,959",
+              "$7,081",
+              "$117",
+              "$0",
+              "$5",
+              "$100,000",
+              "$10,000",
+              "$122",
+              "$510,000",
+              "$2,500",
+              "$20,000",
+              "$25,000"
+            ]
+          },
+          {
+            "filename": "mortgage clause request.pdf",
+            "mortgage_info": true,
+            "loan_number": "0489088823"
+          },
+          {
+            "filename": "condo policies.pdf",
+            "policy_number": "Period",
+            "type": "condo",
+            "coverage_amounts": [
+              "$6,927",
+              "$221,000",
+              "$1,700,000",
+              "$300,000",
+              "$6,959",
+              "$117",
+              "$7,081",
+              "$5",
+              "$100,000",
+              "$10,000",
+              "$122",
+              "$1,000",
+              "$510,000",
+              "$2,500",
+              "$6,805",
+              "$20,000",
+              "$25,000"
+            ]
+          }
+        ]
+      },
+      "taxes": {
+        "property": "34 N 7th St, Brooklyn, NY (PH2E & PH2F)",
+        "block": "02324",
+        "lot_ph2e": "1305",
+        "lot_ph2f": "1306",
+        "tax_records": [
+          {
+            "filename": "PH2F taxes summary july 2025.pdf",
+            "unit": "PH2F"
+          }
+        ]
+      },
+      "hvac_contracts": {
+        "property": "34 N 7th St, Brooklyn, NY (PH2E & PH2F)",
+        "contracts": [
+          {
+            "filename": "major air replacement unit.pdf",
+            "service_type": "HVAC",
+            "vendor": "Major Air",
+            "amounts": [
+              "$678.94",
+              "$7,650.00",
+              "$8,328.94"
+            ]
+          },
+          {
+            "filename": "Major Air Service Contract Charge Authorization.pdf",
+            "service_type": "HVAC",
+            "vendor": "Major Air",
+            "contract_type": "maintenance"
+          },
+          {
+            "filename": "whalen unit replacement proposal Major Air Sept 2025.pdf",
+            "service_type": "HVAC",
+            "vendor": "Major Air",
+            "amounts": [
+              "$78,048.00",
+              "$84,974.76",
+              "$6,926.76"
+            ]
+          },
+          {
+            "filename": "Major Air Maintenance Contract.pdf",
+            "service_type": "HVAC",
+            "vendor": "Major Air",
+            "contract_type": "maintenance",
+            "amounts": [
+              "$14.52",
+              "$15,000",
+              "$75",
+              "$35",
+              "$72.60",
+              "$38",
+              "$50",
+              "$25",
+              "$58.08",
+              "$1,000",
+              "$43.55",
+              "$500",
+              "$10",
+              "$6",
+              "$29.04",
+              "$65"
+            ]
+          },
+          {
+            "filename": "Spalter Residence 34 North 7th Street PH2E & PH2F - Semi-Annual Inspections.pdf",
+            "service_type": "HVAC"
+          },
+          {
+            "filename": "Major Air Maintenance Description.pdf",
+            "service_type": "HVAC"
+          },
+          {
+            "filename": "signed_Major Air Service Contract Charge Authorization.pdf",
+            "service_type": "HVAC",
+            "vendor": "Major Air",
+            "contract_type": "maintenance"
+          }
+        ]
+      },
+      "hoa": {
+        "property": "34 N 7th St, Brooklyn, NY (PH2E & PH2F)",
+        "hoa_info": [
+          {
+            "filename": "akam 1.pdf",
+            "management_company": "AKAM",
+            "amounts": [
+              "$0.00",
+              "$48.32"
+            ]
+          },
+          {
+            "filename": "532 - BY-Laws (2).pdf"
+          },
+          {
+            "filename": "akam Sept 2025 PH2F.pdf",
+            "management_company": "AKAM",
+            "amounts": [
+              "$3,258.70",
+              "$0.00",
+              "$3,331.28",
+              "$72.58"
+            ]
+          }
+        ]
+      }
+    },
+    "Paris - 8 Rue Guynemer": {
+      "address": "8 Rue Guynemer, 75006 Paris, France",
+      "insurance": {
+        "property": "8 Rue Guynemer, Paris, France",
+        "policies": [
+          {
+            "filename": "insurance Devis MRH - 61967826.pdf",
+            "contract_number": "Devis",
+            "document_type": "attestation",
+            "type": "habitation (homeowners)",
+            "amounts_eur": [
+              "\n30 000,00 eur",
+              "\n30 000,00 eur",
+              " 1 000,00 eur",
+              " 294,88 eur",
+              " 88,46 eur"
+            ]
+          },
+          {
+            "filename": "Attestation Habitation - AU466050.pdf",
+            "contract_number": "093",
+            "document_type": "attestation",
+            "type": "habitation (homeowners)"
+          },
+          {
+            "filename": "Paris insurance MAMAISON_FDR.pdf",
+            "contract_number": "FR",
+            "type": "habitation (homeowners)",
+            "amounts_eur": [
+              " 214 799 030 \u20ac",
+              " 14 627 854,68 \u20ac",
+              " 26 000 \u20ac",
+              " 0 \u20ac",
+              " Eur"
+            ]
+          }
+        ]
+      }
+    },
+    "Vermont": {
+      "properties_list": [
+        {
+          "name": "Main House",
+          "address": "2055 Sunset Lake Rd, Dummerston, VT",
+          "span": "186-059-10695"
+        },
+        {
+          "name": "Booth House",
+          "address": "Dummerston, VT",
+          "span": "186-059-10098"
+        },
+        {
+          "name": "Guest House",
+          "address": "1910 Sunset Lake Rd, Dummerston, VT",
+          "span": "186-059-10693"
+        },
+        {
+          "name": "Land",
+          "address": "Brattleboro, VT",
+          "span": "081-025-11151"
+        },
+        {
+          "name": "22 Kelly Road",
+          "address": "22 Kelly Rd, Dummerston, VT"
+        }
+      ],
+      "taxes": {
+        "properties": [
+          {
+            "name": "Vermont Main House (2055 Sunset Lake Rd)",
+            "span": "186-059-10695",
+            "jurisdiction": "Dummerston"
+          },
+          {
+            "name": "Booth House",
+            "span": "186-059-10098",
+            "jurisdiction": "Dummerston"
+          },
+          {
+            "name": "Guest House (1910 Sunset Lake Rd)",
+            "span": "186-059-10693",
+            "jurisdiction": "Dummerston"
+          },
+          {
+            "name": "Vermont Land",
+            "span": "081-025-11151",
+            "jurisdiction": "Brattleboro"
+          }
+        ],
+        "tax_records": [
+          {
+            "filename": "Brattleboro 2025-2026.pdf",
+            "span_numbers": [
+              "081-025-11151"
+            ],
+            "jurisdiction": "Brattleboro",
+            "dates_found": [
+              "07/14/2025",
+              "05/15/20",
+              "07/14/20",
+              "02/17/2026",
+              "02/17/20",
+              "05/15/2026",
+              "May 15, 2025",
+              "08/15/2025",
+              "08/15/20",
+              "11/17/2025",
+              "11/17/20"
+            ]
+          },
+          {
+            "filename": "dummerston taxes 2025 2026-2055 and 1910.pdf"
+          },
+          {
+            "filename": "Brattleboro Tax 2025-2026.pdf",
+            "span_numbers": [
+              "081-025-11151"
+            ],
+            "jurisdiction": "Brattleboro",
+            "dates_found": [
+              "07/14/2025",
+              "05/15/20",
+              "07/14/20",
+              "02/17/2026",
+              "02/17/20",
+              "05/15/2026",
+              "May 15, 2025",
+              "08/15/2025",
+              "08/15/20",
+              "11/17/2025",
+              "11/17/20"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

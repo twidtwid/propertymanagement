@@ -24,8 +24,11 @@ import {
   Receipt,
   ExternalLink,
   Shield,
+  FolderOpen,
 } from "lucide-react"
+import { EntityDocuments } from "@/components/documents/entity-documents"
 import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory, getInsurancePoliciesForProperty } from "@/lib/actions"
+import { getDocumentCountForEntity } from "@/lib/dropbox/files"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PROPERTY_TYPE_LABELS, VENDOR_SPECIALTY_LABELS, INSURANCE_TYPE_LABELS, RECURRENCE_LABELS } from "@/types/database"
 
@@ -41,11 +44,12 @@ export default async function PropertyDetailPage({
     notFound()
   }
 
-  const [vendors, taskLists, taxHistory, insurancePolicies] = await Promise.all([
+  const [vendors, taskLists, taxHistory, insurancePolicies, documentCount] = await Promise.all([
     getPropertyVendors(id),
     getSharedTaskListsForProperty(id),
     getPropertyTaxHistory(id),
     getInsurancePoliciesForProperty(id),
+    getDocumentCountForEntity("property", id),
   ])
 
   return (
@@ -281,6 +285,10 @@ export default async function PropertyDetailPage({
           <TabsTrigger value="maintenance" className="gap-2">
             <Wrench className="h-4 w-4" />
             Maintenance
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="gap-2">
+            <FolderOpen className="h-4 w-4" />
+            Documents ({documentCount})
           </TabsTrigger>
         </TabsList>
 
@@ -550,6 +558,14 @@ export default async function PropertyDetailPage({
               </p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <EntityDocuments
+            entityType="property"
+            entityId={property.id}
+            entityName={property.name}
+          />
         </TabsContent>
       </Tabs>
     </div>
