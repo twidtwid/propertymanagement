@@ -55,10 +55,10 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy node_modules and scripts
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/package.json ./
+# Copy node_modules and scripts (with correct ownership for nextjs user)
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
 
 USER nextjs
 
