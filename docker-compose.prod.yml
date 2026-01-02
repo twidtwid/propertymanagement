@@ -5,10 +5,12 @@ version: '3.8'
 
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runner
+    image: ghcr.io/twidtwid/propertymanagement:latest
+    # Fallback: uncomment to build locally instead of pulling
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: runner
     restart: always
     ports:
       - "3000:3000"
@@ -66,10 +68,12 @@ services:
         max-file: "3"
 
   email-sync:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: worker
+    image: ghcr.io/twidtwid/propertymanagement-worker:latest
+    # Fallback: uncomment to build locally instead of pulling
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: worker
     restart: always
     command: node scripts/sync-emails.js --watch --interval=10
     env_file:
@@ -94,10 +98,12 @@ services:
         max-file: "3"
 
   daily-summary:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: worker
+    image: ghcr.io/twidtwid/propertymanagement-worker:latest
+    # Fallback: uncomment to build locally instead of pulling
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   target: worker
     restart: always
     command: node scripts/daily-summary-scheduler.js
     env_file:
