@@ -12,15 +12,17 @@ import { sendDailySummaryEmail, checkAndSendUrgentNotifications } from "@/lib/no
  *   send=true to also send the email
  */
 export async function GET(request: NextRequest) {
-  // Verify cron secret in production
+  // Always verify cron secret (no dev bypass for security)
   const cronSecret = process.env.CRON_SECRET
   const authHeader = request.headers.get("authorization")
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // Allow in development without secret
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error("[Daily Summary] CRON_SECRET not configured")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
@@ -85,14 +87,17 @@ export async function GET(request: NextRequest) {
  * Also checks for urgent items and sends notifications.
  */
 export async function POST(request: NextRequest) {
-  // Verify cron secret in production
+  // Always verify cron secret (no dev bypass for security)
   const cronSecret = process.env.CRON_SECRET
   const authHeader = request.headers.get("authorization")
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error("[Daily Summary] CRON_SECRET not configured")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {

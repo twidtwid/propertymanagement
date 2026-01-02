@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { z } from "zod"
-import { verifyMagicLink } from "@/lib/auth"
+import { verifyMagicLink, setAuthCookie } from "@/lib/auth"
 
 const verifySchema = z.object({
   token: z.string().min(1),
@@ -25,20 +24,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Set auth cookie directly in the API route
-    // Use COOKIE_SECURE env var to control secure flag (for HTTP testing in production)
-    const isSecure = process.env.COOKIE_SECURE === "false"
-      ? false
-      : process.env.NODE_ENV === "production"
-
-    const cookieStore = cookies()
-    cookieStore.set("auth_user", JSON.stringify(user), {
-      httpOnly: true,
-      secure: isSecure,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
-    })
+    // Set signed auth cookie
+    await setAuthCookie(user)
 
     return NextResponse.json({
       success: true,

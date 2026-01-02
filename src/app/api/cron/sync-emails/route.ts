@@ -7,15 +7,17 @@ import { syncEmails } from "@/lib/gmail/sync"
  * Should be called every 10 minutes by Vercel Cron.
  */
 export async function GET(request: NextRequest) {
-  // Verify cron secret in production
+  // Always verify cron secret (no dev bypass for security)
   const cronSecret = process.env.CRON_SECRET
   const authHeader = request.headers.get("authorization")
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // Allow in development without secret
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error("[Cron] CRON_SECRET not configured")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ export default function VerifyPage() {
 
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [message, setMessage] = useState("")
+  const verifyAttempted = useRef(false)
 
   useEffect(() => {
     if (!token) {
@@ -20,6 +21,10 @@ export default function VerifyPage() {
       setMessage("Invalid or missing login link.")
       return
     }
+
+    // Prevent double-call in React Strict Mode
+    if (verifyAttempted.current) return
+    verifyAttempted.current = true
 
     async function verifyToken() {
       try {

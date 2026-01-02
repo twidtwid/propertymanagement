@@ -4,6 +4,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { query, queryOne } from "./db"
 import { randomBytes } from "crypto"
+import { signSession, verifySession } from "./session"
 import type { Profile } from "@/types/database"
 
 export interface AuthUser {
@@ -21,12 +22,13 @@ export async function getUser(): Promise<AuthUser | null> {
     return null
   }
 
-  try {
-    const userData = JSON.parse(authCookie.value) as AuthUser
-    return userData
-  } catch {
+  // Verify signature and extract user data
+  const userData = verifySession<AuthUser>(authCookie.value)
+  if (!userData) {
     return null
   }
+
+  return userData
 }
 
 export async function requireAuth(): Promise<AuthUser> {
@@ -98,14 +100,17 @@ export async function verifyMagicLink(token: string): Promise<AuthUser | null> {
   )
 
   if (!tokenRecord) {
+    console.log("[Auth] Token not found in database")
     return null // Token not found
   }
 
   if (tokenRecord.used_at) {
+    console.log("[Auth] Token already used at:", tokenRecord.used_at)
     return null // Token already used
   }
 
   if (new Date(tokenRecord.expires_at) < new Date()) {
+    console.log("[Auth] Token expired at:", tokenRecord.expires_at)
     return null // Token expired
   }
 
@@ -135,11 +140,13 @@ export async function verifyMagicLink(token: string): Promise<AuthUser | null> {
 
 /**
  * Set the auth cookie for a user.
+ * Cookie is signed with HMAC-SHA256 to prevent tampering.
  * Call this from API routes after verifying the user.
  */
 export async function setAuthCookie(user: AuthUser): Promise<void> {
   const cookieStore = cookies()
-  cookieStore.set("auth_user", JSON.stringify(user), {
+  const signedValue = signSession(user)
+  cookieStore.set("auth_user", signedValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
