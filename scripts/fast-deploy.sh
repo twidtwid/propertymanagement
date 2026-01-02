@@ -53,7 +53,7 @@ done
 
 # Get version info
 cd "$(dirname "$0")/.."
-VERSION=$(node -p "require('./package.json').version")
+VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
 GIT_SHA=$(git rev-parse --short HEAD)
 TAG="${VERSION}-${GIT_SHA}"
 
