@@ -115,7 +115,7 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
     ORDER BY pt.due_date
   `)
 
-  // Get recent emails
+  // Get recent emails - only vendor-matched emails, not personal
   const recentEmails = await query<{
     vendor_name: string | null
     subject: string
@@ -124,13 +124,13 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
   }>(`
     SELECT v.name as vendor_name, vc.subject, vc.received_at, vc.is_important
     FROM vendor_communications vc
-    LEFT JOIN vendors v ON vc.vendor_id = v.id
+    INNER JOIN vendors v ON vc.vendor_id = v.id
     WHERE vc.received_at >= CURRENT_DATE - 1
     ORDER BY vc.received_at DESC
     LIMIT 10
   `)
 
-  // Get stats
+  // Get stats - only count vendor-matched emails
   const statsResult = await query<{
     bills_count: string
     bills_amount: string
@@ -141,7 +141,7 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
       (SELECT COUNT(*) FROM bills WHERE status = 'pending' AND due_date <= CURRENT_DATE + 7) as bills_count,
       (SELECT COALESCE(SUM(amount), 0) FROM bills WHERE status = 'pending' AND due_date <= CURRENT_DATE + 7) as bills_amount,
       (SELECT COUNT(*) FROM maintenance_tasks WHERE status IN ('pending', 'in_progress') AND priority IN ('urgent', 'high')) as urgent_tasks,
-      (SELECT COUNT(*) FROM vendor_communications WHERE received_at >= CURRENT_DATE) as new_emails
+      (SELECT COUNT(*) FROM vendor_communications WHERE received_at >= CURRENT_DATE AND vendor_id IS NOT NULL) as new_emails
   `)
 
   const stats = statsResult[0] || { bills_count: "0", bills_amount: "0", urgent_tasks: "0", new_emails: "0" }
