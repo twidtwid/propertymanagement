@@ -12,9 +12,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { FormField, FormSelect, FormTextarea, SubmitButton } from "@/components/forms"
 import { useToast } from "@/hooks/use-toast"
-import { createMaintenanceTask } from "@/lib/mutations"
+import { createMaintenanceTask, updateMaintenanceTask } from "@/lib/mutations"
 import { maintenanceTaskSchema, type MaintenanceTaskFormData } from "@/lib/schemas"
-import type { Property, Vehicle, Vendor } from "@/types/database"
+import type { Property, Vehicle, Vendor, MaintenanceTask } from "@/types/database"
 
 interface TaskFormDialogProps {
   open: boolean
@@ -23,6 +23,7 @@ interface TaskFormDialogProps {
   vehicles: Vehicle[]
   vendors: Vendor[]
   defaultPropertyId?: string
+  task?: MaintenanceTask | null
   onSuccess?: () => void
 }
 
@@ -55,9 +56,11 @@ export function TaskFormDialog({
   vehicles,
   vendors,
   defaultPropertyId,
+  task,
   onSuccess,
 }: TaskFormDialogProps) {
   const { toast } = useToast()
+  const isEditing = !!task
 
   const {
     register,
@@ -84,7 +87,22 @@ export function TaskFormDialog({
   const recurrence = watch("recurrence")
 
   useEffect(() => {
-    if (!open) {
+    if (open && task) {
+      // Populate form with existing task data
+      reset({
+        title: task.title,
+        description: task.description || undefined,
+        property_id: task.property_id || undefined,
+        vehicle_id: task.vehicle_id || undefined,
+        vendor_id: task.vendor_id || undefined,
+        priority: task.priority,
+        status: task.status,
+        due_date: task.due_date || undefined,
+        recurrence: task.recurrence,
+        estimated_cost: task.estimated_cost || undefined,
+        notes: task.notes || undefined,
+      })
+    } else if (!open) {
       reset({
         priority: "medium",
         status: "pending",
@@ -92,15 +110,19 @@ export function TaskFormDialog({
         property_id: defaultPropertyId || undefined,
       })
     }
-  }, [open, reset, defaultPropertyId])
+  }, [open, task, reset, defaultPropertyId])
 
   const onSubmit = async (data: MaintenanceTaskFormData) => {
-    const result = await createMaintenanceTask(data)
+    const result = isEditing
+      ? await updateMaintenanceTask(task.id, data)
+      : await createMaintenanceTask(data)
 
     if (result.success) {
       toast({
-        title: "Task created",
-        description: "The maintenance task has been created.",
+        title: isEditing ? "Task updated" : "Task created",
+        description: isEditing
+          ? "The maintenance task has been updated."
+          : "The maintenance task has been created.",
       })
       onOpenChange(false)
       onSuccess?.()
@@ -117,7 +139,7 @@ export function TaskFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Maintenance Task</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Task" : "Add Maintenance Task"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -238,7 +260,9 @@ export function TaskFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <SubmitButton isLoading={isSubmitting}>Create Task</SubmitButton>
+            <SubmitButton isLoading={isSubmitting}>
+              {isEditing ? "Save Changes" : "Create Task"}
+            </SubmitButton>
           </div>
         </form>
       </DialogContent>

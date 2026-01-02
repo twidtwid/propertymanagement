@@ -12,7 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
-import { formatDate } from "@/lib/utils"
+import { formatDateTime } from "@/lib/utils"
 import type { VendorCommunication } from "@/lib/actions"
 import { EmailPreview } from "./email-preview"
 
@@ -86,7 +86,7 @@ export function VendorJournal({ communications }: VendorJournalProps) {
 
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
               <span className="text-sm text-muted-foreground">
-                {formatDate(comm.received_at)}
+                {formatDateTime(comm.received_at)}
               </span>
               <div className="flex items-center gap-1">
                 <Badge variant={comm.direction === "inbound" ? "secondary" : "outline"}>

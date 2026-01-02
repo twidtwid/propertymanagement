@@ -308,9 +308,10 @@ export default async function PropertyDetailPage({
               ) : (
                 <div className="space-y-3">
                   {vendors.map((pv) => (
-                    <div
+                    <Link
                       key={pv.id}
-                      className="flex items-center justify-between p-4 rounded-xl border"
+                      href={`/vendors/${pv.vendor_id}`}
+                      className="flex items-center justify-between p-4 rounded-xl border hover:bg-muted/50 transition-colors"
                     >
                       <div>
                         <div className="flex items-center gap-2">
@@ -339,7 +340,7 @@ export default async function PropertyDetailPage({
                           </p>
                         )}
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}

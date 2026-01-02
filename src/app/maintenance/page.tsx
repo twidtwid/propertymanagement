@@ -5,18 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Wrench,
   ClipboardList,
   History,
-  Building2,
-  Car,
 } from "lucide-react"
 import { getMaintenanceTasks, getPendingMaintenanceTasks, getSharedTaskLists, getActiveProperties, getActiveVehicles, getActiveVendors } from "@/lib/actions"
-import { formatDate, daysUntil } from "@/lib/utils"
-import { TASK_PRIORITY_LABELS } from "@/types/database"
+import { formatDate } from "@/lib/utils"
 import { AddTaskButton } from "@/components/maintenance/add-task-button"
+import { MaintenanceTaskList } from "@/components/maintenance/maintenance-task-list"
 
 export default async function MaintenancePage() {
   const [allTasks, pendingTasks, taskLists, properties, vehicles, vendors] = await Promise.all([
@@ -59,111 +56,12 @@ export default async function MaintenancePage() {
         </TabsList>
 
         <TabsContent value="pending">
-          <div className="space-y-4">
-            {pendingTasks.length === 0 ? (
-              <Card>
-                <CardContent className="py-8">
-                  <p className="text-muted-foreground text-center">
-                    No pending maintenance tasks
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              pendingTasks.map((task) => {
-                const days = task.due_date ? daysUntil(task.due_date) : null
-                return (
-                  <Card
-                    key={task.id}
-                    className={
-                      task.priority === "urgent"
-                        ? "border-red-200 bg-red-50/50"
-                        : task.priority === "high"
-                        ? "border-amber-200 bg-amber-50/50"
-                        : ""
-                    }
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <Checkbox className="mt-1" />
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="text-lg font-semibold">
-                                {task.title}
-                              </h3>
-                              <div className="flex items-center gap-2 mt-1 text-muted-foreground">
-                                {task.property_id ? (
-                                  <>
-                                    <Building2 className="h-4 w-4" />
-                                    <span>{task.property?.name}</span>
-                                  </>
-                                ) : task.vehicle_id ? (
-                                  <>
-                                    <Car className="h-4 w-4" />
-                                    <span>
-                                      {task.vehicle?.year} {task.vehicle?.make}{" "}
-                                      {task.vehicle?.model}
-                                    </span>
-                                  </>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant={
-                                  task.priority === "urgent"
-                                    ? "destructive"
-                                    : task.priority === "high"
-                                    ? "warning"
-                                    : "secondary"
-                                }
-                              >
-                                {TASK_PRIORITY_LABELS[task.priority]}
-                              </Badge>
-                              <Badge variant="outline">{task.status}</Badge>
-                            </div>
-                          </div>
-                          {task.description && (
-                            <p className="mt-2 text-base text-muted-foreground">
-                              {task.description}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-4 mt-3">
-                            {task.due_date && (
-                              <span className="text-sm">
-                                Due: {formatDate(task.due_date)}
-                                {days !== null && days <= 7 && days >= 0 && (
-                                  <Badge
-                                    variant="warning"
-                                    className="ml-2"
-                                  >
-                                    {days === 0 ? "Today" : `${days}d`}
-                                  </Badge>
-                                )}
-                                {days !== null && days < 0 && (
-                                  <Badge
-                                    variant="destructive"
-                                    className="ml-2"
-                                  >
-                                    Overdue
-                                  </Badge>
-                                )}
-                              </span>
-                            )}
-                            {task.estimated_cost && (
-                              <span className="text-sm text-muted-foreground">
-                                Est. ${task.estimated_cost.toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })
-            )}
-          </div>
+          <MaintenanceTaskList
+            tasks={pendingTasks}
+            properties={properties}
+            vehicles={vehicles}
+            vendors={vendors}
+          />
         </TabsContent>
 
         <TabsContent value="lists">
@@ -204,8 +102,10 @@ export default async function MaintenancePage() {
                       </p>
                     )}
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        View List
+                      <Button variant="outline" size="sm" className="flex-1" asChild>
+                        <Link href={`/maintenance/lists/${list.id}`}>
+                          View List
+                        </Link>
                       </Button>
                       <Button variant="outline" size="sm">
                         Share

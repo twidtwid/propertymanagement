@@ -12,7 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { generateDailySummary } from "@/lib/daily-summary"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatDateTime } from "@/lib/utils"
 import { ReportCard } from "@/components/reports"
 
 export const dynamic = "force-dynamic"
@@ -182,10 +182,7 @@ export default async function DailySummaryPage() {
                     </p>
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(email.receivedAt).toLocaleTimeString("en-US", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                    {formatDateTime(email.receivedAt)}
                   </span>
                 </div>
               ))}

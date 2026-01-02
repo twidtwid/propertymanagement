@@ -42,7 +42,7 @@ const vendorSpecialties = [
   "locksmith", "alarm_security", "snow_removal", "fuel_oil",
   "property_management", "architect", "movers", "trash", "internet",
   "phone", "water", "septic", "forester", "fireplace", "insurance",
-  "auto", "elevator", "flooring", "parking", "masonry", "other"
+  "auto", "elevator", "flooring", "parking", "masonry", "audiovisual", "other"
 ] as const
 
 export const vendorSchema = z.object({

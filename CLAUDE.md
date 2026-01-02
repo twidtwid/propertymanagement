@@ -86,6 +86,8 @@ ssh root@143.110.229.185 "docker exec app-db-1 pg_dump -U propman -d propertyman
 | 008 | Dropbox schema (agreed_value, HOA fields, coverage_details) | Jan 2025 |
 | 009 | Import Dropbox data (vehicles, insurance, vendors) | Jan 2025 |
 | 010 | Insurance Portfolio + umbrella/auto/fine art policies | Jan 2025 |
+| 011 | Audiovisual vendor specialty | Jan 2025 |
+| 012 | Vendor contacts table (multiple contacts per vendor) | Jan 2025 |
 
 ---
 
@@ -369,9 +371,30 @@ Properties and vehicles are mapped to Dropbox folders:
 
 ## Vendor Specialties
 
-30+ categories including: hvac, plumbing, electrical, roofing, general_contractor, landscaping, cleaning, fuel_oil, fireplace, insurance, auto, elevator, flooring, parking, masonry, alarm_security, and more.
+30+ categories including: hvac, plumbing, electrical, roofing, general_contractor, landscaping, cleaning, fuel_oil, fireplace, insurance, auto, elevator, flooring, parking, masonry, alarm_security, audiovisual, and more.
 
 See `src/types/database.ts` for `VendorSpecialty` type and `VENDOR_SPECIALTY_LABELS`.
+
+---
+
+## FEATURE: Vendor Contacts
+
+Vendors can have multiple contacts with one designated as primary.
+
+### How It Works
+- `vendor_contacts` table stores contacts linked to vendors via `vendor_id`
+- Each contact has: name, title, email, phone, notes, is_primary flag
+- Only one contact per vendor can be `is_primary` (enforced by partial unique index)
+- Primary contact shown in vendor header and used for quick search displays
+- Contacts tab is the default view on vendor detail page
+
+### Key Files
+| Purpose | Location |
+|---------|----------|
+| Contact list component | `src/components/vendors/vendor-contacts-list.tsx` |
+| Mutations | `src/lib/mutations.ts` (createVendorContact, updateVendorContact, deleteVendorContact, setPrimaryVendorContact) |
+| Types | `src/types/database.ts` (VendorContact interface) |
+| Migration | `scripts/migrations/012_vendor_contacts.sql` |
 
 ---
 
@@ -444,3 +467,30 @@ See modular rules for specific domains:
 - @.claude/rules/database.md - Schema details, enum values, relationships
 - @.claude/rules/payments.md - Payment workflow, tax schedules, confirmation logic
 - @.claude/rules/security.md - Authorization details, RLS policies
+
+---
+
+## Development Patterns & Lessons Learned
+
+### UI Components
+- When adding new Radix UI components (AlertDialog, etc.), check `package.json` - most are already installed
+- AlertDialog uses `buttonVariants` from `@/components/ui/button` for consistent styling
+- Use `formatDateTime` from `@/lib/utils.ts` for date+time display (e.g., "Jan 1, 3:45 PM")
+
+### Form Dialogs
+- Support both create and edit modes by passing optional entity prop
+- Use `isEditing = !!entity` pattern to switch between create/update mutations
+- Reset form state in useEffect when dialog opens/closes
+
+### Zod Schema Updates
+- When adding new enum values to database, also update Zod schemas in `src/lib/schemas/index.ts`
+- Validation errors from Zod indicate missing enum values in the schema array
+
+### Client Components
+- Interactive lists (checkboxes, dropdown menus) require "use client" directive
+- Use `useTransition` for optimistic updates with server actions
+- Keep server data fetching in parent server component, pass to client component as props
+
+### Notification/Alert Linking
+- Alerts have `related_table` and `related_id` for navigation
+- Map table names to routes: properties→`/properties/[id]`, bills→`/payments`, etc.

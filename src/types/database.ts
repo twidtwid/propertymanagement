@@ -17,7 +17,7 @@ export type VendorSpecialty =
   | 'locksmith' | 'alarm_security' | 'snow_removal' | 'fuel_oil'
   | 'property_management' | 'architect' | 'movers' | 'trash' | 'internet'
   | 'phone' | 'water' | 'septic' | 'forester' | 'fireplace' | 'insurance'
-  | 'auto' | 'elevator' | 'flooring' | 'parking' | 'masonry' | 'other'
+  | 'auto' | 'elevator' | 'flooring' | 'parking' | 'masonry' | 'audiovisual' | 'other'
 export type Season = 'winter' | 'spring' | 'summer' | 'fall' | 'annual'
 export type AlertSeverity = 'info' | 'warning' | 'critical'
 
@@ -111,6 +111,22 @@ export interface Vendor {
   notes: string | null
   rating: number | null
   is_active: boolean
+  created_at: string
+  updated_at: string
+  // Joined fields
+  contacts?: VendorContact[]
+  primary_contact?: VendorContact | null
+}
+
+export interface VendorContact {
+  id: string
+  vendor_id: string
+  name: string
+  title: string | null
+  email: string | null
+  phone: string | null
+  is_primary: boolean
+  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -406,6 +422,7 @@ export const VENDOR_SPECIALTY_LABELS: Record<VendorSpecialty, string> = {
   flooring: 'Flooring',
   parking: 'Parking',
   masonry: 'Masonry',
+  audiovisual: 'Audiovisual',
   other: 'Other',
 }
 

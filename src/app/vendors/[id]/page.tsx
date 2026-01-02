@@ -22,6 +22,7 @@ import {
 import { getVendor, getVendorCommunications, getPropertiesForVendor } from "@/lib/actions"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
 import { VendorJournal } from "@/components/vendors/vendor-journal"
+import { VendorContactsList } from "@/components/vendors/vendor-contacts-list"
 
 export default async function VendorDetailPage({
   params,
@@ -65,11 +66,11 @@ export default async function VendorDetailPage({
           )}
         </div>
         <div className="flex gap-2">
-          {vendor.phone && (
+          {vendor.primary_contact?.phone && (
             <Button size="lg" asChild>
-              <a href={`tel:${vendor.phone}`}>
+              <a href={`tel:${vendor.primary_contact.phone}`}>
                 <Phone className="h-5 w-5 mr-2" />
-                Call
+                Call {vendor.primary_contact.name.split(" ")[0]}
               </a>
             </Button>
           )}
@@ -82,11 +83,15 @@ export default async function VendorDetailPage({
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="contacts" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="overview" className="gap-2">
+          <TabsTrigger value="contacts" className="gap-2">
             <User className="h-4 w-4" />
-            Overview
+            Contacts ({vendor.contacts?.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="overview" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Details
           </TabsTrigger>
           <TabsTrigger value="journal" className="gap-2">
             <MessageSquare className="h-4 w-4" />
@@ -94,49 +99,21 @@ export default async function VendorDetailPage({
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="contacts">
+          <Card>
+            <CardContent className="pt-6">
+              <VendorContactsList vendorId={vendor.id} contacts={vendor.contacts || []} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Contact Information</CardTitle>
+                <CardTitle className="text-lg">Company Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {vendor.phone && (
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-5 w-5 text-muted-foreground" />
-                    <a
-                      href={`tel:${vendor.phone}`}
-                      className="text-base font-medium hover:underline"
-                    >
-                      {vendor.phone}
-                    </a>
-                  </div>
-                )}
-                {vendor.emergency_phone && (
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-destructive" />
-                    <div>
-                      <a
-                        href={`tel:${vendor.emergency_phone}`}
-                        className="text-base font-medium hover:underline"
-                      >
-                        {vendor.emergency_phone}
-                      </a>
-                      <p className="text-sm text-muted-foreground">Emergency</p>
-                    </div>
-                  </div>
-                )}
-                {vendor.email && (
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
-                    <a
-                      href={`mailto:${vendor.email}`}
-                      className="text-base font-medium hover:underline"
-                    >
-                      {vendor.email}
-                    </a>
-                  </div>
-                )}
                 {vendor.website && (
                   <div className="flex items-center gap-3">
                     <Globe className="h-5 w-5 text-muted-foreground" />
@@ -156,8 +133,22 @@ export default async function VendorDetailPage({
                     <p className="text-base">{vendor.address}</p>
                   </div>
                 )}
-                {!vendor.phone && !vendor.email && !vendor.address && (
-                  <p className="text-muted-foreground">No contact info on file</p>
+                {vendor.emergency_phone && (
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                    <div>
+                      <a
+                        href={`tel:${vendor.emergency_phone}`}
+                        className="text-base font-medium hover:underline"
+                      >
+                        {vendor.emergency_phone}
+                      </a>
+                      <p className="text-sm text-muted-foreground">Emergency Line</p>
+                    </div>
+                  </div>
+                )}
+                {!vendor.website && !vendor.address && !vendor.emergency_phone && (
+                  <p className="text-muted-foreground">No company info on file</p>
                 )}
               </CardContent>
             </Card>

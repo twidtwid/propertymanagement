@@ -10,6 +10,7 @@ import type {
   Property,
   Vehicle,
   Vendor,
+  VendorContact,
   Bill,
   PropertyTax,
   InsurancePolicy,
@@ -91,7 +92,19 @@ export async function getVendor(id: string): Promise<Vendor | null> {
   const visibleIds = await getVisibleVendorIds()
   if (!visibleIds.includes(id)) return null
 
-  return queryOne<Vendor>("SELECT * FROM vendors WHERE id = $1", [id])
+  const vendor = await queryOne<Vendor>("SELECT * FROM vendors WHERE id = $1", [id])
+  if (vendor) {
+    vendor.contacts = await getVendorContacts(id)
+    vendor.primary_contact = vendor.contacts.find(c => c.is_primary) || null
+  }
+  return vendor
+}
+
+export async function getVendorContacts(vendorId: string): Promise<VendorContact[]> {
+  return query<VendorContact>(
+    `SELECT * FROM vendor_contacts WHERE vendor_id = $1 ORDER BY is_primary DESC, name`,
+    [vendorId]
+  )
 }
 
 export async function getActiveVendors(): Promise<Vendor[]> {

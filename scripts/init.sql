@@ -21,7 +21,8 @@ CREATE TYPE vendor_specialty AS ENUM (
   'landscaping', 'cleaning', 'pest_control', 'pool_spa', 'appliance',
   'locksmith', 'alarm_security', 'snow_removal', 'fuel_oil',
   'property_management', 'architect', 'movers', 'trash', 'internet',
-  'phone', 'water', 'septic', 'forester', 'other'
+  'phone', 'water', 'septic', 'forester', 'fireplace', 'insurance',
+  'auto', 'elevator', 'flooring', 'parking', 'masonry', 'audiovisual', 'other'
 );
 CREATE TYPE season AS ENUM ('winter', 'spring', 'summer', 'fall', 'annual');
 CREATE TYPE alert_severity AS ENUM ('info', 'warning', 'critical');
@@ -140,6 +141,24 @@ CREATE TABLE property_vendors (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(property_id, vendor_id, specialty_override)
 );
+
+-- Vendor Contacts (multiple contacts per vendor)
+CREATE TABLE vendor_contacts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  title TEXT,
+  email TEXT,
+  phone TEXT,
+  is_primary BOOLEAN DEFAULT FALSE,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_vendor_contacts_vendor_id ON vendor_contacts(vendor_id);
+-- Ensure only one primary contact per vendor
+CREATE UNIQUE INDEX idx_vendor_contacts_primary ON vendor_contacts(vendor_id) WHERE is_primary = TRUE;
 
 -- Equipment
 CREATE TABLE equipment (

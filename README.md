@@ -248,6 +248,8 @@ ssh root@143.110.229.185 "docker exec -i app-db-1 psql -U propman -d propertyman
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v0.5.0 | Jan 2026 | Vendor contacts system (multiple contacts per vendor), maintenance task actions (mark done, edit, delete), clickable notifications, audiovisual vendor category |
+| v0.4.0 | Jan 2026 | Security hardening and testing infrastructure |
 | v0.3.0 | Jan 2026 | Dropbox document browser with AI summaries, QuickLook previews, automated 15-min sync |
 | v0.2.0 | Jan 2026 | Insurance detail/edit pages, property visibility, Dropbox data import |
 | v0.1.1 | Jan 2026 | Worker container fixes, health check improvements |

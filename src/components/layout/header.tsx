@@ -132,6 +132,37 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   }
 
+  const getAlertLink = (alert: Alert): string | null => {
+    if (!alert.related_table || !alert.related_id) return null
+
+    switch (alert.related_table) {
+      case "properties":
+        return `/properties/${alert.related_id}`
+      case "vehicles":
+        return `/vehicles/${alert.related_id}`
+      case "vendors":
+        return `/vendors/${alert.related_id}`
+      case "bills":
+        return `/payments`
+      case "insurance_policies":
+        return `/insurance/${alert.related_id}`
+      case "maintenance_tasks":
+        return `/maintenance`
+      case "property_taxes":
+        return `/payments/taxes`
+      default:
+        return null
+    }
+  }
+
+  const handleAlertClick = (alert: Alert) => {
+    const link = getAlertLink(alert)
+    if (link) {
+      setNotificationsOpen(false)
+      router.push(link)
+    }
+  }
+
   const userInitials = user?.full_name
     ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase()
     : user?.email?.[0]?.toUpperCase() || "?"
@@ -187,37 +218,41 @@ export function Header({ onMenuClick }: HeaderProps) {
                 </div>
               ) : (
                 <div className="max-h-80 overflow-y-auto">
-                  {alerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className={`px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-0 ${
-                        !alert.is_read ? "bg-blue-50/50" : ""
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        {getSeverityIcon(alert.severity)}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{alert.title}</p>
-                          {alert.message && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {alert.message}
+                  {alerts.map((alert) => {
+                    const hasLink = !!getAlertLink(alert)
+                    return (
+                      <div
+                        key={alert.id}
+                        className={`px-3 py-2 hover:bg-gray-50 border-b last:border-0 ${
+                          !alert.is_read ? "bg-blue-50/50" : ""
+                        } ${hasLink ? "cursor-pointer" : ""}`}
+                        onClick={() => handleAlertClick(alert)}
+                      >
+                        <div className="flex items-start gap-2">
+                          {getSeverityIcon(alert.severity)}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{alert.title}</p>
+                            {alert.message && (
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {alert.message}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
                             </p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
-                          </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={(e) => dismissAlert(alert.id, e)}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0"
-                          onClick={(e) => dismissAlert(alert.id, e)}
-                        >
-                          <Check className="h-3 w-3" />
-                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </DropdownMenuContent>

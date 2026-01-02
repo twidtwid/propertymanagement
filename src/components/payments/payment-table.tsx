@@ -18,6 +18,7 @@ import {
   Check,
   Clock,
   AlertTriangle,
+  Zap,
 } from "lucide-react"
 import type { UnifiedPayment } from "@/types/database"
 import { BILL_TYPE_LABELS, PAYMENT_STATUS_LABELS } from "@/types/database"
@@ -147,9 +148,17 @@ export function PaymentTable({ payments }: PaymentTableProps) {
               </TableCell>
               <TableCell>
                 <div className="flex flex-col gap-1">
-                  <Badge variant={statusVariant}>
-                    {PAYMENT_STATUS_LABELS[payment.status]}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant={statusVariant}>
+                      {PAYMENT_STATUS_LABELS[payment.status]}
+                    </Badge>
+                    {payment.payment_method === "auto_pay" && (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Zap className="h-3 w-3" />
+                        Auto
+                      </Badge>
+                    )}
+                  </div>
                   {payment.days_waiting !== null && payment.days_waiting > 0 && (
                     <span className="text-xs text-amber-600">
                       {payment.days_waiting}d waiting

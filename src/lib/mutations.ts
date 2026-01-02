@@ -9,6 +9,7 @@ import type {
   Property,
   Vehicle,
   Vendor,
+  VendorContact,
   Bill,
   PropertyTax,
   InsurancePolicy,
@@ -28,6 +29,15 @@ import {
   sharedTaskItemSchema,
   type ActionResult,
 } from "./schemas"
+
+/**
+ * Convert empty strings to null for database fields.
+ * PostgreSQL doesn't accept "" for date, numeric, or foreign key fields.
+ */
+function emptyToNull<T>(value: T): T | null {
+  if (value === "" || value === undefined) return null
+  return value
+}
 
 // ============================================
 // Properties
@@ -53,11 +63,11 @@ export async function createProperty(formData: unknown): Promise<ActionResult<Pr
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING *`,
       [
-        d.name, d.address, d.city, d.state || null, d.country, d.postal_code || null,
-        d.property_type, d.square_feet || null, d.purchase_date || null, d.purchase_price || null, d.current_value || null,
-        d.span_number || null, d.block_number || null, d.lot_number || null, d.parcel_id || null,
-        d.has_mortgage, d.mortgage_lender || null, d.mortgage_account || null, d.mortgage_payment || null, d.mortgage_due_day || null,
-        d.notes || null, d.status
+        d.name, d.address, d.city, emptyToNull(d.state), d.country, emptyToNull(d.postal_code),
+        d.property_type, emptyToNull(d.square_feet), emptyToNull(d.purchase_date), emptyToNull(d.purchase_price), emptyToNull(d.current_value),
+        emptyToNull(d.span_number), emptyToNull(d.block_number), emptyToNull(d.lot_number), emptyToNull(d.parcel_id),
+        d.has_mortgage, emptyToNull(d.mortgage_lender), emptyToNull(d.mortgage_account), emptyToNull(d.mortgage_payment), emptyToNull(d.mortgage_due_day),
+        emptyToNull(d.notes), d.status
       ]
     )
 
@@ -127,11 +137,11 @@ export async function updateProperty(id: string, formData: unknown): Promise<Act
       RETURNING *`,
       [
         id,
-        d.name, d.address, d.city, d.state ?? null, d.country, d.postal_code ?? null,
-        d.property_type, d.square_feet ?? null, d.purchase_date ?? null, d.purchase_price ?? null, d.current_value ?? null,
-        d.span_number ?? null, d.block_number ?? null, d.lot_number ?? null, d.parcel_id ?? null,
-        d.has_mortgage, d.mortgage_lender ?? null, d.mortgage_account ?? null, d.mortgage_payment ?? null, d.mortgage_due_day ?? null,
-        d.notes ?? null, d.status
+        d.name, d.address, d.city, emptyToNull(d.state), d.country, emptyToNull(d.postal_code),
+        d.property_type, emptyToNull(d.square_feet), emptyToNull(d.purchase_date), emptyToNull(d.purchase_price), emptyToNull(d.current_value),
+        emptyToNull(d.span_number), emptyToNull(d.block_number), emptyToNull(d.lot_number), emptyToNull(d.parcel_id),
+        d.has_mortgage, emptyToNull(d.mortgage_lender), emptyToNull(d.mortgage_account), emptyToNull(d.mortgage_payment), emptyToNull(d.mortgage_due_day),
+        emptyToNull(d.notes), d.status
       ]
     )
 
@@ -221,9 +231,9 @@ export async function createVendor(formData: unknown): Promise<ActionResult<Vend
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
       [
-        d.name, d.company || null, d.specialty, d.phone || null, d.email || null, d.address || null, d.website || null,
-        d.emergency_phone || null, d.account_number || null, d.payment_method || null, d.login_info || null,
-        d.notes || null, d.rating || null, d.is_active
+        d.name, emptyToNull(d.company), d.specialty, emptyToNull(d.phone), emptyToNull(d.email), emptyToNull(d.address), emptyToNull(d.website),
+        emptyToNull(d.emergency_phone), emptyToNull(d.account_number), emptyToNull(d.payment_method), emptyToNull(d.login_info),
+        emptyToNull(d.notes), emptyToNull(d.rating), d.is_active
       ]
     )
 
@@ -277,9 +287,9 @@ export async function updateVendor(id: string, formData: unknown): Promise<Actio
       RETURNING *`,
       [
         id,
-        d.name, d.company ?? null, d.specialty, d.phone ?? null, d.email ?? null, d.address ?? null, d.website ?? null,
-        d.emergency_phone ?? null, d.account_number ?? null, d.payment_method ?? null, d.login_info ?? null,
-        d.notes ?? null, d.rating ?? null, d.is_active
+        d.name, emptyToNull(d.company), d.specialty, emptyToNull(d.phone), emptyToNull(d.email), emptyToNull(d.address), emptyToNull(d.website),
+        emptyToNull(d.emergency_phone), emptyToNull(d.account_number), emptyToNull(d.payment_method), emptyToNull(d.login_info),
+        emptyToNull(d.notes), emptyToNull(d.rating), d.is_active
       ]
     )
 
@@ -339,6 +349,147 @@ export async function deleteVendor(id: string): Promise<ActionResult> {
 }
 
 // ============================================
+// Vendor Contacts
+// ============================================
+
+export interface VendorContactFormData {
+  name: string
+  title?: string | null
+  email?: string | null
+  phone?: string | null
+  is_primary?: boolean
+  notes?: string | null
+}
+
+export async function createVendorContact(vendorId: string, formData: VendorContactFormData): Promise<ActionResult<VendorContact>> {
+  const log = getLogger("mutations.vendor_contact")
+
+  if (!formData.name || formData.name.trim() === "") {
+    return { success: false, error: "Contact name is required" }
+  }
+
+  try {
+    // If this contact is primary, unset any existing primary contacts
+    if (formData.is_primary) {
+      await query("UPDATE vendor_contacts SET is_primary = FALSE WHERE vendor_id = $1", [vendorId])
+    }
+
+    const contact = await queryOne<VendorContact>(
+      `INSERT INTO vendor_contacts (vendor_id, name, title, email, phone, is_primary, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        vendorId,
+        formData.name,
+        emptyToNull(formData.title),
+        emptyToNull(formData.email),
+        emptyToNull(formData.phone),
+        formData.is_primary || false,
+        emptyToNull(formData.notes),
+      ]
+    )
+
+    revalidatePath(`/vendors/${vendorId}`)
+    log.info("Vendor contact created", { contactId: contact!.id, vendorId, name: formData.name })
+    return { success: true, data: contact! }
+  } catch (error) {
+    log.error("Failed to create vendor contact", { vendorId, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to create contact" }
+  }
+}
+
+export async function updateVendorContact(contactId: string, formData: Partial<VendorContactFormData>): Promise<ActionResult<VendorContact>> {
+  const log = getLogger("mutations.vendor_contact")
+
+  try {
+    // Get the contact to find the vendor_id
+    const existing = await queryOne<VendorContact>("SELECT * FROM vendor_contacts WHERE id = $1", [contactId])
+    if (!existing) {
+      return { success: false, error: "Contact not found" }
+    }
+
+    // If this contact is being set as primary, unset others
+    if (formData.is_primary) {
+      await query("UPDATE vendor_contacts SET is_primary = FALSE WHERE vendor_id = $1 AND id != $2", [existing.vendor_id, contactId])
+    }
+
+    const contact = await queryOne<VendorContact>(
+      `UPDATE vendor_contacts SET
+        name = COALESCE($2, name),
+        title = $3,
+        email = $4,
+        phone = $5,
+        is_primary = COALESCE($6, is_primary),
+        notes = $7,
+        updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [
+        contactId,
+        formData.name,
+        emptyToNull(formData.title),
+        emptyToNull(formData.email),
+        emptyToNull(formData.phone),
+        formData.is_primary,
+        emptyToNull(formData.notes),
+      ]
+    )
+
+    revalidatePath(`/vendors/${existing.vendor_id}`)
+    log.info("Vendor contact updated", { contactId, name: contact!.name })
+    return { success: true, data: contact! }
+  } catch (error) {
+    log.error("Failed to update vendor contact", { contactId, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to update contact" }
+  }
+}
+
+export async function deleteVendorContact(contactId: string): Promise<ActionResult> {
+  const log = getLogger("mutations.vendor_contact")
+
+  try {
+    const contact = await queryOne<VendorContact>("SELECT * FROM vendor_contacts WHERE id = $1", [contactId])
+    if (!contact) {
+      return { success: false, error: "Contact not found" }
+    }
+
+    await query("DELETE FROM vendor_contacts WHERE id = $1", [contactId])
+
+    revalidatePath(`/vendors/${contact.vendor_id}`)
+    log.info("Vendor contact deleted", { contactId, name: contact.name })
+    return { success: true, data: undefined }
+  } catch (error) {
+    log.error("Failed to delete vendor contact", { contactId, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to delete contact" }
+  }
+}
+
+export async function setPrimaryVendorContact(contactId: string): Promise<ActionResult<VendorContact>> {
+  const log = getLogger("mutations.vendor_contact")
+
+  try {
+    const contact = await queryOne<VendorContact>("SELECT * FROM vendor_contacts WHERE id = $1", [contactId])
+    if (!contact) {
+      return { success: false, error: "Contact not found" }
+    }
+
+    // Unset all primaries for this vendor, then set this one
+    await query("UPDATE vendor_contacts SET is_primary = FALSE WHERE vendor_id = $1", [contact.vendor_id])
+    const updated = await queryOne<VendorContact>(
+      "UPDATE vendor_contacts SET is_primary = TRUE, updated_at = NOW() WHERE id = $1 RETURNING *",
+      [contactId]
+    )
+
+    revalidatePath(`/vendors/${contact.vendor_id}`)
+    log.info("Primary contact set", { contactId, vendorId: contact.vendor_id })
+    return { success: true, data: updated! }
+  } catch (error) {
+    log.error("Failed to set primary contact", { contactId, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to set primary contact" }
+  }
+}
+
+// ============================================
 // Vehicles
 // ============================================
 
@@ -360,9 +511,9 @@ export async function createVehicle(formData: unknown): Promise<ActionResult<Veh
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
-        d.year, d.make, d.model, d.color || null, d.vin || null, d.license_plate || null,
-        d.registration_state, d.registration_expires || null, d.inspection_expires || null,
-        d.garage_location || null, d.property_id || null, d.notes || null, d.is_active
+        d.year, d.make, d.model, emptyToNull(d.color), emptyToNull(d.vin), emptyToNull(d.license_plate),
+        d.registration_state, emptyToNull(d.registration_expires), emptyToNull(d.inspection_expires),
+        emptyToNull(d.garage_location), emptyToNull(d.property_id), emptyToNull(d.notes), d.is_active
       ]
     )
 
@@ -422,9 +573,9 @@ export async function updateVehicle(id: string, formData: unknown): Promise<Acti
       RETURNING *`,
       [
         id,
-        d.year, d.make, d.model, d.color ?? null, d.vin ?? null, d.license_plate ?? null,
-        d.registration_state, d.registration_expires ?? null, d.inspection_expires ?? null,
-        d.garage_location ?? null, d.property_id ?? null, d.notes ?? null, d.is_active
+        d.year, d.make, d.model, emptyToNull(d.color), emptyToNull(d.vin), emptyToNull(d.license_plate),
+        d.registration_state, emptyToNull(d.registration_expires), emptyToNull(d.inspection_expires),
+        emptyToNull(d.garage_location), emptyToNull(d.property_id), emptyToNull(d.notes), d.is_active
       ]
     )
 
@@ -513,11 +664,11 @@ export async function createBill(formData: unknown): Promise<ActionResult<Bill>>
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *`,
       [
-        d.property_id || null, d.vehicle_id || null, d.vendor_id || null, d.bill_type, d.description || null,
+        emptyToNull(d.property_id), emptyToNull(d.vehicle_id), emptyToNull(d.vendor_id), d.bill_type, emptyToNull(d.description),
         d.amount, d.currency, d.due_date, d.recurrence, d.status,
-        d.payment_method || null, d.payment_date || null, d.payment_reference || null,
-        d.confirmation_date || null, d.confirmation_notes || null, d.days_to_confirm,
-        d.document_url || null, d.notes || null
+        emptyToNull(d.payment_method), emptyToNull(d.payment_date), emptyToNull(d.payment_reference),
+        emptyToNull(d.confirmation_date), emptyToNull(d.confirmation_notes), d.days_to_confirm,
+        emptyToNull(d.document_url), emptyToNull(d.notes)
       ]
     )
 
@@ -575,11 +726,11 @@ export async function updateBill(id: string, formData: unknown): Promise<ActionR
       RETURNING *`,
       [
         id,
-        d.property_id ?? null, d.vehicle_id ?? null, d.vendor_id ?? null, d.bill_type, d.description ?? null,
+        emptyToNull(d.property_id), emptyToNull(d.vehicle_id), emptyToNull(d.vendor_id), d.bill_type, emptyToNull(d.description),
         d.amount, d.currency, d.due_date, d.recurrence, d.status,
-        d.payment_method ?? null, d.payment_date ?? null, d.payment_reference ?? null,
-        d.confirmation_date ?? null, d.confirmation_notes ?? null, d.days_to_confirm,
-        d.document_url ?? null, d.notes ?? null
+        emptyToNull(d.payment_method), emptyToNull(d.payment_date), emptyToNull(d.payment_reference),
+        emptyToNull(d.confirmation_date), emptyToNull(d.confirmation_notes), d.days_to_confirm,
+        emptyToNull(d.document_url), emptyToNull(d.notes)
       ]
     )
 
@@ -746,7 +897,7 @@ export async function createPropertyTax(formData: unknown): Promise<ActionResult
       RETURNING *`,
       [
         d.property_id, d.tax_year, d.jurisdiction, d.installment, d.amount,
-        d.due_date, d.payment_url || null, d.status, d.payment_date || null, d.confirmation_date || null, d.notes || null
+        d.due_date, emptyToNull(d.payment_url), d.status, emptyToNull(d.payment_date), emptyToNull(d.confirmation_date), emptyToNull(d.notes)
       ]
     )
 
@@ -797,7 +948,7 @@ export async function updatePropertyTax(id: string, formData: unknown): Promise<
       [
         id,
         d.tax_year, d.jurisdiction, d.installment, d.amount,
-        d.due_date, d.payment_url ?? null, d.status, d.payment_date ?? null, d.confirmation_date ?? null, d.notes ?? null
+        d.due_date, emptyToNull(d.payment_url), d.status, emptyToNull(d.payment_date), emptyToNull(d.confirmation_date), emptyToNull(d.notes)
       ]
     )
 
@@ -879,10 +1030,10 @@ export async function createInsurancePolicy(formData: unknown): Promise<ActionRe
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *`,
       [
-        d.property_id || null, d.vehicle_id || null, d.policy_type, d.carrier_name, d.policy_number || null,
-        d.agent_name || null, d.agent_phone || null, d.agent_email || null, d.premium_amount || null, d.premium_frequency,
-        d.coverage_amount || null, d.deductible || null, d.effective_date || null, d.expiration_date || null,
-        d.auto_renew, d.payment_method || null, d.document_url || null, d.notes || null
+        emptyToNull(d.property_id), emptyToNull(d.vehicle_id), d.policy_type, d.carrier_name, emptyToNull(d.policy_number),
+        emptyToNull(d.agent_name), emptyToNull(d.agent_phone), emptyToNull(d.agent_email), emptyToNull(d.premium_amount), d.premium_frequency,
+        emptyToNull(d.coverage_amount), emptyToNull(d.deductible), emptyToNull(d.effective_date), emptyToNull(d.expiration_date),
+        d.auto_renew, emptyToNull(d.payment_method), emptyToNull(d.document_url), emptyToNull(d.notes)
       ]
     )
 
@@ -940,10 +1091,10 @@ export async function updateInsurancePolicy(id: string, formData: unknown): Prom
       RETURNING *`,
       [
         id,
-        d.property_id ?? null, d.vehicle_id ?? null, d.policy_type, d.carrier_name, d.policy_number ?? null,
-        d.agent_name ?? null, d.agent_phone ?? null, d.agent_email ?? null, d.premium_amount ?? null, d.premium_frequency,
-        d.coverage_amount ?? null, d.deductible ?? null, d.effective_date ?? null, d.expiration_date ?? null,
-        d.auto_renew, d.payment_method ?? null, d.document_url ?? null, d.notes ?? null
+        emptyToNull(d.property_id), emptyToNull(d.vehicle_id), d.policy_type, d.carrier_name, emptyToNull(d.policy_number),
+        emptyToNull(d.agent_name), emptyToNull(d.agent_phone), emptyToNull(d.agent_email), emptyToNull(d.premium_amount), d.premium_frequency,
+        emptyToNull(d.coverage_amount), emptyToNull(d.deductible), emptyToNull(d.effective_date), emptyToNull(d.expiration_date),
+        d.auto_renew, emptyToNull(d.payment_method), emptyToNull(d.document_url), emptyToNull(d.notes)
       ]
     )
 
@@ -1022,9 +1173,9 @@ export async function createMaintenanceTask(formData: unknown): Promise<ActionRe
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
       [
-        d.property_id || null, d.vehicle_id || null, d.equipment_id || null, d.vendor_id || null, d.title, d.description || null,
-        d.priority, d.due_date || null, d.completed_date || null, d.recurrence, d.status,
-        d.estimated_cost || null, d.actual_cost || null, d.notes || null
+        emptyToNull(d.property_id), emptyToNull(d.vehicle_id), emptyToNull(d.equipment_id), emptyToNull(d.vendor_id), d.title, emptyToNull(d.description),
+        d.priority, emptyToNull(d.due_date), emptyToNull(d.completed_date), d.recurrence, d.status,
+        emptyToNull(d.estimated_cost), emptyToNull(d.actual_cost), emptyToNull(d.notes)
       ]
     )
 
@@ -1078,9 +1229,9 @@ export async function updateMaintenanceTask(id: string, formData: unknown): Prom
       RETURNING *`,
       [
         id,
-        d.property_id ?? null, d.vehicle_id ?? null, d.equipment_id ?? null, d.vendor_id ?? null, d.title, d.description ?? null,
-        d.priority, d.due_date ?? null, d.completed_date ?? null, d.recurrence, d.status,
-        d.estimated_cost ?? null, d.actual_cost ?? null, d.notes ?? null
+        emptyToNull(d.property_id), emptyToNull(d.vehicle_id), emptyToNull(d.equipment_id), emptyToNull(d.vendor_id), d.title, emptyToNull(d.description),
+        d.priority, emptyToNull(d.due_date), emptyToNull(d.completed_date), d.recurrence, d.status,
+        emptyToNull(d.estimated_cost), emptyToNull(d.actual_cost), emptyToNull(d.notes)
       ]
     )
 
@@ -1196,7 +1347,7 @@ export async function createSharedTaskList(formData: unknown): Promise<ActionRes
       `INSERT INTO shared_task_lists (property_id, title, assigned_to, assigned_contact, is_active)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *`,
-      [d.property_id, d.title, d.assigned_to || null, d.assigned_contact || null, d.is_active]
+      [d.property_id, d.title, emptyToNull(d.assigned_to), emptyToNull(d.assigned_contact), d.is_active]
     )
 
     await audit({
@@ -1236,7 +1387,7 @@ export async function updateSharedTaskList(id: string, formData: unknown): Promi
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
-      [id, d.title, d.assigned_to ?? null, d.assigned_contact ?? null, d.is_active]
+      [id, d.title, emptyToNull(d.assigned_to), emptyToNull(d.assigned_contact), d.is_active]
     )
 
     if (!list) {
@@ -1293,7 +1444,7 @@ export async function createSharedTaskItem(formData: unknown): Promise<ActionRes
       `INSERT INTO shared_task_items (list_id, task, is_completed, completed_date, priority, notes, sort_order)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *`,
-      [d.list_id, d.task, d.is_completed, d.completed_date || null, d.priority, d.notes || null, d.sort_order]
+      [d.list_id, d.task, d.is_completed, emptyToNull(d.completed_date), d.priority, emptyToNull(d.notes), d.sort_order]
     )
 
     revalidatePath("/maintenance")
