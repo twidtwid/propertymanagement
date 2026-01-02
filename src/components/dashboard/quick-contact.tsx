@@ -11,28 +11,12 @@ import {
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Phone, Mail, User } from "lucide-react"
-import type { Property, Vendor, VendorSpecialty } from "@/types/database"
-import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
+import type { Property, Vendor } from "@/types/database"
+import { getVendorSpecialtyOptions } from "@/types/database"
 
 interface QuickContactProps {
   properties: Property[]
 }
-
-// Common specialties for quick contact - sorted alphabetically by label
-const specialties: VendorSpecialty[] = [
-  "alarm_security",   // Alarm & Security
-  "appliance",        // Appliance
-  "cleaning",         // Cleaning
-  "electrical",       // Electrical
-  "fuel_oil",         // Fuel Oil
-  "general_contractor", // General Contractor
-  "hvac",             // HVAC
-  "landscaping",      // Landscaping
-  "pest_control",     // Pest Control
-  "plumbing",         // Plumbing
-  "roofing",          // Roofing
-  "snow_removal",     // Snow Removal
-]
 
 export function QuickContact({ properties }: QuickContactProps) {
   const [selectedProperty, setSelectedProperty] = useState<string>("")
@@ -96,9 +80,9 @@ export function QuickContact({ properties }: QuickContactProps) {
             <SelectValue placeholder="Select service type..." />
           </SelectTrigger>
           <SelectContent>
-            {specialties.map((specialty) => (
-              <SelectItem key={specialty} value={specialty}>
-                {VENDOR_SPECIALTY_LABELS[specialty]}
+            {getVendorSpecialtyOptions().map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
               </SelectItem>
             ))}
           </SelectContent>
