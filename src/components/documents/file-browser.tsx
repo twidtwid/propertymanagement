@@ -16,7 +16,9 @@ import {
 } from "lucide-react"
 import { FileRow } from "./file-row"
 import { FilePreview } from "./file-preview"
+import { PinnedSection } from "@/components/ui/pinned-section"
 import { getPathBreadcrumbs, getRelativePath } from "@/lib/dropbox/utils"
+import { pathToUUID } from "@/lib/dropbox/uuid"
 import type { DropboxFileEntry } from "@/lib/dropbox/types"
 
 interface FileBrowserProps {
@@ -35,6 +37,7 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
   const [previewFile, setPreviewFile] = useState<DropboxFileEntry | null>(null)
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set())
 
   const loadFolder = useCallback(async (path: string, search?: string) => {
     setLoading(true)
@@ -83,9 +86,37 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
     }
   }, [])
 
+  // Fetch pinned documents on mount
+  useEffect(() => {
+    async function fetchPins() {
+      try {
+        const response = await fetch('/api/pinned/list?entityType=document')
+        if (response.ok) {
+          const data = await response.json()
+          setPinnedIds(new Set(data.pinnedIds || []))
+        }
+      } catch (err) {
+        console.error('Failed to fetch pinned documents:', err)
+      }
+    }
+    fetchPins()
+  }, [])
+
   useEffect(() => {
     loadFolder(currentPath)
   }, [currentPath, loadFolder])
+
+  const handleTogglePin = (fileId: string, isPinned: boolean) => {
+    setPinnedIds((prev) => {
+      const next = new Set(prev)
+      if (isPinned) {
+        next.add(fileId)
+      } else {
+        next.delete(fileId)
+      }
+      return next
+    })
+  }
 
   function handleNavigate(path: string) {
     const relativePath = getRelativePath(path)
@@ -112,6 +143,12 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
   }
 
   const breadcrumbs = getPathBreadcrumbs(currentPath)
+
+  // Separate pinned and unpinned files (folders are never pinned)
+  const files = entries.filter(e => !e.is_folder)
+  const folders = entries.filter(e => e.is_folder)
+  const pinnedFiles = files.filter(f => pinnedIds.has(pathToUUID(f.path_display)))
+  const unpinnedFiles = files.filter(f => !pinnedIds.has(pathToUUID(f.path_display)))
 
   return (
     <Card>
@@ -202,17 +239,53 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
             </p>
           </div>
         ) : (
-          <div className="divide-y">
-            {entries.map((entry) => (
-              <FileRow
-                key={entry.id || entry.path_display}
-                entry={entry}
-                onNavigate={handleNavigate}
-                onPreview={setPreviewFile}
-                summary={summaries[entry.path_display]}
-              />
-            ))}
-          </div>
+          <>
+            {/* Pinned Files Section */}
+            {pinnedFiles.length > 0 && (
+              <PinnedSection count={pinnedFiles.length} title="User Pins" variant="user">
+                <div className="divide-y">
+                  {pinnedFiles.map((entry) => (
+                    <FileRow
+                      key={entry.id || entry.path_display}
+                      entry={entry}
+                      onNavigate={handleNavigate}
+                      onPreview={setPreviewFile}
+                      summary={summaries[entry.path_display]}
+                      isPinned={true}
+                      onTogglePin={handleTogglePin}
+                    />
+                  ))}
+                </div>
+              </PinnedSection>
+            )}
+
+            {/* All Files and Folders */}
+            <div className="divide-y">
+              {/* Folders first */}
+              {folders.map((entry) => (
+                <FileRow
+                  key={entry.id || entry.path_display}
+                  entry={entry}
+                  onNavigate={handleNavigate}
+                  onPreview={setPreviewFile}
+                  summary={summaries[entry.path_display]}
+                />
+              ))}
+
+              {/* Then unpinned files */}
+              {unpinnedFiles.map((entry) => (
+                <FileRow
+                  key={entry.id || entry.path_display}
+                  entry={entry}
+                  onNavigate={handleNavigate}
+                  onPreview={setPreviewFile}
+                  summary={summaries[entry.path_display]}
+                  isPinned={false}
+                  onTogglePin={handleTogglePin}
+                />
+              ))}
+            </div>
+          </>
         )}
       </CardContent>
 

@@ -14,7 +14,9 @@ import {
   Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { PinButton } from "@/components/ui/pin-button"
 import { formatFileSize, getFileIconType } from "@/lib/dropbox/utils"
+import { pathToUUID, createDocumentMetadata } from "@/lib/dropbox/uuid"
 import type { DropboxFileEntry } from "@/lib/dropbox/types"
 
 interface FileRowProps {
@@ -22,10 +24,13 @@ interface FileRowProps {
   onNavigate: (path: string) => void
   onPreview?: (entry: DropboxFileEntry) => void
   summary?: string
+  isPinned?: boolean
+  onTogglePin?: (fileId: string, isPinned: boolean) => void
 }
 
-export function FileRow({ entry, onNavigate, onPreview, summary }: FileRowProps) {
+export function FileRow({ entry, onNavigate, onPreview, summary, isPinned, onTogglePin }: FileRowProps) {
   const [downloading, setDownloading] = useState(false)
+  const fileId = pathToUUID(entry.path_display)
 
   async function handleDownload() {
     if (entry.is_folder) {
@@ -115,6 +120,15 @@ export function FileRow({ entry, onNavigate, onPreview, summary }: FileRowProps)
 
       {!entry.is_folder && (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <PinButton
+            entityType="document"
+            entityId={fileId}
+            isPinned={isPinned || false}
+            onToggle={onTogglePin ? (isPinned) => onTogglePin(fileId, isPinned) : undefined}
+            size="sm"
+            variant="ghost"
+            metadata={createDocumentMetadata(entry)}
+          />
           <Button
             variant="ghost"
             size="icon"
