@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
+import { safeParseDate } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -276,12 +277,16 @@ export function EntityDocuments({
                   <p className={`text-sm font-medium truncate ${entry.is_folder ? "text-blue-600" : ""}`}>
                     {entry.name}
                   </p>
-                  {!entry.is_folder && entry.server_modified && (
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(entry.server_modified), "MMM d, yyyy")}
-                      {entry.size !== undefined && ` • ${formatFileSize(entry.size)}`}
-                    </p>
-                  )}
+                  {!entry.is_folder && entry.server_modified && (() => {
+                    const date = safeParseDate(entry.server_modified)
+                    if (!date) return null
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        {format(date, "MMM d, yyyy")}
+                        {entry.size !== undefined && ` • ${formatFileSize(entry.size)}`}
+                      </p>
+                    )
+                  })()}
                   {summaries[entry.path_display] && (
                     <p className="text-xs text-muted-foreground italic truncate">
                       {summaries[entry.path_display]}

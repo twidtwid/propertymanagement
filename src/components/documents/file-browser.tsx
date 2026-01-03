@@ -20,6 +20,7 @@ import { PinnedSection } from "@/components/ui/pinned-section"
 import { getPathBreadcrumbs, getRelativePath } from "@/lib/dropbox/utils"
 import { pathToUUID } from "@/lib/dropbox/uuid"
 import type { DropboxFileEntry } from "@/lib/dropbox/types"
+import type { PinNote } from "@/types/database"
 
 interface FileBrowserProps {
   initialPath?: string
@@ -40,6 +41,28 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set())
 
   const [pinnedFiles, setPinnedFiles] = useState<DropboxFileEntry[]>([])
+  const [notesMap, setNotesMap] = useState<Record<string, PinNote[]>>({})
+  const [userNotesMap, setUserNotesMap] = useState<Record<string, PinNote>>({})
+
+  // Refresh notes for a specific document
+  const refreshNotes = async (documentId: string) => {
+    try {
+      const response = await fetch(`/api/pin-notes?entityType=document&entityId=${documentId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setNotesMap((prev) => ({
+          ...prev,
+          [documentId]: data.notes || [],
+        }))
+        setUserNotesMap((prev) => ({
+          ...prev,
+          [documentId]: data.userNote || null,
+        }))
+      }
+    } catch (error) {
+      console.error("Failed to refresh notes:", error)
+    }
+  }
 
   const loadFolder = useCallback(async (path: string, search?: string) => {
     setLoading(true)
@@ -88,11 +111,13 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
     }
   }, [])
 
-  // Load pinned documents metadata
+  // Load pinned documents metadata and notes
   useEffect(() => {
     async function loadPinnedDocuments() {
       if (pinnedIds.size === 0) {
         setPinnedFiles([])
+        setNotesMap({})
+        setUserNotesMap({})
         return
       }
 
@@ -107,6 +132,11 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
         if (response.ok) {
           const data = await response.json()
           setPinnedFiles(data.files || [])
+        }
+
+        // Fetch notes for all pinned documents
+        for (const documentId of Array.from(pinnedIds)) {
+          refreshNotes(documentId)
         }
       } catch (err) {
         console.error('Failed to load pinned documents metadata:', err)
@@ -186,17 +216,24 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
       {pinnedFiles.length > 0 && (
         <PinnedSection count={pinnedFiles.length} title="Pinned Documents" variant="user">
           <div className="divide-y">
-            {pinnedFiles.map((entry) => (
-              <FileRow
-                key={entry.id || entry.path_display}
-                entry={entry}
-                onNavigate={handleNavigate}
-                onPreview={setPreviewFile}
-                summary={summaries[entry.path_display]}
-                isPinned={true}
-                onTogglePin={handleTogglePin}
-              />
-            ))}
+            {pinnedFiles.map((entry) => {
+              const fileId = pathToUUID(entry.path_display)
+              return (
+                <FileRow
+                  key={entry.id || entry.path_display}
+                  entry={entry}
+                  onNavigate={handleNavigate}
+                  onPreview={setPreviewFile}
+                  summary={summaries[entry.path_display]}
+                  isPinned={true}
+                  onTogglePin={handleTogglePin}
+                  userNote={userNotesMap[fileId]}
+                  onNoteSaved={() => refreshNotes(fileId)}
+                  notes={notesMap[fileId] || []}
+                  onNoteDeleted={() => refreshNotes(fileId)}
+                />
+              )
+            })}
           </div>
         </PinnedSection>
       )}
@@ -303,17 +340,25 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
             ))}
 
             {/* Then all files in current folder */}
-            {currentFolderFiles.map((entry) => (
-              <FileRow
-                key={entry.id || entry.path_display}
-                entry={entry}
-                onNavigate={handleNavigate}
-                onPreview={setPreviewFile}
-                summary={summaries[entry.path_display]}
-                isPinned={pinnedIds.has(pathToUUID(entry.path_display))}
-                onTogglePin={handleTogglePin}
-              />
-            ))}
+            {currentFolderFiles.map((entry) => {
+              const fileId = pathToUUID(entry.path_display)
+              const isPinned = pinnedIds.has(fileId)
+              return (
+                <FileRow
+                  key={entry.id || entry.path_display}
+                  entry={entry}
+                  onNavigate={handleNavigate}
+                  onPreview={setPreviewFile}
+                  summary={summaries[entry.path_display]}
+                  isPinned={isPinned}
+                  onTogglePin={handleTogglePin}
+                  userNote={userNotesMap[fileId]}
+                  onNoteSaved={() => refreshNotes(fileId)}
+                  notes={notesMap[fileId] || []}
+                  onNoteDeleted={() => refreshNotes(fileId)}
+                />
+              )
+            })}
           </div>
         )}
       </CardContent>

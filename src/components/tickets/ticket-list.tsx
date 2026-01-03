@@ -13,9 +13,11 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react"
-import { TASK_PRIORITY_LABELS, TICKET_STATUS_LABELS } from "@/types/database"
+import { TASK_PRIORITY_LABELS, TICKET_STATUS_LABELS, PinNote } from "@/types/database"
 import type { TicketWithDetails } from "@/lib/actions"
 import { PinButton } from "@/components/ui/pin-button"
+import { PinNoteButton } from "@/components/ui/pin-note-button"
+import { PinNotes } from "@/components/ui/pin-notes"
 
 interface TicketListProps {
   tickets: TicketWithDetails[]
@@ -48,28 +50,52 @@ function getStatusIcon(status: string) {
   }
 }
 
-export function TicketRowSimple({ ticket, pinnedIds, onTogglePin }: { ticket: TicketWithDetails; pinnedIds: Set<string>; onTogglePin?: (id: string, isPinned: boolean) => void }) {
+export function TicketRowSimple({ ticket, pinnedIds, onTogglePin, userNote, onNoteSaved, notes, onNoteDeleted }: {
+  ticket: TicketWithDetails
+  pinnedIds: Set<string>
+  onTogglePin?: (id: string, isPinned: boolean) => void
+  userNote?: PinNote | null
+  onNoteSaved?: () => void
+  notes?: PinNote[]
+  onNoteDeleted?: () => void
+}) {
   const locationName = ticket.property_name || ticket.vehicle_name || "Unassigned"
   const assigneeName = ticket.vendor_contact_name
     ? `${ticket.vendor_name} (${ticket.vendor_contact_name})`
     : ticket.vendor_name || "Unassigned"
+  const isPinned = pinnedIds.has(ticket.id)
+  const hasNotes = notes && notes.length > 0
 
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
-      <PinButton
-        entityType="ticket"
-        entityId={ticket.id}
-        isPinned={pinnedIds.has(ticket.id)}
-        onToggle={onTogglePin ? (isPinned) => onTogglePin(ticket.id, isPinned) : undefined}
-        size="sm"
-        variant="ghost"
-        className="shrink-0"
-        metadata={{
-          title: ticket.title,
-          priority: ticket.priority,
-          status: ticket.status,
-        }}
-      />
+    <div className="rounded-lg border hover:bg-muted/50 transition-colors">
+      <div className="flex items-start gap-3 p-3">
+      <div className="flex items-center gap-1 shrink-0">
+        <PinButton
+          entityType="ticket"
+          entityId={ticket.id}
+          isPinned={isPinned}
+          onToggle={onTogglePin ? (isPinned) => onTogglePin(ticket.id, isPinned) : undefined}
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0"
+          metadata={{
+            title: ticket.title,
+            priority: ticket.priority,
+            status: ticket.status,
+          }}
+        />
+        {isPinned && (
+          <PinNoteButton
+            entityType="ticket"
+            entityId={ticket.id}
+            existingNote={userNote}
+            onNoteSaved={onNoteSaved}
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0"
+          />
+        )}
+      </div>
       <Link href={`/tickets/${ticket.id}`} className="flex items-start gap-3 flex-1 min-w-0">
         {getStatusIcon(ticket.status)}
         <div className="flex-1 min-w-0">
@@ -89,6 +115,12 @@ export function TicketRowSimple({ ticket, pinnedIds, onTogglePin }: { ticket: Ti
           {TICKET_STATUS_LABELS[ticket.status]}
         </Badge>
       </Link>
+      </div>
+      {hasNotes && (
+        <div className="px-3 pb-3">
+          <PinNotes notes={notes} onNoteDeleted={onNoteDeleted} />
+        </div>
+      )}
     </div>
   )
 }

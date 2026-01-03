@@ -2,7 +2,15 @@ import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
-import { getTickets, getProperties, getVendors, getSmartAndUserPins } from "@/lib/actions"
+import {
+  getTickets,
+  getProperties,
+  getVendors,
+  getSmartAndUserPins,
+  getPinNotesByEntities,
+  getUserPinNote,
+} from "@/lib/actions"
+import { getUser } from "@/lib/auth"
 import { TicketFilters } from "@/components/tickets/ticket-filters"
 import { TicketsContent } from "@/components/tickets/tickets-content"
 
@@ -18,7 +26,7 @@ interface TicketsPageProps {
 export default async function TicketsPage({ searchParams }: TicketsPageProps) {
   const params = await searchParams
 
-  const [tickets, properties, vendors, pins] = await Promise.all([
+  const [tickets, properties, vendors, pins, user] = await Promise.all([
     getTickets({
       propertyId: params.property,
       vendorId: params.vendor,
@@ -28,11 +36,27 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
     getProperties(),
     getVendors(),
     getSmartAndUserPins('ticket'),
+    getUser(),
   ])
 
   const openCount = tickets.filter(
     (t) => t.status !== "completed" && t.status !== "cancelled"
   ).length
+
+  // Load notes for all pinned tickets
+  const allPinnedIds = [...Array.from(pins.smartPins), ...Array.from(pins.userPins)]
+  const notesMap = await getPinNotesByEntities('ticket', allPinnedIds)
+
+  // Load user notes
+  const userNotesMap = new Map()
+  if (user) {
+    for (const ticketId of allPinnedIds) {
+      const userNote = await getUserPinNote('ticket', ticketId, user.id)
+      if (userNote) {
+        userNotesMap.set(ticketId, userNote)
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -59,6 +83,8 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
         tickets={tickets}
         initialSmartPins={Array.from(pins.smartPins)}
         initialUserPins={Array.from(pins.userPins)}
+        initialNotesMap={Object.fromEntries(notesMap)}
+        initialUserNotesMap={Object.fromEntries(userNotesMap)}
       />
     </div>
   )

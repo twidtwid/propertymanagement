@@ -2,10 +2,12 @@
 
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { cn, safeParseDate } from "@/lib/utils"
 import { format, formatDistanceToNow } from "date-fns"
 import type { BuildingLinkMessage, BuildingLinkCategory } from "@/lib/actions"
+import type { PinNote } from "@/types/database"
 import { PinButton } from "@/components/ui/pin-button"
+import { PinNoteButton } from "@/components/ui/pin-note-button"
 import {
   AlertTriangle,
   Bell,
@@ -28,6 +30,8 @@ interface MessageRowProps {
   showDate?: boolean
   compact?: boolean
   onTogglePin?: (messageId: string, isPinned: boolean) => void
+  userNote?: PinNote | null
+  onNoteSaved?: () => void
 }
 
 const CATEGORY_CONFIG: Record<BuildingLinkCategory, {
@@ -55,7 +59,7 @@ function getIcon(category: BuildingLinkCategory, subcategory: string) {
   return CATEGORY_CONFIG[category].icon
 }
 
-export function MessageRow({ message, showTime = true, showDate = false, compact = false, onTogglePin }: MessageRowProps) {
+export function MessageRow({ message, showTime = true, showDate = false, compact = false, onTogglePin, userNote, onNoteSaved }: MessageRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const config = CATEGORY_CONFIG[message.category]
@@ -80,30 +84,47 @@ export function MessageRow({ message, showTime = true, showDate = false, compact
         )}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <PinButton
-          entityType="buildinglink_message"
-          entityId={message.id}
-          isPinned={message.is_flagged || false}
-          size="sm"
-          variant="ghost"
-          className="h-6 w-6 p-0 shrink-0"
-          onToggle={onTogglePin ? (isPinned) => onTogglePin(message.id, isPinned) : undefined}
-          metadata={{
-            title: message.subject,
-            unit: message.unit || 'unknown',
-          }}
-        />
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <PinButton
+            entityType="buildinglink_message"
+            entityId={message.id}
+            isPinned={message.is_flagged || false}
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0"
+            onToggle={onTogglePin ? (isPinned) => onTogglePin(message.id, isPinned) : undefined}
+            metadata={{
+              title: message.subject,
+              unit: message.unit || 'unknown',
+            }}
+          />
+          {message.is_flagged && (
+            <PinNoteButton
+              entityType="buildinglink_message"
+              entityId={message.id}
+              existingNote={userNote}
+              onNoteSaved={onNoteSaved}
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+            />
+          )}
+        </div>
 
         <Icon className={cn("h-4 w-4 shrink-0", config.color)} />
 
-        {showTime && (
-          <span className={cn(
-            "text-xs text-muted-foreground shrink-0",
-            showDate ? "w-28" : "w-16"
-          )}>
-            {format(new Date(message.received_at), showDate ? 'MMM d, h:mm a' : 'h:mm a')}
-          </span>
-        )}
+        {showTime && (() => {
+          const date = safeParseDate(message.received_at)
+          if (!date) return null
+          return (
+            <span className={cn(
+              "text-xs text-muted-foreground shrink-0",
+              showDate ? "w-28" : "w-16"
+            )}>
+              {format(date, showDate ? 'MMM d, h:mm a' : 'h:mm a')}
+            </span>
+          )
+        })()}
 
         <span className={cn(
           "flex-1 text-sm truncate",
@@ -137,11 +158,17 @@ export function MessageRow({ message, showTime = true, showDate = false, compact
       {/* Expanded Content */}
       {isExpanded && (
         <div className="px-3 pb-3 pt-1 border-t border-muted">
-          <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-            <span>{format(new Date(message.received_at), 'EEEE, MMMM d, yyyy at h:mm a')}</span>
-            <span>•</span>
-            <span>{formatDistanceToNow(new Date(message.received_at), { addSuffix: true })}</span>
-          </div>
+          {(() => {
+            const date = safeParseDate(message.received_at)
+            if (!date) return null
+            return (
+              <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
+                <span>{format(date, 'EEEE, MMMM d, yyyy at h:mm a')}</span>
+                <span>•</span>
+                <span>{formatDistanceToNow(date, { addSuffix: true })}</span>
+              </div>
+            )
+          })()}
           {message.body_html ? (
             <div
               className="prose prose-sm max-w-none dark:prose-invert"

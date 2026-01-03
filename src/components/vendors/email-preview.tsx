@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Paperclip, ExternalLink } from "lucide-react"
-import { formatDate } from "@/lib/utils"
+import { formatDate, formatDateTime } from "@/lib/utils"
 import type { VendorCommunication } from "@/lib/actions"
 
 interface EmailPreviewProps {
@@ -11,17 +11,6 @@ interface EmailPreviewProps {
 }
 
 export function EmailPreview({ communication }: EmailPreviewProps) {
-  const formatDateTime = (date: string) => {
-    const d = new Date(date)
-    return d.toLocaleDateString("en-US", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    })
-  }
 
   return (
     <div className="border-t bg-muted/30">

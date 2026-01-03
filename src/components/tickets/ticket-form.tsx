@@ -50,6 +50,7 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
       vendor_id: ticket?.vendor_id || null,
       vendor_contact_id: ticket?.vendor_contact_id || null,
       priority: ticket?.priority || "medium",
+      due_date: ticket?.due_date || null,
       estimated_cost: ticket?.estimated_cost || null,
     },
   })
@@ -253,6 +254,20 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
                 </Button>
               ))}
             </div>
+          </div>
+
+          {/* Due Date */}
+          <div className="space-y-2">
+            <Label htmlFor="dueDate">Need By Date (optional)</Label>
+            <Input
+              id="dueDate"
+              type="date"
+              value={form.watch("due_date") || ""}
+              onChange={(e) => form.setValue("due_date", e.target.value || null)}
+            />
+            <p className="text-xs text-muted-foreground">
+              When does this need to be completed? (Shows on calendar)
+            </p>
           </div>
 
           {/* Description */}

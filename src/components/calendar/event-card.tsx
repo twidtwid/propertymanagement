@@ -17,6 +17,7 @@ import {
   MapPin,
   User,
   ExternalLink,
+  StickyNote,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { CalendarEvent, CalendarEventType } from "@/lib/actions"
@@ -72,6 +73,12 @@ const eventTypeConfig: Record<
     color: "text-amber-700",
     bgColor: "bg-amber-100 hover:bg-amber-200 border-amber-200",
     label: "Maintenance",
+  },
+  pin_note: {
+    icon: StickyNote,
+    color: "text-yellow-700",
+    bgColor: "bg-yellow-100 hover:bg-yellow-200 border-yellow-200",
+    label: "Note",
   },
 }
 
@@ -165,6 +172,12 @@ function EventPopoverContent({ event, config }: EventPopoverContentProps) {
         </div>
       </div>
 
+      {event.description && (
+        <div className="text-sm border-l-2 border-muted pl-3 py-1">
+          <p className="text-foreground">{event.description}</p>
+        </div>
+      )}
+
       <div className="space-y-2 text-sm">
         {event.propertyName && (
           <div className="flex items-center gap-2">
@@ -246,6 +259,8 @@ export function EventDot({ type }: { type: CalendarEventType }) {
             ? "#14b8a6"
             : type === "maintenance"
             ? "#f59e0b"
+            : type === "pin_note"
+            ? "#eab308"
             : "#6b7280",
       }}
     />

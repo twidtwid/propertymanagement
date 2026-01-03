@@ -7,6 +7,8 @@ import {
   getBuildingLinkMessages,
   getSmartAndUserPins,
   getBuildingLinkNeedsAttention,
+  getPinNotesByEntities,
+  getUserPinNote,
   type BuildingLinkMessage,
 } from "@/lib/actions"
 
@@ -54,6 +56,21 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
   }
   // "activity" tab shows all (already filtered by includeSocial)
 
+  // Get all pinned message IDs
+  const allPinnedIds = [...Array.from(pins.smartPins), ...Array.from(pins.userPins)]
+
+  // Load notes for all pinned messages
+  const notesMap = await getPinNotesByEntities('buildinglink_message', allPinnedIds)
+
+  // Get user's notes for each pinned message
+  const userNotesMap = new Map<string, any>()
+  for (const messageId of allPinnedIds) {
+    const userNote = await getUserPinNote('buildinglink_message', messageId, user.id)
+    if (userNote) {
+      userNotesMap.set(messageId, userNote)
+    }
+  }
+
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       {/* Header */}
@@ -85,6 +102,8 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
         uncollectedPackages={needsAttention.uncollectedPackages}
         currentTab={currentTab}
         searchQuery={params.search || ""}
+        initialNotesMap={Object.fromEntries(notesMap)}
+        initialUserNotesMap={Object.fromEntries(userNotesMap)}
       />
     </div>
   )

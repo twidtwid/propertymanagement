@@ -13,6 +13,7 @@ import {
   Car,
   Wrench,
   AlertTriangle,
+  StickyNote,
 } from "lucide-react"
 
 interface DayViewProps {
@@ -28,6 +29,7 @@ const eventTypeLabels: Record<CalendarEventType, string> = {
   vehicle_registration: "Vehicle Registrations",
   vehicle_inspection: "Vehicle Inspections",
   maintenance: "Maintenance Tasks",
+  pin_note: "Pin Notes",
 }
 
 const eventTypeIcons: Record<CalendarEventType, React.ElementType> = {
@@ -38,6 +40,7 @@ const eventTypeIcons: Record<CalendarEventType, React.ElementType> = {
   vehicle_registration: Car,
   vehicle_inspection: Car,
   maintenance: Wrench,
+  pin_note: StickyNote,
 }
 
 export function DayView({ currentDate, events }: DayViewProps) {
@@ -53,6 +56,7 @@ export function DayView({ currentDate, events }: DayViewProps) {
       vehicle_registration: [],
       vehicle_inspection: [],
       maintenance: [],
+      pin_note: [],
     }
 
     for (const event of events) {

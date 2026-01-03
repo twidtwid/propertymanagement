@@ -2,7 +2,14 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
-import { getVendorsFiltered, getVendorLocations, getProperties, getSmartAndUserPins } from "@/lib/actions"
+import {
+  getVendorsFiltered,
+  getVendorLocations,
+  getProperties,
+  getSmartAndUserPins,
+  getPinNotesByEntities,
+  getUserPinNote,
+} from "@/lib/actions"
 import { getUser } from "@/lib/auth"
 import { VendorFilters } from "@/components/vendors/vendor-filters"
 import { VendorList } from "@/components/vendors/vendor-list"
@@ -31,6 +38,21 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
     getSmartAndUserPins('vendor'),
   ])
 
+  // Load notes for all pinned vendors
+  const allPinnedIds = Array.from(pins.userPins)
+  const notesMap = await getPinNotesByEntities('vendor', allPinnedIds)
+
+  // Load user notes
+  const userNotesMap = new Map()
+  if (user) {
+    for (const vendorId of allPinnedIds) {
+      const userNote = await getUserPinNote('vendor', vendorId, user.id)
+      if (userNote) {
+        userNotesMap.set(vendorId, userNote)
+      }
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -56,7 +78,12 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
         <VendorFilters locations={locations} />
       </Card>
 
-      <VendorList vendors={vendors} userPins={Array.from(pins.userPins)} />
+      <VendorList
+        vendors={vendors}
+        userPins={Array.from(pins.userPins)}
+        initialNotesMap={Object.fromEntries(notesMap)}
+        initialUserNotesMap={Object.fromEntries(userNotesMap)}
+      />
     </div>
   )
 }

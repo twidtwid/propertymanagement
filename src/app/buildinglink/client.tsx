@@ -5,7 +5,9 @@ import { useState, useTransition, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { BuildingLinkMessage } from "@/lib/actions"
+import type { PinNote } from "@/types/database"
 import { PinnedSection } from "@/components/ui/pinned-section"
+import { PinNotes } from "@/components/ui/pin-notes"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MessageRow } from "@/components/buildinglink/message-row"
@@ -24,6 +26,8 @@ interface BuildingLinkClientProps {
   uncollectedPackages: BuildingLinkMessage[]
   currentTab: string
   searchQuery: string
+  initialNotesMap: Record<string, PinNote[]>
+  initialUserNotesMap: Record<string, PinNote>
 }
 
 const TABS = [
@@ -39,6 +43,8 @@ export function BuildingLinkClient({
   uncollectedPackages,
   currentTab,
   searchQuery,
+  initialNotesMap,
+  initialUserNotesMap,
 }: BuildingLinkClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -46,8 +52,30 @@ export function BuildingLinkClient({
   const [search, setSearch] = useState(searchQuery)
   const [smartPins, setSmartPins] = useState<Set<string>>(new Set(initialSmartPins))
   const [userPins, setUserPins] = useState<Set<string>>(new Set(initialUserPins))
+  const [notesMap, setNotesMap] = useState<Record<string, PinNote[]>>(initialNotesMap)
+  const [userNotesMap, setUserNotesMap] = useState<Record<string, PinNote>>(initialUserNotesMap)
 
   const allPinnedIds = new Set([...Array.from(smartPins), ...Array.from(userPins)])
+
+  // Refresh notes for a specific entity
+  const refreshNotes = async (entityId: string) => {
+    try {
+      const response = await fetch(`/api/pin-notes?entityType=buildinglink_message&entityId=${entityId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setNotesMap((prev) => ({
+          ...prev,
+          [entityId]: data.notes || [],
+        }))
+        setUserNotesMap((prev) => ({
+          ...prev,
+          [entityId]: data.userNote || null,
+        }))
+      }
+    } catch (error) {
+      console.error("Failed to refresh notes:", error)
+    }
+  }
 
   // Update URL params
   const updateParams = useCallback(
@@ -110,11 +138,23 @@ export function BuildingLinkClient({
         <PinnedSection count={smartPinMessages.length} title="Smart Pins" variant="smart">
           <div className="space-y-2">
             {smartPinMessages.map((message) => (
-              <MessageRow
-                key={message.id}
-                message={{ ...message, is_flagged: true }}
-                onTogglePin={handleTogglePin}
-              />
+              <div key={message.id}>
+                <MessageRow
+                  message={{ ...message, is_flagged: true }}
+                  showDate
+                  onTogglePin={handleTogglePin}
+                  userNote={userNotesMap[message.id]}
+                  onNoteSaved={() => refreshNotes(message.id)}
+                />
+                {(notesMap[message.id] || []).length > 0 && (
+                  <div className="mt-2 ml-12">
+                    <PinNotes
+                      notes={notesMap[message.id] || []}
+                      onNoteDeleted={() => refreshNotes(message.id)}
+                    />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </PinnedSection>
@@ -125,11 +165,23 @@ export function BuildingLinkClient({
         <PinnedSection count={userPinMessages.length} title="User Pins" variant="user">
           <div className="space-y-2">
             {userPinMessages.map((message) => (
-              <MessageRow
-                key={message.id}
-                message={{ ...message, is_flagged: true }}
-                onTogglePin={handleTogglePin}
-              />
+              <div key={message.id}>
+                <MessageRow
+                  message={{ ...message, is_flagged: true }}
+                  showDate
+                  onTogglePin={handleTogglePin}
+                  userNote={userNotesMap[message.id]}
+                  onNoteSaved={() => refreshNotes(message.id)}
+                />
+                {(notesMap[message.id] || []).length > 0 && (
+                  <div className="mt-2 ml-12">
+                    <PinNotes
+                      notes={notesMap[message.id] || []}
+                      onNoteDeleted={() => refreshNotes(message.id)}
+                    />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </PinnedSection>

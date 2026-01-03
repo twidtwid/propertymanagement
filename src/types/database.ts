@@ -634,3 +634,15 @@ export interface PinnedItem {
   is_system_pin: boolean  // True for smart pins (system-generated), false for user pins
   dismissed_at: string | null  // When user dismissed this smart pin (NULL = active)
 }
+
+export interface PinNote {
+  id: string
+  entity_type: PinnedEntityType
+  entity_id: string
+  user_id: string
+  user_name: string
+  note: string
+  due_date: string | null
+  created_at: string
+  updated_at: string
+}

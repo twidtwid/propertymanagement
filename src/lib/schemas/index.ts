@@ -1,11 +1,26 @@
 import { z } from "zod"
 
 // Helper for date fields that may receive Date objects from HTML date inputs
+// IMPORTANT: HTML date inputs return "YYYY-MM-DD" strings. We keep them as strings
+// to avoid timezone conversions. Only convert Date objects using LOCAL time components.
 const dateField = z.preprocess(
   (val) => {
-    if (val instanceof Date) return val.toISOString().split('T')[0]
-    if (val === '') return null
-    return val
+    // Empty string becomes null
+    if (typeof val === 'string' && val.trim() === '') return null
+
+    // String values (from HTML date inputs) pass through as-is
+    if (typeof val === 'string') return val
+
+    // If somehow a Date object arrives, extract local date components
+    // WITHOUT timezone conversion (don't use toISOString which converts to UTC!)
+    if (val instanceof Date) {
+      const year = val.getFullYear()
+      const month = String(val.getMonth() + 1).padStart(2, '0')
+      const day = String(val.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    return null
   },
   z.string().nullable().optional()
 )
@@ -178,6 +193,7 @@ export const ticketSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
   description: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  due_date: dateField,
   estimated_cost: z.coerce.number().positive().nullable().optional(),
 })
 

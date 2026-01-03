@@ -5,14 +5,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { PaymentTable } from "./payment-table"
 import { PinnedSection } from "@/components/ui/pinned-section"
 import { PaymentFilters } from "./payment-filters"
-import type { UnifiedPayment } from "@/types/database"
-import type { Property } from "@/types/database"
+import { PinNotes } from "@/components/ui/pin-notes"
+import type { UnifiedPayment, Property, PinNote } from "@/types/database"
 
 interface PaymentsWithPinsProps {
   payments: UnifiedPayment[]
   properties: Property[]
   initialSmartPins: string[]
   initialUserPins: string[]
+  initialNotesMap: Record<string, PinNote[]>
+  initialUserNotesMap: Record<string, PinNote>
 }
 
 export function PaymentsWithPins({
@@ -20,11 +22,39 @@ export function PaymentsWithPins({
   properties,
   initialSmartPins,
   initialUserPins,
+  initialNotesMap,
+  initialUserNotesMap,
 }: PaymentsWithPinsProps) {
   const [smartPins, setSmartPins] = useState<Set<string>>(new Set(initialSmartPins))
   const [userPins, setUserPins] = useState<Set<string>>(new Set(initialUserPins))
+  const [notesMap, setNotesMap] = useState<Record<string, PinNote[]>>(initialNotesMap)
+  const [userNotesMap, setUserNotesMap] = useState<Record<string, PinNote>>(initialUserNotesMap)
 
   const allPinnedIds = new Set([...Array.from(smartPins), ...Array.from(userPins)])
+
+  // Refresh notes for a specific payment
+  const refreshNotes = async (payment: UnifiedPayment) => {
+    const entityType =
+      payment.source === 'bill' ? 'bill' :
+      payment.source === 'property_tax' ? 'property_tax' :
+      'insurance_premium'
+    try {
+      const response = await fetch(`/api/pin-notes?entityType=${entityType}&entityId=${payment.source_id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setNotesMap((prev) => ({
+          ...prev,
+          [payment.source_id]: data.notes || [],
+        }))
+        setUserNotesMap((prev) => ({
+          ...prev,
+          [payment.source_id]: data.userNote || null,
+        }))
+      }
+    } catch (error) {
+      console.error("Failed to refresh notes:", error)
+    }
+  }
 
   const handleTogglePin = (billId: string, isPinned: boolean) => {
     if (isPinned) {
@@ -58,6 +88,9 @@ export function PaymentsWithPins({
             payments={userPinPayments}
             pinnedIds={allPinnedIds}
             onTogglePin={handleTogglePin}
+            userNotesMap={userNotesMap}
+            onNoteSaved={refreshNotes}
+            notesMap={notesMap}
           />
         </PinnedSection>
       )}
@@ -72,6 +105,9 @@ export function PaymentsWithPins({
             payments={unpinnedPayments}
             pinnedIds={allPinnedIds}
             onTogglePin={handleTogglePin}
+            userNotesMap={userNotesMap}
+            onNoteSaved={refreshNotes}
+            notesMap={notesMap}
           />
         </CardContent>
       </Card>

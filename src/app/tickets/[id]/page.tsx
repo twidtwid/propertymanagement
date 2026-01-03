@@ -17,7 +17,7 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import { getTicket, getTicketActivity } from "@/lib/actions"
-import { formatDateTime } from "@/lib/utils"
+import { formatDateTime, formatDate } from "@/lib/utils"
 import { TASK_PRIORITY_LABELS, TICKET_STATUS_LABELS } from "@/types/database"
 import { TicketActivityList } from "@/components/tickets/ticket-activity"
 import { CloseTicketDialog } from "@/components/tickets/close-ticket-dialog"
@@ -189,6 +189,12 @@ export default async function TicketDetailPage({
                   <p className="text-sm text-muted-foreground">Created</p>
                   <p className="font-medium">{formatDateTime(ticket.created_at)}</p>
                 </div>
+                {ticket.due_date && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Need By Date</p>
+                    <p className="font-medium">{formatDate(ticket.due_date)}</p>
+                  </div>
+                )}
                 {ticket.estimated_cost && (
                   <div>
                     <p className="text-sm text-muted-foreground">Estimated Cost</p>

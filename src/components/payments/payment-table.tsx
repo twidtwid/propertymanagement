@@ -26,11 +26,17 @@ import { formatCurrency, formatDate, daysUntil } from "@/lib/utils"
 import { ConfirmPaymentButton } from "./confirm-payment-button"
 import { MarkPaidButton } from "./mark-paid-button"
 import { PinButton } from "@/components/ui/pin-button"
+import { PinNoteButton } from "@/components/ui/pin-note-button"
+import { PinNotes } from "@/components/ui/pin-notes"
+import type { PinNote } from "@/types/database"
 
 interface PaymentTableProps {
   payments: UnifiedPayment[]
   pinnedIds: Set<string>
   onTogglePin?: (billId: string, isPinned: boolean) => void
+  userNotesMap?: Record<string, PinNote>
+  onNoteSaved?: (payment: UnifiedPayment) => void
+  notesMap?: Record<string, PinNote[]>
 }
 
 function getStatusVariant(status: string, isOverdue: boolean, daysWaiting: number | null): "default" | "secondary" | "destructive" | "outline" | "success" | "warning" {
@@ -65,7 +71,7 @@ function getCategoryIcon(category: string) {
   }
 }
 
-export function PaymentTable({ payments, pinnedIds, onTogglePin }: PaymentTableProps) {
+export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, onNoteSaved, notesMap }: PaymentTableProps) {
 
   if (payments.length === 0) {
     return (
@@ -79,6 +85,7 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin }: PaymentTableP
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10"></TableHead>
           <TableHead className="w-10"></TableHead>
           <TableHead className="w-[300px]">Description</TableHead>
           <TableHead>Property / Vehicle</TableHead>
@@ -97,20 +104,24 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin }: PaymentTableP
             payment.days_waiting
           )
 
+          const isPinned = pinnedIds.has(payment.source_id)
+          const entityType =
+            payment.source === 'bill' ? 'bill' :
+            payment.source === 'property_tax' ? 'property_tax' :
+            'insurance_premium'
+          const paymentNotes = notesMap?.[payment.source_id] || []
+
           return (
+            <>
             <TableRow
               key={`${payment.source}-${payment.source_id}`}
               className={payment.is_overdue ? "bg-red-50/50" : undefined}
             >
               <TableCell className="w-10">
                 <PinButton
-                  entityType={
-                    payment.source === 'bill' ? 'bill' :
-                    payment.source === 'property_tax' ? 'property_tax' :
-                    'insurance_premium'
-                  }
+                  entityType={entityType}
                   entityId={payment.source_id}
-                  isPinned={pinnedIds.has(payment.source_id)}
+                  isPinned={isPinned}
                   onToggle={onTogglePin ? (isPinned) => onTogglePin(payment.source_id, isPinned) : undefined}
                   metadata={{
                     title: payment.description,
@@ -119,6 +130,19 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin }: PaymentTableP
                     status: payment.status,
                   }}
                 />
+              </TableCell>
+              <TableCell className="w-10">
+                {isPinned && (
+                  <PinNoteButton
+                    entityType={entityType}
+                    entityId={payment.source_id}
+                    existingNote={userNotesMap?.[payment.source_id]}
+                    onNoteSaved={onNoteSaved ? () => onNoteSaved(payment) : undefined}
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                  />
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-3">
@@ -203,6 +227,17 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin }: PaymentTableP
                 </div>
               </TableCell>
             </TableRow>
+            {paymentNotes.length > 0 && (
+              <TableRow key={`${payment.source}-${payment.source_id}-notes`}>
+                <TableCell colSpan={8} className="py-0 pb-3">
+                  <PinNotes
+                    notes={paymentNotes}
+                    onNoteDeleted={() => onNoteSaved?.(payment)}
+                  />
+                </TableCell>
+              </TableRow>
+            )}
+            </>
           )
         })}
       </TableBody>

@@ -2,20 +2,46 @@
 
 import { useState } from "react"
 import { PinnedSection } from "@/components/ui/pinned-section"
+import { PinNotes } from "@/components/ui/pin-notes"
 import { TicketList, TicketRowSimple } from "./ticket-list"
 import type { TicketWithDetails } from "@/lib/actions"
+import type { PinNote } from "@/types/database"
 
 interface TicketsContentProps {
   tickets: TicketWithDetails[]
   initialSmartPins: string[]
   initialUserPins: string[]
+  initialNotesMap: Record<string, PinNote[]>
+  initialUserNotesMap: Record<string, PinNote>
 }
 
-export function TicketsContent({ tickets, initialSmartPins, initialUserPins }: TicketsContentProps) {
+export function TicketsContent({ tickets, initialSmartPins, initialUserPins, initialNotesMap, initialUserNotesMap }: TicketsContentProps) {
   const [smartPins, setSmartPins] = useState<Set<string>>(new Set(initialSmartPins))
   const [userPins, setUserPins] = useState<Set<string>>(new Set(initialUserPins))
+  const [notesMap, setNotesMap] = useState<Record<string, PinNote[]>>(initialNotesMap)
+  const [userNotesMap, setUserNotesMap] = useState<Record<string, PinNote>>(initialUserNotesMap)
 
   const allPinnedIds = new Set([...Array.from(smartPins), ...Array.from(userPins)])
+
+  // Refresh notes for a specific ticket
+  const refreshNotes = async (ticketId: string) => {
+    try {
+      const response = await fetch(`/api/pin-notes?entityType=ticket&entityId=${ticketId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setNotesMap((prev) => ({
+          ...prev,
+          [ticketId]: data.notes || [],
+        }))
+        setUserNotesMap((prev) => ({
+          ...prev,
+          [ticketId]: data.userNote || null,
+        }))
+      }
+    } catch (error) {
+      console.error("Failed to refresh notes:", error)
+    }
+  }
 
   const handleTogglePin = (ticketId: string, isPinned: boolean) => {
     if (isPinned) {
@@ -52,6 +78,10 @@ export function TicketsContent({ tickets, initialSmartPins, initialUserPins }: T
                 ticket={ticket}
                 pinnedIds={allPinnedIds}
                 onTogglePin={handleTogglePin}
+                userNote={userNotesMap[ticket.id]}
+                onNoteSaved={() => refreshNotes(ticket.id)}
+                notes={notesMap[ticket.id] || []}
+                onNoteDeleted={() => refreshNotes(ticket.id)}
               />
             ))}
           </div>
@@ -67,6 +97,10 @@ export function TicketsContent({ tickets, initialSmartPins, initialUserPins }: T
                 ticket={ticket}
                 pinnedIds={allPinnedIds}
                 onTogglePin={handleTogglePin}
+                userNote={userNotesMap[ticket.id]}
+                onNoteSaved={() => refreshNotes(ticket.id)}
+                notes={notesMap[ticket.id] || []}
+                onNoteDeleted={() => refreshNotes(ticket.id)}
               />
             ))}
           </div>

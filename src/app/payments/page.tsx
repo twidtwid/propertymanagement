@@ -8,7 +8,10 @@ import {
   getActiveProperties,
   getActiveVehicles,
   getSmartAndUserPins,
+  getPinNotesByEntities,
+  getUserPinNote,
 } from "@/lib/actions"
+import { getUser } from "@/lib/auth"
 import { PaymentsWithPins } from "@/components/payments/payments-with-pins"
 import { QuickActions } from "@/components/payments/quick-actions"
 import { AwaitingConfirmation } from "@/components/payments/awaiting-confirmation"
@@ -28,7 +31,7 @@ interface PaymentsPageProps {
 async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
   const params = await searchParams
 
-  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles, billPins, taxPins, insurancePins] = await Promise.all([
+  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles, billPins, taxPins, insurancePins, user] = await Promise.all([
     getAllPayments({
       category: params.category,
       status: params.status,
@@ -42,6 +45,7 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
     getSmartAndUserPins('bill'),
     getSmartAndUserPins('property_tax'),
     getSmartAndUserPins('insurance_premium'),
+    getUser(),
   ])
 
   // Merge pins from all payment sources
@@ -56,6 +60,60 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
       ...Array.from(taxPins.userPins),
       ...Array.from(insurancePins.userPins),
     ]),
+  }
+
+  // Load notes for all pinned payments across all entity types
+  const [billNotesMap, taxNotesMap, insuranceNotesMap] = await Promise.all([
+    getPinNotesByEntities('bill', Array.from(billPins.smartPins).concat(Array.from(billPins.userPins))),
+    getPinNotesByEntities('property_tax', Array.from(taxPins.smartPins).concat(Array.from(taxPins.userPins))),
+    getPinNotesByEntities('insurance_premium', Array.from(insurancePins.smartPins).concat(Array.from(insurancePins.userPins))),
+  ])
+
+  // Merge all notes into a single map by source_id
+  const notesMap = new Map([
+    ...Array.from(billNotesMap.entries()),
+    ...Array.from(taxNotesMap.entries()),
+    ...Array.from(insuranceNotesMap.entries()),
+  ])
+
+  // Load user notes for all pinned payments
+  const userNotesMap = new Map()
+  if (user) {
+    const allPinnedIds = [...Array.from(pins.smartPins), ...Array.from(pins.userPins)]
+    for (const payment of payments.filter(p => allPinnedIds.includes(p.source_id))) {
+      const entityType =
+        payment.source === 'bill' ? 'bill' :
+        payment.source === 'property_tax' ? 'property_tax' :
+        'insurance_premium'
+      const userNote = await getUserPinNote(entityType, payment.source_id, user.id)
+      if (userNote) {
+        userNotesMap.set(payment.source_id, userNote)
+      }
+    }
+  }
+
+  // Also load notes for payments needing attention (smart pins shown in QuickActions)
+  const attentionNotesMap = new Map()
+  const attentionUserNotesMap = new Map()
+  if (user) {
+    for (const payment of attentionPayments) {
+      const entityType =
+        payment.source === 'bill' ? 'bill' :
+        payment.source === 'property_tax' ? 'property_tax' :
+        'insurance_premium'
+
+      // Get all notes for this entity
+      const notes = notesMap.get(payment.source_id)
+      if (notes) {
+        attentionNotesMap.set(payment.source_id, notes)
+      }
+
+      // Get user's note for this entity
+      const userNote = await getUserPinNote(entityType, payment.source_id, user.id)
+      if (userNote) {
+        attentionUserNotesMap.set(payment.source_id, userNote)
+      }
+    }
   }
 
   return (
@@ -74,7 +132,11 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
       </div>
 
       {/* Smart Pins - auto-generated based on urgency */}
-      <QuickActions paymentsNeedingAttention={attentionPayments} />
+      <QuickActions
+        paymentsNeedingAttention={attentionPayments}
+        initialNotesMap={Object.fromEntries(attentionNotesMap)}
+        initialUserNotesMap={Object.fromEntries(attentionUserNotesMap)}
+      />
 
       <AwaitingConfirmation payments={awaitingConfirmation} />
 
@@ -84,6 +146,8 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
         properties={properties}
         initialSmartPins={Array.from(pins.smartPins)}
         initialUserPins={Array.from(pins.userPins)}
+        initialNotesMap={Object.fromEntries(notesMap)}
+        initialUserNotesMap={Object.fromEntries(userNotesMap)}
       />
     </div>
   )

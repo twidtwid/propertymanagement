@@ -1380,13 +1380,13 @@ export async function createTicket(formData: unknown): Promise<ActionResult<Main
     const ticket = await queryOne<MaintenanceTask>(
       `INSERT INTO maintenance_tasks (
         property_id, vehicle_id, vendor_id, vendor_contact_id, title, description,
-        priority, status, recurrence, estimated_cost
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'one_time', $8)
+        priority, status, recurrence, estimated_cost, due_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'one_time', $8, $9)
       RETURNING *`,
       [
         emptyToNull(d.property_id), emptyToNull(d.vehicle_id), emptyToNull(d.vendor_id),
         emptyToNull(d.vendor_contact_id), d.title, emptyToNull(d.description),
-        d.priority, emptyToNull(d.estimated_cost)
+        d.priority, emptyToNull(d.estimated_cost), emptyToNull(d.due_date)
       ]
     )
 
@@ -1448,6 +1448,7 @@ export async function updateTicket(id: string, formData: unknown): Promise<Actio
         description = $7,
         priority = COALESCE($8, priority),
         estimated_cost = $9,
+        due_date = $10,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
@@ -1455,7 +1456,7 @@ export async function updateTicket(id: string, formData: unknown): Promise<Actio
         id,
         emptyToNull(d.property_id), emptyToNull(d.vehicle_id), emptyToNull(d.vendor_id),
         emptyToNull(d.vendor_contact_id), d.title, emptyToNull(d.description),
-        d.priority, emptyToNull(d.estimated_cost)
+        d.priority, emptyToNull(d.estimated_cost), emptyToNull(d.due_date)
       ]
     )
 
@@ -1883,5 +1884,87 @@ export async function removeVendorFromProperty(
   } catch (error) {
     log.error("Failed to remove vendor from property", { vendorId, propertyId, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to remove vendor from property" }
+  }
+}
+
+// ============================================
+// Pin Notes
+// ============================================
+
+/**
+ * Upsert (create or update) a pin note
+ * One note per user per pin
+ */
+export async function upsertPinNote(params: {
+  entityType: string
+  entityId: string
+  userId: string
+  userName: string
+  note: string
+  dueDate?: string | null
+}): Promise<ActionResult> {
+  const log = getLogger("mutations.pin-note")
+
+  try {
+    // Validate note length
+    if (!params.note || params.note.trim().length === 0) {
+      return { success: false, error: "Note cannot be empty" }
+    }
+
+    if (params.note.length > 500) {
+      return { success: false, error: "Note cannot exceed 500 characters" }
+    }
+
+    const trimmedNote = params.note.trim()
+
+    // Upsert the note (insert or update if exists)
+    await query(
+      `INSERT INTO pin_notes (entity_type, entity_id, user_id, user_name, note, due_date, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+       ON CONFLICT (entity_type, entity_id, user_id)
+       DO UPDATE SET
+         note = EXCLUDED.note,
+         due_date = EXCLUDED.due_date,
+         updated_at = NOW()`,
+      [params.entityType, params.entityId, params.userId, params.userName, trimmedNote, params.dueDate || null]
+    )
+
+    log.info("Pin note upserted", {
+      entityType: params.entityType,
+      entityId: params.entityId,
+      userId: params.userId,
+      noteLength: trimmedNote.length,
+      hasDueDate: !!params.dueDate
+    })
+
+    return { success: true, data: undefined }
+  } catch (error) {
+    log.error("Failed to upsert pin note", {
+      entityType: params.entityType,
+      entityId: params.entityId,
+      error: error instanceof Error ? error.message : "Unknown"
+    })
+    return { success: false, error: "Failed to save note" }
+  }
+}
+
+/**
+ * Delete a pin note
+ * Any user can delete any note
+ */
+export async function deletePinNote(noteId: string): Promise<ActionResult> {
+  const log = getLogger("mutations.pin-note")
+
+  try {
+    await query("DELETE FROM pin_notes WHERE id = $1", [noteId])
+
+    log.info("Pin note deleted", { noteId })
+    return { success: true, data: undefined }
+  } catch (error) {
+    log.error("Failed to delete pin note", {
+      noteId,
+      error: error instanceof Error ? error.message : "Unknown"
+    })
+    return { success: false, error: "Failed to delete note" }
   }
 }

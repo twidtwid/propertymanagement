@@ -21,6 +21,7 @@ import type {
   UnifiedPayment,
   TicketActivity,
   PinnedEntityType,
+  PinNote,
   PaymentStatus,
   TaskPriority,
   TaskStatus,
@@ -479,6 +480,66 @@ export async function undoDismissPin(params: {
   return restored !== null
 }
 
+// ============================================================================
+// PIN NOTES
+// ============================================================================
+
+/**
+ * Get all notes for a specific pinned item
+ */
+export async function getPinNotes(
+  entityType: PinnedEntityType,
+  entityId: string
+): Promise<PinNote[]> {
+  return query<PinNote>(
+    `SELECT * FROM pin_notes
+     WHERE entity_type = $1 AND entity_id = $2
+     ORDER BY created_at ASC`,
+    [entityType, entityId]
+  )
+}
+
+/**
+ * Get notes for multiple pinned items (for displaying notes in bulk)
+ */
+export async function getPinNotesByEntities(
+  entityType: PinnedEntityType,
+  entityIds: string[]
+): Promise<Map<string, PinNote[]>> {
+  if (entityIds.length === 0) return new Map()
+
+  const notes = await query<PinNote>(
+    `SELECT * FROM pin_notes
+     WHERE entity_type = $1 AND entity_id = ANY($2::uuid[])
+     ORDER BY created_at ASC`,
+    [entityType, entityIds]
+  )
+
+  const notesByEntity = new Map<string, PinNote[]>()
+  for (const note of notes) {
+    const existing = notesByEntity.get(note.entity_id) || []
+    existing.push(note)
+    notesByEntity.set(note.entity_id, existing)
+  }
+
+  return notesByEntity
+}
+
+/**
+ * Get a user's note for a specific pinned item (if exists)
+ */
+export async function getUserPinNote(
+  entityType: PinnedEntityType,
+  entityId: string,
+  userId: string
+): Promise<PinNote | null> {
+  return queryOne<PinNote>(
+    `SELECT * FROM pin_notes
+     WHERE entity_type = $1 AND entity_id = $2 AND user_id = $3`,
+    [entityType, entityId, userId]
+  )
+}
+
 /**
  * Get all pinned items with full entity details (for daily summary)
  */
@@ -655,12 +716,17 @@ export async function syncSmartPinsBills(): Promise<void> {
  * Auto-pins: urgent/high priority pending tickets
  */
 export async function syncSmartPinsTickets(): Promise<void> {
-  // Get urgent/high priority pending tickets
-  const tickets = await query<{ id: string; title: string; priority: TaskPriority; status: TaskStatus }>(
-    `SELECT id, title, priority, status
+  // Get tickets that need attention:
+  // 1. Urgent/high priority pending/in_progress tickets
+  // 2. Tickets due within 7 days or overdue (and still pending/in_progress)
+  const tickets = await query<{ id: string; title: string; priority: TaskPriority; status: TaskStatus; due_date: string | null }>(
+    `SELECT id, title, priority, status, due_date::text
      FROM maintenance_tasks
-     WHERE (priority = 'urgent' OR priority = 'high')
-       AND (status = 'pending' OR status = 'in_progress')`
+     WHERE (status = 'pending' OR status = 'in_progress')
+       AND (
+         (priority = 'urgent' OR priority = 'high')
+         OR (due_date IS NOT NULL AND due_date <= CURRENT_DATE + INTERVAL '7 days')
+       )`
   )
 
   // Get currently smart-pinned tickets
@@ -669,7 +735,7 @@ export async function syncSmartPinsTickets(): Promise<void> {
   )
   const currentSet = new Set(currentSmartPins.map(p => p.entity_id))
 
-  // Pin urgent tickets
+  // Pin tickets that need attention
   for (const ticket of tickets) {
     await upsertSmartPin({
       entityType: 'ticket',
@@ -678,12 +744,13 @@ export async function syncSmartPinsTickets(): Promise<void> {
         title: ticket.title,
         priority: ticket.priority,
         status: ticket.status,
+        due_date: ticket.due_date,
       },
     })
     currentSet.delete(ticket.id)
   }
 
-  // Unpin tickets that are no longer urgent
+  // Unpin tickets that no longer need attention
   for (const ticketId of Array.from(currentSet)) {
     await removeSmartPin('ticket', ticketId)
   }
@@ -694,15 +761,16 @@ export async function syncSmartPinsTickets(): Promise<void> {
  * Auto-pins: critical/important messages from last 7 days
  */
 export async function syncSmartPinsBuildingLink(): Promise<void> {
-  // Get all BuildingLink messages from last 7 days
   const vendorId = await getBuildingLinkVendorId()
   if (!vendorId) return
 
-  const recentMessages = await query<{ id: string; subject: string; body_snippet: string | null }>(
-    `SELECT id, subject, body_snippet
+  // Get all messages (need more than 7 days for package tracking)
+  const allMessages = await query<{ id: string; subject: string; body_snippet: string | null; received_at: string }>(
+    `SELECT id, subject, body_snippet, received_at
      FROM vendor_communications
      WHERE vendor_id = $1
-       AND received_at > CURRENT_DATE - INTERVAL '7 days'`,
+     ORDER BY received_at DESC
+     LIMIT 500`,
     [vendorId]
   )
 
@@ -712,7 +780,13 @@ export async function syncSmartPinsBuildingLink(): Promise<void> {
   )
   const currentSet = new Set(currentSmartPins.map(p => p.entity_id))
 
-  // Filter and pin critical/important messages using dynamic categorization
+  // Recent messages (7 days) for critical/important
+  const recentMessages = allMessages.filter(m => {
+    const daysAgo = (Date.now() - new Date(m.received_at).getTime()) / (1000 * 60 * 60 * 24)
+    return daysAgo <= 7
+  })
+
+  // Pin critical/important messages
   for (const msg of recentMessages) {
     const { category } = categorizeBuildingLinkMessage(msg.subject, msg.body_snippet)
 
@@ -727,6 +801,44 @@ export async function syncSmartPinsBuildingLink(): Promise<void> {
         },
       })
       currentSet.delete(msg.id)
+    }
+  }
+
+  // Pin uncollected packages (last 2 weeks)
+  const twoWeeksAgo = Date.now() - (14 * 24 * 60 * 60 * 1000)
+  const allArrivals = allMessages.filter(m => {
+    const { subcategory } = categorizeBuildingLinkMessage(m.subject, m.body_snippet)
+    return subcategory === 'package_arrival' && new Date(m.received_at).getTime() >= twoWeeksAgo
+  })
+  const allPickups = allMessages.filter(m => {
+    const { subcategory } = categorizeBuildingLinkMessage(m.subject, m.body_snippet)
+    return subcategory === 'package_pickup'
+  })
+
+  // Build set of picked-up package numbers
+  const pickedUpPackageNumbers = new Set(
+    allPickups
+      .map(p => extractPackageNumber(p.body_snippet))
+      .filter((pn): pn is string => pn !== null && pn !== undefined)
+  )
+
+  // Pin uncollected packages
+  for (const arrival of allArrivals) {
+    const packageNumber = extractPackageNumber(arrival.body_snippet)
+    const isCollected = packageNumber && pickedUpPackageNumbers.has(packageNumber)
+
+    if (!isCollected) {
+      const unit = extractUnit(arrival.subject, arrival.body_snippet)
+      await upsertSmartPin({
+        entityType: 'buildinglink_message',
+        entityId: arrival.id,
+        metadata: {
+          title: arrival.subject,
+          unit: unit || 'unknown',
+          package_number: packageNumber,
+        },
+      })
+      currentSet.delete(arrival.id)
     }
   }
 
@@ -1422,7 +1534,10 @@ export async function getTicket(id: string): Promise<TicketWithDetails | null> {
 
   return queryOne<TicketWithDetails>(
     `SELECT
-       mt.*,
+       mt.id, mt.property_id, mt.vehicle_id, mt.equipment_id, mt.vendor_id, mt.vendor_contact_id,
+       mt.title, mt.description, mt.priority, mt.due_date::text, mt.completed_date::text,
+       mt.recurrence, mt.status, mt.estimated_cost, mt.actual_cost, mt.resolution,
+       mt.resolved_at::text, mt.resolved_by, mt.notes, mt.created_at::text, mt.updated_at::text,
        p.name as property_name,
        CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
        vnd.company as vendor_name,
@@ -2418,7 +2533,15 @@ export interface NeedsAttentionItems {
 
 export async function getBuildingLinkNeedsAttention(): Promise<NeedsAttentionItems> {
   const messages = await getBuildingLinkMessages({ limit: 500 })
-  const pinnedIds = await getPinnedIds('buildinglink_message')
+
+  // Get dismissed smart pins (user manually dismissed these)
+  const dismissedPins = await query<{ entity_id: string }>(
+    `SELECT entity_id FROM pinned_items
+     WHERE entity_type = 'buildinglink_message'
+       AND is_system_pin = true
+       AND dismissed_at IS NOT NULL`
+  )
+  const dismissedIds = new Set(dismissedPins.map(p => p.entity_id))
 
   // Active outages: service_outage within last 7 days without matching service_restored
   const recentMessages = messages.filter(m => {
@@ -2435,8 +2558,8 @@ export async function getBuildingLinkNeedsAttention(): Promise<NeedsAttentionIte
   }))
 
   const activeOutages = outages.filter(o => {
-    // If pinned, it's been manually dismissed
-    if (pinnedIds.has(o.id)) return false
+    // If dismissed, user doesn't want to see it
+    if (dismissedIds.has(o.id)) return false
 
     const outageKey = o.subject.toLowerCase().replace(/out of service|emergency/gi, '').trim()
     // Check if there's a matching restoration after this outage
@@ -2450,7 +2573,7 @@ export async function getBuildingLinkNeedsAttention(): Promise<NeedsAttentionIte
   })
 
   // Uncollected packages: arrivals without matching pickup (matched by package number)
-  // No time limit - packages stay until picked up or manually dismissed
+  // Only show packages from last 2 weeks
   const allArrivals = messages.filter(m => m.subcategory === 'package_arrival')
   const allPickups = messages.filter(m => m.subcategory === 'package_pickup')
 
@@ -2461,15 +2584,14 @@ export async function getBuildingLinkNeedsAttention(): Promise<NeedsAttentionIte
       .filter((pn): pn is string => pn !== null && pn !== undefined)
   )
 
-  // Find uncollected packages: not picked up AND not pinned (pinned = dismissed)
-  // Only show packages from last 2 weeks to avoid initial clutter
+  // Find uncollected packages: not picked up AND not dismissed
   const twoWeeksAgo = Date.now() - (14 * 24 * 60 * 60 * 1000)
   const uncollectedPackages = allArrivals.filter(arrival => {
     // Skip packages older than 2 weeks (initial cleanup)
     if (new Date(arrival.received_at).getTime() < twoWeeksAgo) return false
 
-    // If pinned, it's been manually dismissed
-    if (pinnedIds.has(arrival.id)) return false
+    // If dismissed, user doesn't want to see it
+    if (dismissedIds.has(arrival.id)) return false
 
     // If no package number could be extracted, show it (let user manually dismiss)
     if (!arrival.package_number) return true
@@ -2478,14 +2600,15 @@ export async function getBuildingLinkNeedsAttention(): Promise<NeedsAttentionIte
     return !pickedUpPackageNumbers.has(arrival.package_number)
   })
 
-  // Pinned messages (exclude package arrivals and outages - those are "dismissed" not "important")
+  // User-pinned messages (important messages user manually pinned)
+  const allPinnedIds = await getPinnedIds('buildinglink_message')
   const flaggedMessages = messages
-    .filter(m => pinnedIds.has(m.id) && m.subcategory !== 'package_arrival' && m.subcategory !== 'service_outage')
+    .filter(m => allPinnedIds.has(m.id) && !dismissedIds.has(m.id) && m.subcategory !== 'package_arrival' && m.subcategory !== 'service_outage')
     .map(m => ({ ...m, is_flagged: true }))
 
   return {
-    activeOutages: activeOutages.map(m => ({ ...m, is_flagged: pinnedIds.has(m.id) })),
-    uncollectedPackages: uncollectedPackages.map(m => ({ ...m, is_flagged: pinnedIds.has(m.id) })),
+    activeOutages: activeOutages.map(m => ({ ...m, is_flagged: allPinnedIds.has(m.id) })),
+    uncollectedPackages: uncollectedPackages.map(m => ({ ...m, is_flagged: allPinnedIds.has(m.id) })),
     flaggedMessages,
   }
 }
@@ -2572,6 +2695,7 @@ export type CalendarEventType =
   | 'vehicle_registration'
   | 'vehicle_inspection'
   | 'maintenance'
+  | 'pin_note'
 
 export interface CalendarEvent {
   id: string
@@ -2852,6 +2976,119 @@ export async function getCalendarEvents(
       isOverdue,
       isUrgent: isOverdue || task.priority === 'urgent' || task.priority === 'high',
       href: '/maintenance',
+    })
+  }
+
+  // Pin Notes with due dates - fetch actual entity data for better context
+  const pinNotes = await query<{
+    id: string
+    entity_type: string
+    entity_id: string
+    note: string
+    user_name: string
+    due_date: string
+    // Actual entity data (one will be populated based on entity_type)
+    bill_description: string | null
+    bill_type: string | null
+    vendor_name: string | null
+    property_name: string | null
+    ticket_title: string | null
+    tax_jurisdiction: string | null
+    insurance_carrier: string | null
+    pin_metadata: any | null
+  }>(`
+    SELECT
+      pn.id,
+      pn.entity_type,
+      pn.entity_id,
+      pn.note,
+      pn.user_name,
+      pn.due_date::text,
+      -- Bill data
+      COALESCE(b.description, b.bill_type::text) as bill_description,
+      b.bill_type,
+      -- Vendor data
+      v.company as vendor_name,
+      -- Property data (from bill or tax)
+      COALESCE(bp.name, pt_prop.name) as property_name,
+      -- Ticket data
+      mt.title as ticket_title,
+      -- Property tax data
+      pt.jurisdiction as tax_jurisdiction,
+      -- Insurance data (via insurance_policies or direct carrier)
+      ip.carrier_name as insurance_carrier,
+      -- Get metadata from pinned_items for documents and other entities
+      pi.metadata as pin_metadata
+    FROM pin_notes pn
+    LEFT JOIN bills b ON pn.entity_type = 'bill' AND pn.entity_id = b.id
+    LEFT JOIN properties bp ON b.property_id = bp.id
+    LEFT JOIN vendors v ON pn.entity_type = 'vendor' AND pn.entity_id = v.id
+    LEFT JOIN maintenance_tasks mt ON pn.entity_type = 'ticket' AND pn.entity_id = mt.id
+    LEFT JOIN property_taxes pt ON pn.entity_type = 'property_tax' AND pn.entity_id = pt.id
+    LEFT JOIN properties pt_prop ON pt.property_id = pt_prop.id
+    LEFT JOIN insurance_policies ip ON pn.entity_type = 'insurance_premium' AND pn.entity_id = ip.id
+    LEFT JOIN pinned_items pi ON pn.entity_type = pi.entity_type AND pn.entity_id = pi.entity_id
+    WHERE pn.due_date BETWEEN $1 AND $2
+    ORDER BY pn.due_date
+  `, [startDate, endDate])
+
+  for (const note of pinNotes) {
+    const isOverdue = new Date(note.due_date) < new Date()
+
+    // Extract title from actual entity data
+    let title = 'Pinned Item'
+    let href = null
+
+    switch (note.entity_type) {
+      case 'vendor':
+        title = note.vendor_name || 'Vendor'
+        href = `/vendors/${note.entity_id}`
+        break
+      case 'bill':
+        title = note.bill_description || 'Bill'
+        href = '/payments'
+        break
+      case 'ticket':
+        title = note.ticket_title || 'Ticket'
+        href = `/tickets/${note.entity_id}`
+        break
+      case 'insurance_policy':
+        title = note.insurance_carrier ? `${note.insurance_carrier} Policy` : 'Insurance Policy'
+        href = '/insurance'
+        break
+      case 'property_tax':
+        title = note.tax_jurisdiction ? `${note.property_name || ''} ${note.tax_jurisdiction} Tax`.trim() : 'Property Tax'
+        href = '/payments'
+        break
+      case 'insurance_premium':
+        title = note.insurance_carrier ? `${note.insurance_carrier} Premium` : 'Insurance Premium'
+        href = '/payments'
+        break
+      case 'buildinglink_message':
+        title = 'BuildingLink Message'
+        href = '/buildinglink'
+        break
+      case 'document':
+        // Documents use pinned_items metadata
+        title = note.pin_metadata?.title || 'Document'
+        href = '/documents'
+        break
+    }
+
+    events.push({
+      id: `note-${note.id}`,
+      type: 'pin_note',
+      title: title,
+      description: note.note || '',  // Full note text
+      date: note.due_date,
+      amount: null,
+      status: null,
+      propertyName: note.property_name,
+      vehicleName: null,
+      vendorName: note.user_name,  // Who created the note
+      isOverdue,
+      isUrgent: isOverdue,
+      href,
     })
   }
 
