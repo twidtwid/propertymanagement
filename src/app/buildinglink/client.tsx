@@ -3,8 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition, useCallback } from "react"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import type { BuildingLinkMessage, NeedsAttentionItems } from "@/lib/actions"
 import { NeedsAttention } from "@/components/buildinglink/needs-attention"
@@ -14,14 +12,12 @@ import {
   Activity,
   Key,
   Package,
-  Users,
 } from "lucide-react"
 
 interface BuildingLinkClientProps {
   messages: BuildingLinkMessage[]
   needsAttention: NeedsAttentionItems
   currentTab: string
-  showSocial: boolean
   searchQuery: string
 }
 
@@ -35,7 +31,6 @@ export function BuildingLinkClient({
   messages,
   needsAttention,
   currentTab,
-  showSocial,
   searchQuery,
 }: BuildingLinkClientProps) {
   const router = useRouter()
@@ -70,11 +65,6 @@ export function BuildingLinkClient({
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     updateParams({ search: search || undefined })
-  }
-
-  // Handle social toggle
-  const handleSocialToggle = (checked: boolean) => {
-    updateParams({ social: checked ? "true" : undefined })
   }
 
   // Handle flag toggle
@@ -120,7 +110,7 @@ export function BuildingLinkClient({
           })}
         </div>
 
-        {/* Search and Social toggle */}
+        {/* Search */}
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <form onSubmit={handleSearch} className="flex-1 sm:flex-initial">
             <div className="relative">
@@ -134,15 +124,6 @@ export function BuildingLinkClient({
               />
             </div>
           </form>
-
-          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-            <Checkbox
-              checked={showSocial}
-              onCheckedChange={handleSocialToggle}
-            />
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Social</span>
-          </label>
         </div>
       </div>
 

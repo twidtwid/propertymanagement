@@ -29,6 +29,7 @@ interface MessageRowProps {
   showTime?: boolean
   showDate?: boolean
   compact?: boolean
+  inNeedsAttention?: boolean  // If true, show filled star (click to dismiss)
 }
 
 const CATEGORY_CONFIG: Record<BuildingLinkCategory, {
@@ -56,7 +57,7 @@ function getIcon(category: BuildingLinkCategory, subcategory: string) {
   return CATEGORY_CONFIG[category].icon
 }
 
-export function MessageRow({ message, onFlag, showTime = true, showDate = false, compact = false }: MessageRowProps) {
+export function MessageRow({ message, onFlag, showTime = true, showDate = false, compact = false, inNeedsAttention = false }: MessageRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isFlagged, setIsFlagged] = useState(message.is_flagged || false)
   const [isPending, startTransition] = useTransition()
@@ -109,6 +110,11 @@ export function MessageRow({ message, onFlag, showTime = true, showDate = false,
           compact ? "font-normal" : "font-medium"
         )}>
           {message.subject}
+          {message.package_number && (
+            <span className="ml-2 text-xs text-muted-foreground font-mono">
+              #{message.package_number.slice(-8)}
+            </span>
+          )}
         </span>
 
         {message.unit !== 'unknown' && (
@@ -124,11 +130,12 @@ export function MessageRow({ message, onFlag, showTime = true, showDate = false,
             className="h-6 w-6 p-0 shrink-0"
             onClick={handleFlag}
             disabled={isPending}
+            title={inNeedsAttention ? "Dismiss" : (isFlagged ? "Remove from Needs Attention" : "Add to Needs Attention")}
           >
             <Star
               className={cn(
                 "h-4 w-4",
-                isFlagged ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                (inNeedsAttention || isFlagged) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
               )}
             />
           </Button>

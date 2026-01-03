@@ -98,6 +98,7 @@ export function NeedsAttention({ items, onFlag }: NeedsAttentionProps) {
                     onFlag={onFlag}
                     showDate
                     compact
+                    inNeedsAttention
                   />
                 ))}
               </div>
@@ -121,6 +122,7 @@ export function NeedsAttention({ items, onFlag }: NeedsAttentionProps) {
                     onFlag={onFlag}
                     showDate
                     compact
+                    inNeedsAttention
                   />
                 ))}
               </div>
@@ -144,6 +146,7 @@ export function NeedsAttention({ items, onFlag }: NeedsAttentionProps) {
                     onFlag={onFlag}
                     showDate
                     compact
+                    inNeedsAttention
                   />
                 ))}
               </div>

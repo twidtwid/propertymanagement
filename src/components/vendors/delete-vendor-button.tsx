@@ -31,7 +31,9 @@ export function DeleteVendorButton({ vendorId, vendorName }: DeleteVendorButtonP
     startTransition(async () => {
       const result = await deleteVendor(vendorId)
       if (result.success) {
-        router.push("/vendors")
+        // Use replace so deleted page isn't in browser history
+        router.replace("/vendors")
+        router.refresh()
       } else {
         alert(result.error || "Failed to delete vendor")
         setOpen(false)

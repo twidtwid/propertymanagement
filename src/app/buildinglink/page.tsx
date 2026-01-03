@@ -20,7 +20,6 @@ interface BuildingLinkPageProps {
   searchParams: Promise<{
     tab?: string
     search?: string
-    social?: string
   }>
 }
 
@@ -31,14 +30,13 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
   }
 
   const params = await searchParams
-  const showSocial = params.social === "true"
   const currentTab = params.tab || "activity"
 
-  // Fetch data in parallel
+  // Fetch data in parallel (social messages always hidden)
   const [messages, needsAttention] = await Promise.all([
     getBuildingLinkMessagesWithFlags(user.id, {
       limit: 500,
-      includeSocial: showSocial,
+      includeSocial: false,
       search: params.search,
     }),
     getBuildingLinkNeedsAttention(user.id),
@@ -81,7 +79,6 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
         messages={filteredMessages}
         needsAttention={needsAttention}
         currentTab={currentTab}
-        showSocial={showSocial}
         searchQuery={params.search || ""}
       />
     </div>

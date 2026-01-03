@@ -1426,6 +1426,7 @@ export interface BuildingLinkMessage {
   is_read: boolean
   unit: 'PH2E' | 'PH2F' | 'both' | 'unknown'
   is_flagged?: boolean
+  package_number?: string | null  // Extracted tracking number for package matching
 }
 
 export interface BuildingLinkStats {
@@ -1551,6 +1552,23 @@ function extractUnit(subject: string, body: string | null): 'PH2E' | 'PH2F' | 'b
   return 'unknown' // Building-wide messages
 }
 
+// Extract package tracking number from BuildingLink message body
+// Handles formats: box./1ZA9V944..., pkg./TBA326..., PKG./420112..., hw BOX./1Z..., cylinder./420...
+function extractPackageNumber(bodySnippet: string | null): string | null {
+  if (!bodySnippet) return null
+
+  // Match: (box|pkg|cylinder|hw box|hw BOX|HW box) followed by delimiters (./ or .. or / or . ) then tracking number
+  // The tracking number is alphanumeric, typically 12-34 characters
+  const match = bodySnippet.match(/(?:box|pkg|cylinder|hw\s*box)[\.\s\/]+([A-Z0-9]{8,40})/i)
+
+  if (match && match[1]) {
+    // Normalize to uppercase for consistent matching
+    return match[1].toUpperCase()
+  }
+
+  return null
+}
+
 export async function getBuildingLinkVendorId(): Promise<string | null> {
   const vendor = await queryOne<{ id: string }>(
     "SELECT id FROM vendors WHERE LOWER(name) = 'buildinglink' OR LOWER(company) = 'buildinglink' LIMIT 1"
@@ -1599,15 +1617,17 @@ export async function getBuildingLinkMessages(
     is_read: boolean
   }>(sql, params)
 
-  // Categorize each message
+  // Categorize each message and extract package numbers
   const categorized: BuildingLinkMessage[] = messages.map(msg => {
     const { category, subcategory } = categorizeBuildingLinkMessage(msg.subject, msg.body_snippet)
     const unit = extractUnit(msg.subject, msg.body_snippet)
+    const package_number = (category === 'package') ? extractPackageNumber(msg.body_snippet) : null
     return {
       ...msg,
       category,
       subcategory,
       unit,
+      package_number,
     }
   })
 
@@ -1786,42 +1806,38 @@ export async function getBuildingLinkNeedsAttention(
     return !hasRestoration
   })
 
-  // Uncollected packages: arrivals within 48 hours without matching pickup
-  const twoDaysAgo = Date.now() - (48 * 60 * 60 * 1000)
-  const recentArrivals = messages.filter(m =>
-    m.subcategory === 'package_arrival' &&
-    new Date(m.received_at).getTime() > twoDaysAgo
-  )
-  const recentPickups = messages.filter(m =>
-    m.subcategory === 'package_pickup' &&
-    new Date(m.received_at).getTime() > twoDaysAgo
+  // Uncollected packages: arrivals without matching pickup (matched by package number)
+  // No time limit - packages stay until picked up or manually dismissed
+  const allArrivals = messages.filter(m => m.subcategory === 'package_arrival')
+  const allPickups = messages.filter(m => m.subcategory === 'package_pickup')
+
+  // Build set of picked-up package numbers
+  const pickedUpPackageNumbers = new Set(
+    allPickups
+      .map(p => p.package_number)
+      .filter((pn): pn is string => pn !== null && pn !== undefined)
   )
 
-  // Match arrivals to pickups by carrier and unit
-  const uncollectedPackages = recentArrivals.filter(arrival => {
-    // Extract carrier from subject
-    const arrivalSubject = arrival.subject.toLowerCase()
-    const carrier = arrivalSubject.includes('ups') ? 'ups' :
-                   arrivalSubject.includes('usps') ? 'usps' :
-                   arrivalSubject.includes('fedex') ? 'fedex' : 'other'
+  // Find uncollected packages: not picked up AND not flagged (flagged = dismissed by user)
+  // Only show packages from last 2 weeks to avoid initial clutter
+  const twoWeeksAgo = Date.now() - (14 * 24 * 60 * 60 * 1000)
+  const uncollectedPackages = allArrivals.filter(arrival => {
+    // Skip packages older than 2 weeks (initial cleanup)
+    if (new Date(arrival.received_at).getTime() < twoWeeksAgo) return false
 
-    // Check if there's a pickup after this arrival for same unit
-    const hasPickup = recentPickups.some(pickup => {
-      const pickupSubject = pickup.subject.toLowerCase()
-      const pickupCarrier = pickupSubject.includes('ups') ? 'ups' :
-                           pickupSubject.includes('usps') ? 'usps' :
-                           pickupSubject.includes('fedex') ? 'fedex' : 'any'
-      const sameUnit = arrival.unit === pickup.unit || pickup.unit === 'both' || arrival.unit === 'unknown'
-      const isAfter = new Date(pickup.received_at) > new Date(arrival.received_at)
-      const sameCarrier = carrier === pickupCarrier || pickupCarrier === 'any'
-      return sameUnit && isAfter && sameCarrier
-    })
-    return !hasPickup
+    // If flagged by user, it's been manually dismissed
+    if (flaggedIds.has(arrival.id)) return false
+
+    // If no package number could be extracted, show it (let user manually dismiss)
+    if (!arrival.package_number) return true
+
+    // Check if this package number has been picked up
+    return !pickedUpPackageNumbers.has(arrival.package_number)
   })
 
-  // Flagged messages
+  // Flagged messages (exclude package arrivals - those are "dismissed" not "important")
   const flaggedMessages = messages
-    .filter(m => flaggedIds.has(m.id))
+    .filter(m => flaggedIds.has(m.id) && m.subcategory !== 'package_arrival')
     .map(m => ({ ...m, is_flagged: true }))
 
   return {
