@@ -768,7 +768,7 @@ export async function syncSmartPinsBuildingLink(): Promise<void> {
   const vendorId = await getBuildingLinkVendorId()
   if (!vendorId) return
 
-  // Get all messages (need more than 7 days for package tracking)
+  // Get recent messages for critical/important detection
   const allMessages = await query<{ id: string; subject: string; body_snippet: string | null; received_at: string }>(
     `SELECT id, subject, body_snippet, received_at
      FROM vendor_communications
@@ -808,43 +808,8 @@ export async function syncSmartPinsBuildingLink(): Promise<void> {
     }
   }
 
-  // Pin uncollected packages (last 2 weeks)
-  const twoWeeksAgo = Date.now() - (14 * 24 * 60 * 60 * 1000)
-  const allArrivals = allMessages.filter(m => {
-    const { subcategory } = categorizeBuildingLinkMessage(m.subject, m.body_snippet)
-    return subcategory === 'package_arrival' && new Date(m.received_at).getTime() >= twoWeeksAgo
-  })
-  const allPickups = allMessages.filter(m => {
-    const { subcategory } = categorizeBuildingLinkMessage(m.subject, m.body_snippet)
-    return subcategory === 'package_pickup'
-  })
-
-  // Build set of picked-up package numbers
-  const pickedUpPackageNumbers = new Set(
-    allPickups
-      .map(p => extractPackageNumber(p.body_snippet))
-      .filter((pn): pn is string => pn !== null && pn !== undefined)
-  )
-
-  // Pin uncollected packages
-  for (const arrival of allArrivals) {
-    const packageNumber = extractPackageNumber(arrival.body_snippet)
-    const isCollected = packageNumber && pickedUpPackageNumbers.has(packageNumber)
-
-    if (!isCollected) {
-      const unit = extractUnit(arrival.subject, arrival.body_snippet)
-      await upsertSmartPin({
-        entityType: 'buildinglink_message',
-        entityId: arrival.id,
-        metadata: {
-          title: arrival.subject,
-          unit: unit || 'unknown',
-          package_number: packageNumber,
-        },
-      })
-      currentSet.delete(arrival.id)
-    }
-  }
+  // Note: Packages are NOT smart-pinned. They have their own dedicated
+  // "Uncollected Packages" section via getBuildingLinkNeedsAttention()
 
   // Unpin messages that are too old or no longer important
   for (const msgId of Array.from(currentSet)) {

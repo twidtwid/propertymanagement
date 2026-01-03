@@ -127,7 +127,8 @@ export function BuildingLinkClient({
   }
 
   // Separate messages into smart pins, user pins, and unpinned
-  const smartPinMessages = messages.filter(m => smartPins.has(m.id))
+  // Exclude packages from smart pins (they show in the dedicated Uncollected Packages section)
+  const smartPinMessages = messages.filter(m => smartPins.has(m.id) && m.subcategory !== 'package_arrival')
   const userPinMessages = messages.filter(m => !smartPins.has(m.id) && userPins.has(m.id))
   const unpinnedMessages = messages.filter(m => !allPinnedIds.has(m.id))
 
