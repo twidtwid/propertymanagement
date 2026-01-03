@@ -7,6 +7,7 @@
  * - Unconfirmed checks (14+ days)
  * - Expiring/expired insurance policies
  * - Expiring/expired vehicle registrations and inspections
+ * - Urgent vendor emails (received in last 24 hours)
  *
  * Features:
  * - Deduplication via entity_key
@@ -463,6 +464,38 @@ export async function generateAlerts(): Promise<{
         entityKey: `inspection_overdue:${vehicle.id}`,
         actionUrl: `/vehicles/${vehicle.id}`,
         actionLabel: "View Vehicle",
+      })
+    }
+
+    // 11. Urgent Vendor Emails (received in last 24 hours)
+    const urgentEmails = await query<{
+      id: string
+      vendor_name: string
+      subject: string
+      received_at: Date
+    }>(`
+      SELECT
+        vc.id,
+        v.name as vendor_name,
+        vc.subject,
+        vc.received_at
+      FROM vendor_communications vc
+      INNER JOIN vendors v ON vc.vendor_id = v.id
+      WHERE vc.is_important = TRUE
+        AND vc.received_at >= NOW() - INTERVAL '24 hours'
+    `)
+
+    for (const email of urgentEmails) {
+      alertConfigs.push({
+        alertType: "urgent_vendor_email",
+        title: `Urgent Email from ${email.vendor_name}`,
+        message: email.subject,
+        severity: "warning",
+        relatedTable: "vendor_communications",
+        relatedId: email.id,
+        entityKey: `urgent_email:${email.id}`,
+        actionUrl: "/settings/gmail",
+        actionLabel: "View Email",
       })
     }
 

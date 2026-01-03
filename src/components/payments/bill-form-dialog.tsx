@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   Dialog,
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { FormField, FormSelect, FormTextarea, SubmitButton } from "@/components/forms"
+import { CurrencyInput } from "@/components/ui/currency-input"
+import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { createBill } from "@/lib/mutations"
 import { billSchema, type BillFormData } from "@/lib/schemas"
@@ -66,6 +68,7 @@ export function BillFormDialog({
     watch,
     setValue,
     reset,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<BillFormData>({
     resolver: zodResolver(billSchema),
@@ -175,20 +178,28 @@ export function BillFormDialog({
           />
 
           <div className="grid gap-4 grid-cols-2">
-            <FormField
-              label="Amount"
-              type="number"
-              step="0.01"
-              {...register("amount")}
-              error={errors.amount?.message}
-              required
-            />
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <Controller
+                name="amount"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.amount?.message}
+                  />
+                )}
+              />
+              {errors.amount?.message && (
+                <p className="text-sm text-red-500">{errors.amount.message}</p>
+              )}
+            </div>
             <FormField
               label="Due Date"
               type="date"
               {...register("due_date")}
               error={errors.due_date?.message}
-              required
             />
           </div>
 

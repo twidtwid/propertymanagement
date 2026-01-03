@@ -148,7 +148,6 @@ export function TaskFormDialog({
             {...register("title")}
             error={errors.title?.message}
             placeholder="e.g., Fix leaky faucet"
-            required
           />
 
           <FormTextarea

@@ -7,6 +7,10 @@ import { formatCurrency, formatDate } from "./utils"
 
 const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL || "anne@annespalter.com"
 const SENDER_EMAIL = NOTIFICATION_EMAIL // Same account sends and receives
+const DAILY_SUMMARY_RECIPIENTS = [
+  NOTIFICATION_EMAIL,
+  "todd@dailey.info",
+]
 
 export type NotificationType =
   | "payment_overdue"
@@ -110,23 +114,28 @@ export async function sendDailySummaryEmail(): Promise<{
     const summary = await generateDailySummary()
     const htmlContent = await formatSummaryAsHtml(summary)
 
-    console.log("[Daily Summary] Sending email to:", NOTIFICATION_EMAIL)
+    console.log("[Daily Summary] Sending email to:", DAILY_SUMMARY_RECIPIENTS.join(", "))
 
-    const messageId = await sendEmail(
-      SENDER_EMAIL,
-      NOTIFICATION_EMAIL,
-      `Daily Property Summary - ${summary.date}`,
-      htmlContent
-    )
+    // Send to all recipients
+    let firstMessageId: string | undefined
+    for (const recipient of DAILY_SUMMARY_RECIPIENTS) {
+      const messageId = await sendEmail(
+        SENDER_EMAIL,
+        recipient,
+        `Daily Property Summary - ${summary.date}`,
+        htmlContent
+      )
+      if (!firstMessageId) firstMessageId = messageId
 
-    // Log the notification
-    await logNotification(
-      NOTIFICATION_EMAIL,
-      "daily_summary",
-      `Daily Property Summary - ${summary.date}`,
-      htmlContent,
-      messageId
-    )
+      // Log the notification for each recipient
+      await logNotification(
+        recipient,
+        "daily_summary",
+        `Daily Property Summary - ${summary.date}`,
+        htmlContent,
+        messageId
+      )
+    }
 
     // Store summary in daily_summaries table
     await query(
@@ -136,9 +145,9 @@ export async function sendDailySummaryEmail(): Promise<{
       [summary.date, JSON.stringify(summary.urgentItems), JSON.stringify(summary.upcomingItems)]
     )
 
-    console.log("[Daily Summary] Email sent successfully:", messageId)
+    console.log("[Daily Summary] Email sent successfully to", DAILY_SUMMARY_RECIPIENTS.length, "recipients")
 
-    return { success: true, messageId }
+    return { success: true, messageId: firstMessageId }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
     console.error("[Daily Summary] Failed to send:", errorMessage)
@@ -263,6 +272,30 @@ export async function checkAndSendUrgentNotifications(): Promise<{
       title: `Registration Expiring: ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
       details: `Registration expires ${formatDate(vehicle.registration_expires)} (${daysUntil} days)`,
       link: `/vehicles/${vehicle.id}`,
+    })
+    if (wasSent) sent++
+  }
+
+  // Check for urgent vendor emails received today
+  const urgentEmails = await query<{
+    id: string
+    vendor_name: string
+    subject: string
+    received_at: string
+  }>(`
+    SELECT vc.id, v.name as vendor_name, vc.subject, vc.received_at
+    FROM vendor_communications vc
+    INNER JOIN vendors v ON vc.vendor_id = v.id
+    WHERE vc.is_important = TRUE
+      AND vc.received_at >= CURRENT_DATE
+  `)
+
+  for (const email of urgentEmails) {
+    checked++
+    const wasSent = await sendUrgentNotification("vendor_urgent", {
+      title: `Urgent Email: ${email.vendor_name}`,
+      details: email.subject,
+      link: "/settings/gmail",
     })
     if (wasSent) sent++
   }

@@ -101,7 +101,6 @@ export function SharedTaskListFormDialog({
             {...register("title")}
             error={errors.title?.message}
             placeholder="e.g., Spring Maintenance List"
-            required
           />
 
           <FormField

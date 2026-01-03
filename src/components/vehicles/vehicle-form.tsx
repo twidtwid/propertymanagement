@@ -105,21 +105,18 @@ export function VehicleForm({ vehicle, properties = [], onSuccess }: VehicleForm
               error={errors.year?.message}
               min={1900}
               max={2100}
-              required
             />
             <FormField
               label="Make"
               {...register("make")}
               error={errors.make?.message}
               placeholder="Chevrolet"
-              required
             />
             <FormField
               label="Model"
               {...register("model")}
               error={errors.model?.message}
               placeholder="Equinox"
-              required
             />
           </div>
 

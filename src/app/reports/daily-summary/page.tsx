@@ -10,6 +10,9 @@ import {
   DollarSign,
   ClipboardList,
   RefreshCw,
+  Building2,
+  Package,
+  Star,
 } from "lucide-react"
 import { generateDailySummary } from "@/lib/daily-summary"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
@@ -44,7 +47,7 @@ export default async function DailySummaryPage() {
         </form>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <ReportCard
           title="Urgent Items"
           value={summary.urgentItems.length.toString()}
@@ -69,42 +72,115 @@ export default async function DailySummaryPage() {
           subtitle="New vendor emails"
           icon={<Mail className="h-5 w-5" />}
         />
+        <ReportCard
+          title="BuildingLink"
+          value={summary.stats.buildingLinkAttentionCount.toString()}
+          subtitle="Items need attention"
+          icon={<Building2 className="h-5 w-5" />}
+        />
       </div>
 
-      {summary.urgentItems.length > 0 && (
-        <Card className="border-red-200 bg-red-50/50">
+      {summary.buildingLinkItems.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700">
-              <AlertTriangle className="h-5 w-5" />
-              Urgent Items Requiring Attention
+            <CardTitle className="flex items-center gap-2 text-amber-700">
+              <Building2 className="h-5 w-5" />
+              Needs Attention
+              <Badge variant="secondary" className="ml-auto bg-amber-200 text-amber-800">
+                {summary.buildingLinkItems.length}
+              </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {summary.urgentItems.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-4 p-4 bg-white rounded-lg border border-red-100"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{item.title}</span>
-                      <Badge variant="destructive" className="text-xs">
-                        {item.type.replace(/_/g, " ")}
-                      </Badge>
+          <CardContent className="space-y-6">
+            {(() => {
+              const outages = summary.buildingLinkItems.filter(i => i.type === 'outage')
+              const packages = summary.buildingLinkItems.filter(i => i.type === 'package')
+              const flagged = summary.buildingLinkItems.filter(i => i.type === 'flagged')
+
+              return (
+                <>
+                  {outages.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                        <span className="text-sm font-semibold text-red-700 uppercase tracking-wide">
+                          Active Outages
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {outages.map((item, index) => (
+                          <div
+                            key={index}
+                            className="p-3 bg-white rounded-lg border border-red-200"
+                          >
+                            <div className="font-medium">{item.subject}</div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              Unit {item.unit} • {formatDateTime(item.receivedAt)}
+                            </div>
+                            {item.snippet && (
+                              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                                {item.snippet}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {item.description}
-                    </p>
-                  </div>
-                  {item.link && (
-                    <Button size="sm" variant="outline" asChild>
-                      <Link href={item.link}>View</Link>
-                    </Button>
                   )}
-                </div>
-              ))}
-            </div>
+
+                  {packages.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Package className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm font-semibold text-purple-700 uppercase tracking-wide">
+                          Uncollected Packages ({packages.length})
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {packages.map((item, index) => (
+                          <div
+                            key={index}
+                            className="p-3 bg-white rounded-lg border border-purple-200"
+                          >
+                            <div className="font-medium">{item.subject}</div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              Unit {item.unit} • {formatDateTime(item.receivedAt)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {flagged.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Star className="h-4 w-4 text-yellow-600 fill-yellow-400" />
+                        <span className="text-sm font-semibold text-yellow-700 uppercase tracking-wide">
+                          Flagged Items
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {flagged.map((item, index) => (
+                          <div
+                            key={index}
+                            className="p-3 bg-white rounded-lg border border-yellow-200"
+                          >
+                            <div className="font-medium">{item.subject}</div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              Unit {item.unit} • {formatDateTime(item.receivedAt)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+            <Button variant="outline" asChild className="w-full">
+              <Link href="/buildinglink">View All BuildingLink Messages</Link>
+            </Button>
           </CardContent>
         </Card>
       )}

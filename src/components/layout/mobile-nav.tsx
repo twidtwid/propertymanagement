@@ -1,9 +1,8 @@
 "use client"
 
-import { Fragment } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import {
   Home,
@@ -17,7 +16,6 @@ import {
   FileText,
   BarChart3,
   Settings,
-  X,
 } from "lucide-react"
 import { GlobalSearch } from "@/components/shared/global-search"
 
@@ -47,26 +45,18 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
   const pathname = usePathname()
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="fixed inset-y-0 left-0 z-50 w-full max-w-xs overflow-y-auto bg-white p-0 sm:max-w-sm">
-        <div className="flex h-16 shrink-0 items-center justify-between px-6 border-b">
+    <Sheet open={open} onOpenChange={onClose}>
+      <SheetContent side="left" className="w-full max-w-xs p-0 sm:max-w-sm">
+        <div className="flex h-16 shrink-0 items-center px-6 border-b">
           <Link href="/" className="flex items-center gap-2" onClick={onClose}>
             <Building2 className="h-8 w-8 text-primary" />
             <span className="text-xl font-semibold">PropManager</span>
           </Link>
-          <button
-            type="button"
-            className="-m-2.5 p-2.5"
-            onClick={onClose}
-          >
-            <span className="sr-only">Close sidebar</span>
-            <X className="h-6 w-6" aria-hidden="true" />
-          </button>
         </div>
         <div className="px-6 pt-4">
           <GlobalSearch />
         </div>
-        <nav className="flex flex-1 flex-col px-6 pb-4 pt-4">
+        <nav className="flex flex-1 flex-col px-6 pb-4 pt-4 overflow-y-auto">
           <ul role="list" className="flex flex-1 flex-col gap-y-7">
             <li>
               <ul role="list" className="-mx-2 space-y-1">
@@ -78,8 +68,8 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                       className={cn(
                         pathname === item.href || pathname.startsWith(item.href + "/")
                           ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                        "group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6 transition-colors"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted",
+                        "group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6 transition-colors touch-manipulation"
                       )}
                     >
                       <item.icon
@@ -107,8 +97,8 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
                       className={cn(
                         pathname === item.href
                           ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                        "group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6 transition-colors"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted",
+                        "group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6 transition-colors touch-manipulation"
                       )}
                     >
                       <item.icon
@@ -123,7 +113,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             </li>
           </ul>
         </nav>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

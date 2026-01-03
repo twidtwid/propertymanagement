@@ -6,8 +6,8 @@ import { z } from "zod"
 
 export const propertySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
-  address: z.string().min(1, "Address is required").max(200),
-  city: z.string().min(1, "City is required").max(100),
+  address: z.string().max(200).nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
   state: z.string().max(50).nullable().optional(),
   country: z.string().default("USA"),
   postal_code: z.string().max(20).nullable().optional(),
@@ -69,9 +69,9 @@ export type VendorFormData = z.infer<typeof vendorSchema>
 // ============================================
 
 export const vehicleSchema = z.object({
-  year: z.coerce.number().min(1900).max(2100),
-  make: z.string().min(1, "Make is required").max(50),
-  model: z.string().min(1, "Model is required").max(50),
+  year: z.coerce.number().min(1900).max(2100).nullable().optional(),
+  make: z.string().max(50).nullable().optional(),
+  model: z.string().max(50).nullable().optional(),
   color: z.string().max(30).nullable().optional(),
   vin: z.string().max(20).nullable().optional(),
   license_plate: z.string().max(15).nullable().optional(),
@@ -98,7 +98,7 @@ export const billSchema = z.object({
   description: z.string().max(200).nullable().optional(),
   amount: z.coerce.number().positive("Amount must be positive"),
   currency: z.string().default("USD"),
-  due_date: z.string().min(1, "Due date is required"),
+  due_date: z.string().nullable().optional(),
   recurrence: z.enum(["one_time", "monthly", "quarterly", "semi_annual", "annual"]).default("one_time"),
   status: z.enum(["pending", "sent", "confirmed", "overdue", "cancelled"]).default("pending"),
   payment_method: z.enum(["check", "auto_pay", "online", "wire", "cash", "other"]).nullable().optional(),
@@ -119,11 +119,11 @@ export type BillFormData = z.infer<typeof billSchema>
 
 export const propertyTaxSchema = z.object({
   property_id: z.string().uuid("Property is required"),
-  tax_year: z.coerce.number().min(2000).max(2100),
-  jurisdiction: z.string().min(1, "Jurisdiction is required").max(100),
+  tax_year: z.coerce.number().min(2000).max(2100).nullable().optional(),
+  jurisdiction: z.string().max(100).nullable().optional(),
   installment: z.coerce.number().min(1).max(4).default(1),
   amount: z.coerce.number().positive("Amount must be positive"),
-  due_date: z.string().min(1, "Due date is required"),
+  due_date: z.string().nullable().optional(),
   payment_url: z.string().url().or(z.literal("")).nullable().optional(),
   status: z.enum(["pending", "sent", "confirmed", "overdue", "cancelled"]).default("pending"),
   payment_date: z.string().nullable().optional(),
@@ -142,7 +142,7 @@ export const maintenanceTaskSchema = z.object({
   vehicle_id: z.string().uuid().nullable().optional(),
   equipment_id: z.string().uuid().nullable().optional(),
   vendor_id: z.string().uuid().nullable().optional(),
-  title: z.string().min(1, "Title is required").max(200),
+  title: z.string().max(200).nullable().optional(),
   description: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
   due_date: z.string().nullable().optional(),
@@ -164,7 +164,7 @@ export const insurancePolicySchema = z.object({
   property_id: z.string().uuid().nullable().optional(),
   vehicle_id: z.string().uuid().nullable().optional(),
   policy_type: z.enum(["homeowners", "auto", "umbrella", "flood", "earthquake", "liability", "health", "travel", "other"]),
-  carrier_name: z.string().min(1, "Carrier name is required").max(100),
+  carrier_name: z.string().max(100).nullable().optional(),
   policy_number: z.string().max(50).nullable().optional(),
   agent_name: z.string().max(100).nullable().optional(),
   agent_phone: z.string().max(30).nullable().optional(),
@@ -189,7 +189,7 @@ export type InsurancePolicyFormData = z.infer<typeof insurancePolicySchema>
 
 export const sharedTaskListSchema = z.object({
   property_id: z.string().uuid("Property is required"),
-  title: z.string().min(1, "Title is required").max(200),
+  title: z.string().max(200).nullable().optional(),
   assigned_to: z.string().max(100).nullable().optional(),
   assigned_contact: z.string().max(100).nullable().optional(),
   is_active: z.boolean().default(true),
@@ -199,7 +199,7 @@ export type SharedTaskListFormData = z.infer<typeof sharedTaskListSchema>
 
 export const sharedTaskItemSchema = z.object({
   list_id: z.string().uuid("List is required"),
-  task: z.string().min(1, "Task is required").max(500),
+  task: z.string().max(500).nullable().optional(),
   is_completed: z.boolean().default(false),
   completed_date: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),

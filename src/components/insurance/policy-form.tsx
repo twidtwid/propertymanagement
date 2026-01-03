@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { FormField, FormSelect, FormTextarea, SubmitButton } from "@/components/forms"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { useToast } from "@/hooks/use-toast"
 import { createInsurancePolicy, updateInsurancePolicy } from "@/lib/mutations"
 import { insurancePolicySchema, type InsurancePolicyFormData } from "@/lib/schemas"
@@ -62,6 +63,7 @@ export function PolicyForm({ policy, properties, vehicles, defaultPropertyId, de
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<InsurancePolicyFormData>({
     resolver: zodResolver(insurancePolicySchema),
@@ -152,7 +154,6 @@ export function PolicyForm({ policy, properties, vehicles, defaultPropertyId, de
               {...register("carrier_name")}
               error={errors.carrier_name?.message}
               placeholder="e.g., Berkley One"
-              required
             />
           </div>
 
@@ -232,29 +233,59 @@ export function PolicyForm({ policy, properties, vehicles, defaultPropertyId, de
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              label="Coverage Amount"
-              type="number"
-              step="0.01"
-              {...register("coverage_amount")}
-              error={errors.coverage_amount?.message}
-            />
-            <FormField
-              label="Deductible"
-              type="number"
-              step="0.01"
-              {...register("deductible")}
-              error={errors.deductible?.message}
-            />
+            <div className="space-y-2">
+              <Label>Coverage Amount</Label>
+              <Controller
+                name="coverage_amount"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.coverage_amount?.message}
+                  />
+                )}
+              />
+              {errors.coverage_amount?.message && (
+                <p className="text-sm text-red-500">{errors.coverage_amount.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Deductible</Label>
+              <Controller
+                name="deductible"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.deductible?.message}
+                  />
+                )}
+              />
+              {errors.deductible?.message && (
+                <p className="text-sm text-red-500">{errors.deductible.message}</p>
+              )}
+            </div>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            <FormField
-              label="Premium Amount"
-              type="number"
-              step="0.01"
-              {...register("premium_amount")}
-              error={errors.premium_amount?.message}
-            />
+            <div className="space-y-2">
+              <Label>Premium Amount</Label>
+              <Controller
+                name="premium_amount"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.premium_amount?.message}
+                  />
+                )}
+              />
+              {errors.premium_amount?.message && (
+                <p className="text-sm text-red-500">{errors.premium_amount.message}</p>
+              )}
+            </div>
             <FormSelect
               label="Premium Frequency"
               name="premium_frequency"

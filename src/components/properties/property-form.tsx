@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { FormField, FormSelect, FormTextarea, SubmitButton } from "@/components/forms"
+import { CurrencyInput } from "@/components/ui/currency-input"
 import { useToast } from "@/hooks/use-toast"
 import { createProperty, updateProperty } from "@/lib/mutations"
 import { propertySchema, type PropertyFormData } from "@/lib/schemas"
@@ -35,6 +36,7 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<PropertyFormData>({
     resolver: zodResolver(propertySchema),
@@ -138,7 +140,6 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
             {...register("address")}
             error={errors.address?.message}
             placeholder="123 Main Street"
-            required
           />
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -146,7 +147,6 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
               label="City"
               {...register("city")}
               error={errors.city?.message}
-              required
             />
             <FormField
               label="State/Province"
@@ -255,13 +255,23 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
                 {...register("mortgage_account")}
                 error={errors.mortgage_account?.message}
               />
-              <FormField
-                label="Monthly Payment"
-                type="number"
-                step="0.01"
-                {...register("mortgage_payment")}
-                error={errors.mortgage_payment?.message}
-              />
+              <div className="space-y-2">
+                <Label>Monthly Payment</Label>
+                <Controller
+                  name="mortgage_payment"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      error={errors.mortgage_payment?.message}
+                    />
+                  )}
+                />
+                {errors.mortgage_payment?.message && (
+                  <p className="text-sm text-red-500">{errors.mortgage_payment.message}</p>
+                )}
+              </div>
               <FormField
                 label="Due Day of Month"
                 type="number"
@@ -288,20 +298,40 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
               {...register("purchase_date")}
               error={errors.purchase_date?.message}
             />
-            <FormField
-              label="Purchase Price"
-              type="number"
-              step="0.01"
-              {...register("purchase_price")}
-              error={errors.purchase_price?.message}
-            />
-            <FormField
-              label="Current Value"
-              type="number"
-              step="0.01"
-              {...register("current_value")}
-              error={errors.current_value?.message}
-            />
+            <div className="space-y-2">
+              <Label>Purchase Price</Label>
+              <Controller
+                name="purchase_price"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.purchase_price?.message}
+                  />
+                )}
+              />
+              {errors.purchase_price?.message && (
+                <p className="text-sm text-red-500">{errors.purchase_price.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Current Value</Label>
+              <Controller
+                name="current_value"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.current_value?.message}
+                  />
+                )}
+              />
+              {errors.current_value?.message && (
+                <p className="text-sm text-red-500">{errors.current_value.message}</p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

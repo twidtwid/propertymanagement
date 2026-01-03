@@ -3,17 +3,27 @@
 import { query } from "./db"
 import type { Bill, PropertyTax, InsurancePolicy, MaintenanceTask, Vehicle } from "@/types/database"
 import { formatCurrency, formatDate, daysUntil } from "./utils"
+import { getBuildingLinkNeedsAttention, type NeedsAttentionItems, type BuildingLinkMessage } from "./actions"
+
+export interface BuildingLinkSummaryItem {
+  type: "outage" | "package" | "flagged"
+  subject: string
+  unit: string
+  receivedAt: string
+  snippet?: string
+}
 
 export interface DailySummaryData {
   date: string
   urgentItems: UrgentItem[]
   upcomingItems: UpcomingItem[]
   recentEmails: EmailSummary[]
+  buildingLinkItems: BuildingLinkSummaryItem[]
   stats: SummaryStats
 }
 
 export interface UrgentItem {
-  type: "payment_overdue" | "check_unconfirmed" | "insurance_expiring" | "registration_expired" | "inspection_overdue" | "urgent_email"
+  type: "payment_overdue" | "check_unconfirmed" | "insurance_expiring" | "registration_expired" | "inspection_overdue" | "urgent_email" | "building_outage"
   title: string
   description: string
   daysOverdue?: number
@@ -43,6 +53,7 @@ export interface SummaryStats {
   totalBillsAmount: number
   urgentTasksCount: number
   newEmailsToday: number
+  buildingLinkAttentionCount: number
 }
 
 export async function generateDailySummary(): Promise<DailySummaryData> {
@@ -146,6 +157,26 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
 
   const stats = statsResult[0] || { bills_count: "0", bills_amount: "0", urgent_tasks: "0", new_emails: "0" }
 
+  // Get BuildingLink needs attention items using Anne's user flags
+  // (Anne receives the daily summary email)
+  const anneEmail = process.env.NOTIFICATION_EMAIL || "anne@annespalter.com"
+  const anneUser = await query<{ id: string }>(
+    "SELECT id FROM profiles WHERE email = $1",
+    [anneEmail]
+  )
+  const anneUserId = anneUser[0]?.id || "00000000-0000-0000-0000-000000000000"
+
+  let buildingLinkAttention: NeedsAttentionItems = {
+    activeOutages: [],
+    uncollectedPackages: [],
+    flaggedMessages: [],
+  }
+  try {
+    buildingLinkAttention = await getBuildingLinkNeedsAttention(anneUserId)
+  } catch (error) {
+    console.error("[Daily Summary] Failed to get BuildingLink data:", error)
+  }
+
   // Build urgent items
   const urgentItems: UrgentItem[] = []
 
@@ -204,6 +235,49 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
         link: `/vehicles/${vehicle.id}`,
       })
     }
+  }
+
+  // Add BuildingLink outages as urgent items
+  for (const outage of buildingLinkAttention.activeOutages) {
+    urgentItems.push({
+      type: "building_outage",
+      title: `Building Outage: ${outage.subject}`,
+      description: `${outage.unit !== 'unknown' ? `Unit ${outage.unit} - ` : ''}${formatDate(outage.received_at)}`,
+      link: `/buildinglink`,
+    })
+  }
+
+  // Build BuildingLink summary items
+  const buildingLinkItems: BuildingLinkSummaryItem[] = []
+
+  for (const outage of buildingLinkAttention.activeOutages) {
+    buildingLinkItems.push({
+      type: "outage",
+      subject: outage.subject,
+      unit: outage.unit,
+      receivedAt: outage.received_at,
+      snippet: outage.body_snippet || undefined,
+    })
+  }
+
+  for (const pkg of buildingLinkAttention.uncollectedPackages) {
+    buildingLinkItems.push({
+      type: "package",
+      subject: pkg.subject,
+      unit: pkg.unit,
+      receivedAt: pkg.received_at,
+      snippet: pkg.body_snippet || undefined,
+    })
+  }
+
+  for (const flagged of buildingLinkAttention.flaggedMessages) {
+    buildingLinkItems.push({
+      type: "flagged",
+      subject: flagged.subject,
+      unit: flagged.unit,
+      receivedAt: flagged.received_at,
+      snippet: flagged.body_snippet || undefined,
+    })
   }
 
   // Build upcoming items
@@ -272,11 +346,13 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
       receivedAt: e.received_at,
       isUrgent: e.is_important,
     })),
+    buildingLinkItems,
     stats: {
       totalBillsDue: parseInt(stats.bills_count),
       totalBillsAmount: parseFloat(stats.bills_amount),
       urgentTasksCount: parseInt(stats.urgent_tasks),
       newEmailsToday: parseInt(stats.new_emails),
+      buildingLinkAttentionCount: buildingLinkItems.length,
     },
   }
 }
@@ -322,12 +398,50 @@ export async function formatSummaryAsText(summary: DailySummaryData): Promise<st
     lines.push("")
   }
 
+  // BuildingLink items
+  if (summary.buildingLinkItems.length > 0) {
+    lines.push("BUILDINGLINK - NEEDS ATTENTION:")
+    lines.push("-".repeat(40))
+    const outages = summary.buildingLinkItems.filter(i => i.type === 'outage')
+    const packages = summary.buildingLinkItems.filter(i => i.type === 'package')
+    const flagged = summary.buildingLinkItems.filter(i => i.type === 'flagged')
+
+    if (outages.length > 0) {
+      lines.push("  [!] ACTIVE OUTAGES:")
+      for (const item of outages) {
+        lines.push(`      - ${item.subject}`)
+        lines.push(`        Unit ${item.unit} | ${formatDate(item.receivedAt)}`)
+      }
+    }
+
+    if (packages.length > 0) {
+      lines.push(`  [P] UNCOLLECTED PACKAGES (${packages.length}):`)
+      for (const item of packages.slice(0, 5)) {
+        lines.push(`      - ${item.subject}`)
+        lines.push(`        Unit ${item.unit} | ${formatDate(item.receivedAt)}`)
+      }
+      if (packages.length > 5) {
+        lines.push(`      ...and ${packages.length - 5} more`)
+      }
+    }
+
+    if (flagged.length > 0) {
+      lines.push("  [*] FLAGGED ITEMS:")
+      for (const item of flagged) {
+        lines.push(`      - ${item.subject}`)
+        lines.push(`        Unit ${item.unit} | ${formatDate(item.receivedAt)}`)
+      }
+    }
+    lines.push("")
+  }
+
   // Stats
   lines.push("SUMMARY STATS:")
   lines.push("-".repeat(40))
   lines.push(`  Bills due this week: ${summary.stats.totalBillsDue} (${formatCurrency(summary.stats.totalBillsAmount)})`)
   lines.push(`  Urgent tasks: ${summary.stats.urgentTasksCount}`)
   lines.push(`  New emails today: ${summary.stats.newEmailsToday}`)
+  lines.push(`  BuildingLink items: ${summary.stats.buildingLinkAttentionCount}`)
   lines.push("")
   lines.push("=" .repeat(60))
 
@@ -382,6 +496,37 @@ export async function formatSummaryAsHtml(summary: DailySummaryData): Promise<st
     }
   }
 
+  if (summary.buildingLinkItems.length > 0) {
+    html += `<h2>BuildingLink - Needs Attention</h2>`
+    const outages = summary.buildingLinkItems.filter(i => i.type === 'outage')
+    const packages = summary.buildingLinkItems.filter(i => i.type === 'package')
+    const flagged = summary.buildingLinkItems.filter(i => i.type === 'flagged')
+
+    if (outages.length > 0) {
+      html += `<p style="font-weight: 600; color: #dc2626; margin-bottom: 8px;">🚨 Active Outages</p>`
+      for (const item of outages) {
+        html += `<div class="urgent"><strong>${item.subject}</strong><br><span style="color: #6b7280; font-size: 13px;">Unit ${item.unit} • ${formatDate(item.receivedAt)}</span></div>`
+      }
+    }
+
+    if (packages.length > 0) {
+      html += `<p style="font-weight: 600; color: #7c3aed; margin-bottom: 8px;">📦 Uncollected Packages (${packages.length})</p>`
+      for (const item of packages.slice(0, 5)) {
+        html += `<div class="email"><strong>${item.subject}</strong><br><span style="color: #6b7280; font-size: 13px;">Unit ${item.unit} • ${formatDate(item.receivedAt)}</span></div>`
+      }
+      if (packages.length > 5) {
+        html += `<p style="color: #6b7280; font-size: 13px;">...and ${packages.length - 5} more</p>`
+      }
+    }
+
+    if (flagged.length > 0) {
+      html += `<p style="font-weight: 600; color: #ca8a04; margin-bottom: 8px;">⭐ Flagged Items</p>`
+      for (const item of flagged) {
+        html += `<div class="email"><strong>${item.subject}</strong><br><span style="color: #6b7280; font-size: 13px;">Unit ${item.unit} • ${formatDate(item.receivedAt)}</span></div>`
+      }
+    }
+  }
+
   html += `
   <h2>Summary</h2>
   <div class="stats">
@@ -400,6 +545,10 @@ export async function formatSummaryAsHtml(summary: DailySummaryData): Promise<st
     <div class="stat-box">
       <div class="stat-value">${summary.stats.newEmailsToday}</div>
       <div class="stat-label">New Emails Today</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value">${summary.stats.buildingLinkAttentionCount}</div>
+      <div class="stat-label">BuildingLink Items</div>
     </div>
   </div>
   <div class="footer">
