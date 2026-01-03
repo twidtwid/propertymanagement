@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -15,8 +16,15 @@ import {
   Star,
 } from "lucide-react"
 import { generateDailySummary } from "@/lib/daily-summary"
+import { sendDailySummaryEmail } from "@/lib/notifications"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
 import { ReportCard } from "@/components/reports"
+
+async function sendEmailAction() {
+  "use server"
+  await sendDailySummaryEmail()
+  redirect("/reports/daily-summary?sent=true")
+}
 
 export const dynamic = "force-dynamic"
 
@@ -39,7 +47,7 @@ export default async function DailySummaryPage() {
             </p>
           </div>
         </div>
-        <form action="/api/cron/daily-summary" method="POST">
+        <form action={sendEmailAction}>
           <Button type="submit" variant="outline">
             <Mail className="h-4 w-4 mr-2" />
             Send Email Now
