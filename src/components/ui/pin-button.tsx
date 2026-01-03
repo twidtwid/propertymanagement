@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
-import { Star } from "lucide-react"
+import { Star, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { PinnedEntityType } from "@/types/database"
 
@@ -10,6 +10,7 @@ interface PinButtonProps {
   entityType: PinnedEntityType
   entityId: string
   isPinned: boolean
+  pinType?: "smart" | "user"  // Indicates if this is a smart pin (orange) or user pin (yellow)
   metadata?: Record<string, any>
   size?: "sm" | "default" | "lg" | "icon"
   variant?: "ghost" | "outline" | "default"
@@ -26,6 +27,7 @@ export function PinButton({
   entityType,
   entityId,
   isPinned: initialPinned,
+  pinType = "user",
   metadata,
   size = "icon",
   variant = "ghost",
@@ -61,8 +63,13 @@ export function PinButton({
     })
   }
 
+  // Smart pins (orange) vs User pins (yellow)
+  const fillColor = isPinned
+    ? (pinType === 'smart' ? 'fill-orange-400 text-orange-400' : 'fill-yellow-400 text-yellow-400')
+    : 'text-muted-foreground'
+
   const defaultTooltip = isPinned
-    ? "Remove pin (shared with all users)"
+    ? (pinType === 'smart' ? "Dismiss smart pin" : "Remove pin (shared with all users)")
     : "Pin for all users"
 
   return (
@@ -74,12 +81,11 @@ export function PinButton({
       disabled={isPending}
       title={tooltip || defaultTooltip}
     >
-      <Star
-        className={cn(
-          "h-4 w-4 transition-colors",
-          isPinned ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
-        )}
-      />
+      {isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      ) : (
+        <Star className={cn("h-4 w-4 transition-colors", fillColor)} />
+      )}
     </Button>
   )
 }
