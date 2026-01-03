@@ -145,18 +145,52 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, o
                 )}
               </TableCell>
               <TableCell>
-                <div className="flex items-center gap-3">
-                  <div className="text-muted-foreground">
-                    {getCategoryIcon(payment.category)}
+                {entityType === 'insurance_premium' ? (
+                  <Link
+                    href={`/insurance/${payment.source_id}`}
+                    className="flex items-center gap-3 hover:text-primary transition-colors"
+                  >
+                    <div className="text-muted-foreground">
+                      {getCategoryIcon(payment.category)}
+                    </div>
+                    <div>
+                      <p className="font-medium hover:underline">{payment.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {BILL_TYPE_LABELS[payment.category]}
+                        {payment.vendor_name && ` · ${payment.vendor_name}`}
+                      </p>
+                    </div>
+                  </Link>
+                ) : entityType === 'property_tax' ? (
+                  <Link
+                    href="/payments/taxes"
+                    className="flex items-center gap-3 hover:text-primary transition-colors"
+                  >
+                    <div className="text-muted-foreground">
+                      {getCategoryIcon(payment.category)}
+                    </div>
+                    <div>
+                      <p className="font-medium hover:underline">{payment.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {BILL_TYPE_LABELS[payment.category]}
+                        {payment.vendor_name && ` · ${payment.vendor_name}`}
+                      </p>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="text-muted-foreground">
+                      {getCategoryIcon(payment.category)}
+                    </div>
+                    <div>
+                      <p className="font-medium">{payment.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {BILL_TYPE_LABELS[payment.category]}
+                        {payment.vendor_name && ` · ${payment.vendor_name}`}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{payment.description}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {BILL_TYPE_LABELS[payment.category]}
-                      {payment.vendor_name && ` · ${payment.vendor_name}`}
-                    </p>
-                  </div>
-                </div>
+                )}
               </TableCell>
               <TableCell>
                 {payment.property_name && (

@@ -646,3 +646,41 @@ export interface PinNote {
   created_at: string
   updated_at: string
 }
+
+// Dashboard redesign types
+export type DashboardPinStatus = 'overdue' | 'urgent' | 'upcoming' | 'normal'
+
+export interface DashboardPinnedItem {
+  id: string
+  entityType: PinnedEntityType
+  entityId: string
+  pinType: 'smart' | 'user'
+  title: string
+  subtitle: string | null
+  amount: number | null
+  dueDate: string | null
+  daysUntilOrOverdue: number | null
+  status: DashboardPinStatus
+  href: string
+  icon: 'bill' | 'tax' | 'insurance' | 'ticket' | 'vendor' | 'document' | 'building'
+  notes: PinNote[]
+  metadata: Record<string, any> | null
+}
+
+export interface UpcomingItem {
+  id: string
+  type: 'bill' | 'tax' | 'insurance' | 'registration' | 'inspection' | 'task'
+  title: string
+  subtitle: string | null
+  amount: number | null
+  dueDate: string
+  daysUntil: number
+  href: string
+  icon: 'bill' | 'tax' | 'insurance' | 'car' | 'ticket'
+}
+
+export interface DashboardStats {
+  properties: number
+  vehicles: number
+  due30Days: number  // Total amount due in 30 days
+}

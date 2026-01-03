@@ -4,6 +4,7 @@ import { Suspense } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CalendarView } from "@/components/calendar/calendar-view"
+import { CalendarSubscribeButton } from "@/components/calendar/subscribe-button"
 import { getCalendarEvents } from "@/lib/actions"
 import { getMonthRange } from "@/lib/calendar-utils"
 
@@ -15,11 +16,14 @@ async function CalendarContent() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Calendar</h1>
-        <p className="text-lg text-muted-foreground mt-1">
-          View all payments, taxes, insurance, and maintenance on a calendar
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Calendar</h1>
+          <p className="text-lg text-muted-foreground mt-1">
+            View all payments, taxes, insurance, and maintenance on a calendar
+          </p>
+        </div>
+        <CalendarSubscribeButton />
       </div>
 
       <CalendarView initialEvents={events} />

@@ -1,9 +1,9 @@
 "use server"
 
 import { query } from "./db"
-import type { Bill, PropertyTax, InsurancePolicy, MaintenanceTask, Vehicle } from "@/types/database"
-import { formatCurrency, formatDate, daysUntil } from "./utils"
-import { getBuildingLinkNeedsAttention, type NeedsAttentionItems, type BuildingLinkMessage } from "./actions"
+import type { DashboardPinnedItem, UpcomingItem } from "@/types/database"
+import { formatCurrency, formatDate } from "./utils"
+import { getBuildingLinkNeedsAttention, getDashboardPinnedItems, getUpcomingWeek, type NeedsAttentionItems } from "./actions"
 
 export interface BuildingLinkSummaryItem {
   type: "outage" | "package" | "flagged"
@@ -13,32 +13,27 @@ export interface BuildingLinkSummaryItem {
   snippet?: string
 }
 
+export interface PinnedNoteItem {
+  id: string
+  content: string
+  entityType: string
+  entityId: string
+  entityTitle: string
+  dueDate: string | null
+  createdBy: string | null
+  href: string
+}
+
 export interface DailySummaryData {
   date: string
-  urgentItems: UrgentItem[]
-  upcomingItems: UpcomingItem[]
+  // Use same data as dashboard for consistency - these come from getDashboardPinnedItems()
+  overdueItems: DashboardPinnedItem[]  // Items with status 'overdue'
+  urgentItems: DashboardPinnedItem[]   // Items with status 'urgent' (due this week)
+  upcomingItems: UpcomingItem[]  // Items coming up (next 7 days) from getUpcomingWeek()
+  pinnedNotes: PinnedNoteItem[]  // User's pinned notes with due dates
   recentEmails: EmailSummary[]
   buildingLinkItems: BuildingLinkSummaryItem[]
   stats: SummaryStats
-}
-
-export interface UrgentItem {
-  type: "payment_overdue" | "check_unconfirmed" | "insurance_expiring" | "registration_expired" | "inspection_overdue" | "urgent_email" | "building_outage"
-  title: string
-  description: string
-  daysOverdue?: number
-  amount?: number
-  link?: string
-}
-
-export interface UpcomingItem {
-  type: "bill_due" | "tax_due" | "insurance_expiring" | "registration_due" | "maintenance_due"
-  title: string
-  description: string
-  dueDate: string
-  daysUntil: number
-  amount?: number
-  link?: string
 }
 
 export interface EmailSummary {
@@ -60,71 +55,20 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
   const today = new Date()
   const todayStr = today.toISOString().split("T")[0]
 
-  // Get overdue bills
-  const overdueBills = await query<Bill>(`
-    SELECT b.*, row_to_json(p.*) as property
-    FROM bills b
-    LEFT JOIN properties p ON b.property_id = p.id
-    WHERE b.status = 'pending' AND b.due_date < CURRENT_DATE
-    ORDER BY b.due_date
-  `)
+  // === USE SAME DATA SOURCES AS DASHBOARD FOR CONSISTENCY ===
+  // This ensures the daily summary shows the same counts as the dashboard
+  const [pinnedData, upcomingWeek, buildingLinkAttention] = await Promise.all([
+    getDashboardPinnedItems(),
+    getUpcomingWeek(),
+    getBuildingLinkNeedsAttention().catch((error) => {
+      console.error("[Daily Summary] Failed to get BuildingLink data:", error)
+      return { activeOutages: [], uncollectedPackages: [], flaggedMessages: [] } as NeedsAttentionItems
+    }),
+  ])
 
-  // Get unconfirmed checks
-  const unconfirmedChecks = await query<Bill>(`
-    SELECT b.*, row_to_json(p.*) as property
-    FROM bills b
-    LEFT JOIN properties p ON b.property_id = p.id
-    WHERE b.status = 'sent'
-      AND b.payment_method = 'check'
-      AND b.payment_date IS NOT NULL
-      AND b.confirmation_date IS NULL
-      AND b.payment_date + b.days_to_confirm < CURRENT_DATE
-    ORDER BY b.payment_date
-  `)
-
-  // Get expiring insurance
-  const expiringPolicies = await query<InsurancePolicy>(`
-    SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
-    FROM insurance_policies ip
-    LEFT JOIN properties p ON ip.property_id = p.id
-    LEFT JOIN vehicles v ON ip.vehicle_id = v.id
-    WHERE ip.expiration_date <= CURRENT_DATE + 30
-      AND ip.expiration_date >= CURRENT_DATE
-    ORDER BY ip.expiration_date
-  `)
-
-  // Get vehicles with expired/expiring registration
-  const vehicleAlerts = await query<Vehicle>(`
-    SELECT * FROM vehicles
-    WHERE is_active = TRUE
-      AND (
-        registration_expires <= CURRENT_DATE + 30
-        OR inspection_expires <= CURRENT_DATE
-      )
-    ORDER BY registration_expires
-  `)
-
-  // Get upcoming bills (next 7 days)
-  const upcomingBills = await query<Bill>(`
-    SELECT b.*, row_to_json(p.*) as property
-    FROM bills b
-    LEFT JOIN properties p ON b.property_id = p.id
-    WHERE b.status = 'pending'
-      AND b.due_date >= CURRENT_DATE
-      AND b.due_date <= CURRENT_DATE + 7
-    ORDER BY b.due_date
-  `)
-
-  // Get upcoming taxes (next 30 days)
-  const upcomingTaxes = await query<PropertyTax>(`
-    SELECT pt.*, row_to_json(p.*) as property
-    FROM property_taxes pt
-    JOIN properties p ON pt.property_id = p.id
-    WHERE pt.status = 'pending'
-      AND pt.due_date >= CURRENT_DATE
-      AND pt.due_date <= CURRENT_DATE + 30
-    ORDER BY pt.due_date
-  `)
+  // Split pinned items by status - same logic as dashboard
+  const overdueItems = pinnedData.items.filter(item => item.status === 'overdue')
+  const urgentItems = pinnedData.items.filter(item => item.status === 'urgent')
 
   // Get recent emails - only vendor-matched emails, not personal/marketing
   const recentEmails = await query<{
@@ -144,7 +88,7 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
     LIMIT 10
   `)
 
-  // Get stats - only count vendor-matched emails (excluding spam/marketing)
+  // Get stats
   const statsResult = await query<{
     bills_count: string
     bills_amount: string
@@ -166,95 +110,70 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
 
   const stats = statsResult[0] || { bills_count: "0", bills_amount: "0", urgent_tasks: "0", new_emails: "0" }
 
-  // Get BuildingLink needs attention items using Anne's user flags
-  // (Anne receives the daily summary email)
-  const anneEmail = process.env.NOTIFICATION_EMAIL || "anne@annespalter.com"
-  const anneUser = await query<{ id: string }>(
-    "SELECT id FROM profiles WHERE email = $1",
-    [anneEmail]
+  // Get pinned notes with due dates (next 30 days)
+  const pinnedNotesRaw = await query<{
+    id: string
+    note: string
+    entity_type: string
+    entity_id: string
+    due_date: string | null
+    user_name: string | null
+  }>(`
+    SELECT pn.id, pn.note, pn.entity_type, pn.entity_id, pn.due_date, pn.user_name
+    FROM pin_notes pn
+    WHERE pn.due_date IS NOT NULL
+      AND pn.due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30
+    ORDER BY pn.due_date
+  `)
+
+  // Fetch entity titles for pinned notes
+  const pinnedNotes: PinnedNoteItem[] = await Promise.all(
+    pinnedNotesRaw.map(async (note) => {
+      let entityTitle = "Unknown"
+      if (note.entity_type === 'vendor') {
+        const v = await query<{ name: string; company: string | null }>(`SELECT name, company FROM vendors WHERE id = $1`, [note.entity_id])
+        entityTitle = v[0]?.company || v[0]?.name || "Vendor"
+      } else if (note.entity_type === 'bill') {
+        const b = await query<{ description: string | null; bill_type: string }>(`SELECT description, bill_type FROM bills WHERE id = $1`, [note.entity_id])
+        entityTitle = b[0]?.description || b[0]?.bill_type || "Bill"
+      } else if (note.entity_type === 'ticket') {
+        const t = await query<{ title: string }>(`SELECT title FROM maintenance_tasks WHERE id = $1`, [note.entity_id])
+        entityTitle = t[0]?.title || "Ticket"
+      } else if (note.entity_type === 'property_tax') {
+        const pt = await query<{ jurisdiction: string; installment: number }>(`SELECT jurisdiction, installment FROM property_taxes WHERE id = $1`, [note.entity_id])
+        entityTitle = pt[0] ? `${pt[0].jurisdiction} Q${pt[0].installment}` : "Property Tax"
+      } else if (note.entity_type === 'insurance_policy' || note.entity_type === 'insurance_premium') {
+        const ip = await query<{ carrier_name: string; policy_type: string }>(`SELECT carrier_name, policy_type FROM insurance_policies WHERE id = $1`, [note.entity_id])
+        entityTitle = ip[0] ? `${ip[0].carrier_name} ${ip[0].policy_type}` : "Insurance"
+      } else if (note.entity_type === 'document') {
+        // Documents store title in pinned_items.metadata
+        const pin = await query<{ metadata: { title?: string; name?: string } | null }>(`SELECT metadata FROM pinned_items WHERE entity_type = 'document' AND entity_id = $1`, [note.entity_id])
+        entityTitle = pin[0]?.metadata?.title || pin[0]?.metadata?.name || "Document"
+      }
+      // Generate href based on entity type
+      let href = '/'
+      switch (note.entity_type) {
+        case 'vendor': href = `/vendors/${note.entity_id}`; break
+        case 'bill': href = `/payments`; break
+        case 'ticket': href = `/tickets/${note.entity_id}`; break
+        case 'property_tax': href = `/payments/taxes`; break
+        case 'insurance_policy':
+        case 'insurance_premium': href = `/insurance/${note.entity_id}`; break
+        case 'buildinglink_message': href = `/buildinglink`; break
+        case 'document': href = `/documents`; break
+      }
+      return {
+        id: note.id,
+        content: note.note,
+        entityType: note.entity_type,
+        entityId: note.entity_id,
+        entityTitle,
+        dueDate: note.due_date,
+        createdBy: note.user_name,
+        href,
+      }
+    })
   )
-  const anneUserId = anneUser[0]?.id || "00000000-0000-0000-0000-000000000000"
-
-  let buildingLinkAttention: NeedsAttentionItems = {
-    activeOutages: [],
-    uncollectedPackages: [],
-    flaggedMessages: [],
-  }
-  try {
-    buildingLinkAttention = await getBuildingLinkNeedsAttention()
-  } catch (error) {
-    console.error("[Daily Summary] Failed to get BuildingLink data:", error)
-  }
-
-  // Build urgent items
-  const urgentItems: UrgentItem[] = []
-
-  for (const bill of overdueBills) {
-    const daysOver = -daysUntil(bill.due_date)
-    urgentItems.push({
-      type: "payment_overdue",
-      title: `Overdue: ${bill.description || bill.bill_type}`,
-      description: `Due ${formatDate(bill.due_date)} (${daysOver} days overdue) - ${formatCurrency(Number(bill.amount))}`,
-      daysOverdue: daysOver,
-      amount: Number(bill.amount),
-      link: `/payments`,
-    })
-  }
-
-  for (const check of unconfirmedChecks) {
-    const daysSinceSent = -daysUntil(check.payment_date!)
-    urgentItems.push({
-      type: "check_unconfirmed",
-      title: `Unconfirmed check: ${check.description || check.bill_type}`,
-      description: `Sent ${formatDate(check.payment_date!)} (${daysSinceSent} days) - ${formatCurrency(Number(check.amount))}`,
-      daysOverdue: daysSinceSent - (check.days_to_confirm || 14),
-      amount: Number(check.amount),
-      link: `/payments`,
-    })
-  }
-
-  for (const policy of expiringPolicies) {
-    if (policy.expiration_date && daysUntil(policy.expiration_date) <= 7) {
-      urgentItems.push({
-        type: "insurance_expiring",
-        title: `Insurance expiring: ${policy.carrier_name}`,
-        description: `${policy.policy_type} expires ${formatDate(policy.expiration_date)}`,
-        daysOverdue: -daysUntil(policy.expiration_date),
-        link: `/insurance`,
-      })
-    }
-  }
-
-  for (const vehicle of vehicleAlerts) {
-    if (vehicle.registration_expires && daysUntil(vehicle.registration_expires) <= 0) {
-      urgentItems.push({
-        type: "registration_expired",
-        title: `Registration expired: ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-        description: `Expired ${formatDate(vehicle.registration_expires)}`,
-        daysOverdue: -daysUntil(vehicle.registration_expires),
-        link: `/vehicles/${vehicle.id}`,
-      })
-    }
-    if (vehicle.inspection_expires && daysUntil(vehicle.inspection_expires) <= 0) {
-      urgentItems.push({
-        type: "inspection_overdue",
-        title: `Inspection overdue: ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-        description: `Expired ${formatDate(vehicle.inspection_expires)}`,
-        daysOverdue: -daysUntil(vehicle.inspection_expires),
-        link: `/vehicles/${vehicle.id}`,
-      })
-    }
-  }
-
-  // Add BuildingLink outages as urgent items
-  for (const outage of buildingLinkAttention.activeOutages) {
-    urgentItems.push({
-      type: "building_outage",
-      title: `Building Outage: ${outage.subject}`,
-      description: `${outage.unit !== 'unknown' ? `Unit ${outage.unit} - ` : ''}${formatDate(outage.received_at)}`,
-      link: `/buildinglink`,
-    })
-  }
 
   // Build BuildingLink summary items
   const buildingLinkItems: BuildingLinkSummaryItem[] = []
@@ -289,66 +208,12 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
     })
   }
 
-  // Build upcoming items
-  const upcomingItems: UpcomingItem[] = []
-
-  for (const bill of upcomingBills) {
-    upcomingItems.push({
-      type: "bill_due",
-      title: bill.description || bill.bill_type,
-      description: `Due ${formatDate(bill.due_date)} - ${formatCurrency(Number(bill.amount))}`,
-      dueDate: bill.due_date,
-      daysUntil: daysUntil(bill.due_date),
-      amount: Number(bill.amount),
-      link: `/payments`,
-    })
-  }
-
-  for (const tax of upcomingTaxes) {
-    upcomingItems.push({
-      type: "tax_due",
-      title: `Property Tax: ${tax.jurisdiction} Q${tax.installment}`,
-      description: `Due ${formatDate(tax.due_date)} - ${formatCurrency(Number(tax.amount))}`,
-      dueDate: tax.due_date,
-      daysUntil: daysUntil(tax.due_date),
-      amount: Number(tax.amount),
-      link: `/payments/taxes`,
-    })
-  }
-
-  for (const policy of expiringPolicies) {
-    if (policy.expiration_date && daysUntil(policy.expiration_date) > 7) {
-      upcomingItems.push({
-        type: "insurance_expiring",
-        title: `${policy.carrier_name} - ${policy.policy_type}`,
-        description: `Expires ${formatDate(policy.expiration_date)}`,
-        dueDate: policy.expiration_date,
-        daysUntil: daysUntil(policy.expiration_date),
-        link: `/insurance`,
-      })
-    }
-  }
-
-  for (const vehicle of vehicleAlerts) {
-    if (vehicle.registration_expires && daysUntil(vehicle.registration_expires) > 0 && daysUntil(vehicle.registration_expires) <= 30) {
-      upcomingItems.push({
-        type: "registration_due",
-        title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-        description: `Registration expires ${formatDate(vehicle.registration_expires)}`,
-        dueDate: vehicle.registration_expires,
-        daysUntil: daysUntil(vehicle.registration_expires),
-        link: `/vehicles/${vehicle.id}`,
-      })
-    }
-  }
-
-  // Sort upcoming items by date
-  upcomingItems.sort((a, b) => a.daysUntil - b.daysUntil)
-
   return {
     date: todayStr,
+    overdueItems,
     urgentItems,
-    upcomingItems,
+    upcomingItems: upcomingWeek,
+    pinnedNotes,
     recentEmails: recentEmails.map((e) => ({
       vendorName: e.vendor_name,
       subject: e.subject || "(No subject)",
@@ -366,6 +231,15 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
   }
 }
 
+// Helper to format days description
+function formatDaysDescription(days: number | null, dueDate: string | null): string {
+  if (days === null || dueDate === null) return ''
+  if (days < 0) return `${Math.abs(days)} days overdue`
+  if (days === 0) return 'Due today'
+  if (days === 1) return 'Due tomorrow'
+  return `Due in ${days} days`
+}
+
 export async function formatSummaryAsText(summary: DailySummaryData): Promise<string> {
   const lines: string[] = []
 
@@ -374,24 +248,49 @@ export async function formatSummaryAsText(summary: DailySummaryData): Promise<st
   lines.push("=" .repeat(60))
   lines.push("")
 
-  // Urgent items
+  // Overdue items (most critical)
+  if (summary.overdueItems.length > 0) {
+    lines.push("🔴 OVERDUE:")
+    lines.push("-".repeat(40))
+    for (const item of summary.overdueItems) {
+      const daysOverdue = item.daysUntilOrOverdue ? Math.abs(item.daysUntilOrOverdue) : 0
+      lines.push(`  [!!] ${item.title}`)
+      lines.push(`       ${item.subtitle || ''}${item.amount ? ` - ${formatCurrency(item.amount)}` : ''} - ${daysOverdue} DAYS OVERDUE`)
+    }
+    lines.push("")
+  }
+
+  // Urgent items (need attention this week)
   if (summary.urgentItems.length > 0) {
-    lines.push("URGENT ITEMS REQUIRING ATTENTION:")
+    lines.push("🟠 DUE THIS WEEK:")
     lines.push("-".repeat(40))
     for (const item of summary.urgentItems) {
+      const daysDesc = formatDaysDescription(item.daysUntilOrOverdue, item.dueDate)
       lines.push(`  [!] ${item.title}`)
-      lines.push(`      ${item.description}`)
+      lines.push(`      ${item.subtitle || ''}${item.amount ? ` - ${formatCurrency(item.amount)}` : ''} - ${daysDesc}`)
+    }
+    lines.push("")
+  }
+
+  // Pinned notes with due dates
+  if (summary.pinnedNotes.length > 0) {
+    lines.push("📌 YOUR PINNED NOTES:")
+    lines.push("-".repeat(40))
+    for (const note of summary.pinnedNotes) {
+      lines.push(`  - "${note.content}"`)
+      lines.push(`    → ${note.entityTitle}${note.dueDate ? ` | Due: ${formatDate(note.dueDate)}` : ''}`)
     }
     lines.push("")
   }
 
   // Upcoming items
   if (summary.upcomingItems.length > 0) {
-    lines.push("COMING UP NEXT 7-30 DAYS:")
+    lines.push("COMING UP NEXT 7 DAYS:")
     lines.push("-".repeat(40))
     for (const item of summary.upcomingItems.slice(0, 10)) {
+      const daysDesc = item.daysUntil === 0 ? 'today' : item.daysUntil === 1 ? 'tomorrow' : `in ${item.daysUntil} days`
       lines.push(`  - ${item.title}`)
-      lines.push(`    ${item.description}`)
+      lines.push(`    ${item.subtitle || ''}${item.amount ? ` - ${formatCurrency(item.amount)}` : ''} - Due ${daysDesc}`)
     }
     lines.push("")
   }
@@ -458,114 +357,203 @@ export async function formatSummaryAsText(summary: DailySummaryData): Promise<st
 }
 
 export async function formatSummaryAsHtml(summary: DailySummaryData): Promise<string> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://spmsystem.com'
+  const hasAttentionItems = summary.overdueItems.length > 0 || summary.urgentItems.length > 0
+
+  // Status banner content
+  let statusBanner = ''
+  if (hasAttentionItems) {
+    const parts: string[] = []
+    if (summary.overdueItems.length > 0) {
+      parts.push(`${summary.overdueItems.length} overdue`)
+    }
+    if (summary.urgentItems.length > 0) {
+      parts.push(`${summary.urgentItems.length} due soon`)
+    }
+    statusBanner = `
+      <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px 20px; margin-bottom: 24px; border-radius: 4px;">
+        <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #991b1b;">⚠️ ${parts.join(', ')} need attention</h1>
+        <a href="${appUrl}" style="color: #3b82f6; text-decoration: none; font-size: 14px;">View Dashboard →</a>
+      </div>
+    `
+  } else {
+    // Find next due item
+    const nextDue = summary.upcomingItems[0]
+    const nextDueText = nextDue
+      ? `Next payment due ${nextDue.daysUntil === 0 ? 'today' : nextDue.daysUntil === 1 ? 'tomorrow' : `in ${nextDue.daysUntil} days`}: ${nextDue.title}`
+      : 'No upcoming payments in the next 30 days.'
+    statusBanner = `
+      <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px 20px; margin-bottom: 24px; border-radius: 4px;">
+        <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #166534;">✅ All clear</h1>
+        <p style="margin: 0; color: #4b5563; font-size: 14px;">${nextDueText}</p>
+      </div>
+    `
+  }
+
   let html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-    h1 { color: #1a1a1a; border-bottom: 2px solid #e5e5e5; padding-bottom: 10px; }
-    h2 { color: #444; margin-top: 30px; }
-    .urgent { background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; margin: 8px 0; border-radius: 4px; }
-    .upcoming { background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 12px 16px; margin: 8px 0; border-radius: 4px; }
-    .email { background: #f9fafb; padding: 12px 16px; margin: 8px 0; border-radius: 4px; border: 1px solid #e5e7eb; }
-    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 20px; }
-    .stat-box { background: #f3f4f6; padding: 16px; border-radius: 8px; text-align: center; }
-    .stat-value { font-size: 24px; font-weight: bold; color: #1a1a1a; }
-    .stat-label { color: #6b7280; font-size: 14px; }
-    .urgent-badge { display: inline-block; background: #ef4444; color: white; font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e5e5; color: #6b7280; font-size: 14px; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body>
-  <h1>Daily Property Management Summary</h1>
-  <p style="color: #6b7280;">${summary.date}</p>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff;">
+  <p style="color: #6b7280; margin-bottom: 8px; font-size: 13px;">${summary.date}</p>
+
+  ${statusBanner}
 `
 
+  // OVERDUE Section (Red)
+  if (summary.overdueItems.length > 0) {
+    html += `<h2 style="color: #dc2626; margin: 24px 0 12px 0; font-size: 16px;">🔴 OVERDUE (${summary.overdueItems.length})</h2>`
+    for (const item of summary.overdueItems) {
+      const daysOverdue = item.daysUntilOrOverdue ? Math.abs(item.daysUntilOrOverdue) : 0
+      html += `
+        <a href="${appUrl}${item.href}" style="display: block; background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; margin: 8px 0; border-radius: 4px; text-decoration: none;">
+          <strong style="color: #1f2937;">${item.title}</strong><br>
+          <span style="color: #dc2626; font-weight: 600;">${item.amount ? formatCurrency(item.amount) + ' — ' : ''}${item.subtitle ? item.subtitle + ' — ' : ''}${daysOverdue} DAYS OVERDUE</span>
+        </a>
+      `
+    }
+  }
+
+  // DUE THIS WEEK Section (Orange)
   if (summary.urgentItems.length > 0) {
-    html += `<h2>Urgent Items</h2>`
+    html += `<h2 style="color: #ea580c; margin: 24px 0 12px 0; font-size: 16px;">🟠 DUE THIS WEEK (${summary.urgentItems.length})</h2>`
     for (const item of summary.urgentItems) {
-      html += `<div class="urgent"><strong>${item.title}</strong><br>${item.description}</div>`
+      const daysDesc = formatDaysDescription(item.daysUntilOrOverdue, item.dueDate)
+      html += `
+        <a href="${appUrl}${item.href}" style="display: block; background: #fff7ed; border-left: 4px solid #f97316; padding: 12px 16px; margin: 8px 0; border-radius: 4px; text-decoration: none;">
+          <strong style="color: #1f2937;">${item.title}</strong><br>
+          <span style="color: #9a3412;">${item.amount ? formatCurrency(item.amount) + ' — ' : ''}${item.subtitle ? item.subtitle + ' — ' : ''}${daysDesc}</span>
+        </a>
+      `
     }
   }
 
+  // PINNED NOTES Section (Yellow)
+  if (summary.pinnedNotes.length > 0) {
+    html += `<h2 style="color: #ca8a04; margin: 24px 0 12px 0; font-size: 16px;">📌 YOUR PINNED NOTES</h2>`
+    for (const note of summary.pinnedNotes) {
+      html += `
+        <a href="${appUrl}${note.href}" style="display: block; background: #fefce8; border-left: 4px solid #eab308; padding: 12px 16px; margin: 8px 0; border-radius: 4px; text-decoration: none;">
+          <strong style="color: #1f2937;">"${note.content}"</strong><br>
+          <span style="color: #6b7280; font-size: 13px;">→ ${note.entityTitle}${note.dueDate ? ` • Due: ${formatDate(note.dueDate)}` : ''}${note.createdBy ? ` • Added by ${note.createdBy}` : ''}</span>
+        </a>
+      `
+    }
+  }
+
+  // COMING UP Section (Blue)
   if (summary.upcomingItems.length > 0) {
-    html += `<h2>Coming Up</h2>`
-    for (const item of summary.upcomingItems.slice(0, 10)) {
-      html += `<div class="upcoming"><strong>${item.title}</strong><br>${item.description}</div>`
+    html += `<h2 style="color: #2563eb; margin: 24px 0 12px 0; font-size: 16px;">📅 COMING UP (Next 7 Days)</h2>`
+    for (const item of summary.upcomingItems.slice(0, 8)) {
+      const daysDesc = item.daysUntil === 0 ? 'Due today' : item.daysUntil === 1 ? 'Due tomorrow' : `Due in ${item.daysUntil} days`
+      html += `
+        <a href="${appUrl}${item.href}" style="display: block; background: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px 16px; margin: 8px 0; border-radius: 4px; text-decoration: none;">
+          <strong style="color: #1f2937;">${item.title}</strong><br>
+          <span style="color: #1d4ed8;">${item.amount ? formatCurrency(item.amount) + ' — ' : ''}${item.subtitle ? item.subtitle + ' — ' : ''}${daysDesc}</span>
+        </a>
+      `
+    }
+    if (summary.upcomingItems.length > 8) {
+      html += `<p style="color: #6b7280; font-size: 13px; margin: 8px 0;">...and ${summary.upcomingItems.length - 8} more items</p>`
     }
   }
 
-  if (summary.recentEmails.length > 0) {
-    html += `<h2>Recent Vendor Emails</h2>`
-    for (const email of summary.recentEmails.slice(0, 5)) {
-      const urgentBadge = email.isUrgent ? '<span class="urgent-badge">URGENT</span>' : ''
-      html += `<div class="email"><strong>${email.vendorName || "Unknown"}</strong>${urgentBadge}<br>${email.subject}</div>`
-    }
-  }
-
+  // BUILDINGLINK Section (Amber)
   if (summary.buildingLinkItems.length > 0) {
-    html += `<h2>BuildingLink - Needs Attention</h2>`
+    html += `<h2 style="color: #d97706; margin: 24px 0 12px 0; font-size: 16px;">🏢 BUILDINGLINK</h2>`
     const outages = summary.buildingLinkItems.filter(i => i.type === 'outage')
     const packages = summary.buildingLinkItems.filter(i => i.type === 'package')
     const flagged = summary.buildingLinkItems.filter(i => i.type === 'flagged')
 
     if (outages.length > 0) {
-      html += `<p style="font-weight: 600; color: #dc2626; margin-bottom: 8px;">🚨 Active Outages</p>`
+      html += `<p style="font-weight: 600; color: #dc2626; margin: 12px 0 8px 0; font-size: 14px;">🚨 Active Outages (${outages.length})</p>`
       for (const item of outages) {
-        html += `<div class="urgent"><strong>${item.subject}</strong><br><span style="color: #6b7280; font-size: 13px;">Unit ${item.unit} • ${formatDate(item.receivedAt)}</span></div>`
+        html += `
+          <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; margin: 8px 0; border-radius: 4px;">
+            <strong style="color: #1f2937;">${item.subject}</strong><br>
+            <span style="color: #6b7280; font-size: 13px;">${item.unit !== 'unknown' ? `Unit ${item.unit} • ` : ''}${formatDate(item.receivedAt)}</span>
+          </div>
+        `
       }
     }
 
     if (packages.length > 0) {
-      html += `<p style="font-weight: 600; color: #7c3aed; margin-bottom: 8px;">📦 Uncollected Packages (${packages.length})</p>`
+      html += `<p style="font-weight: 600; color: #7c3aed; margin: 12px 0 8px 0; font-size: 14px;">📦 Uncollected Packages (${packages.length})</p>`
       for (const item of packages.slice(0, 5)) {
-        html += `<div class="email"><strong>${item.subject}</strong><br><span style="color: #6b7280; font-size: 13px;">Unit ${item.unit} • ${formatDate(item.receivedAt)}</span></div>`
+        html += `
+          <div style="background: #f5f3ff; border-left: 4px solid #8b5cf6; padding: 12px 16px; margin: 8px 0; border-radius: 4px;">
+            <strong style="color: #1f2937;">${item.subject}</strong><br>
+            <span style="color: #6b7280; font-size: 13px;">${item.unit !== 'unknown' ? `Unit ${item.unit} • ` : ''}${formatDate(item.receivedAt)}</span>
+          </div>
+        `
       }
       if (packages.length > 5) {
-        html += `<p style="color: #6b7280; font-size: 13px;">...and ${packages.length - 5} more</p>`
+        html += `<p style="color: #6b7280; font-size: 13px; margin: 8px 0;">...and ${packages.length - 5} more packages</p>`
       }
     }
 
     if (flagged.length > 0) {
-      html += `<p style="font-weight: 600; color: #ca8a04; margin-bottom: 8px;">⭐ Flagged Items</p>`
+      html += `<p style="font-weight: 600; color: #ca8a04; margin: 12px 0 8px 0; font-size: 14px;">⭐ Flagged Items (${flagged.length})</p>`
       for (const item of flagged) {
-        html += `<div class="email"><strong>${item.subject}</strong><br><span style="color: #6b7280; font-size: 13px;">Unit ${item.unit} • ${formatDate(item.receivedAt)}</span></div>`
+        html += `
+          <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 12px 16px; margin: 8px 0; border-radius: 4px;">
+            <strong style="color: #1f2937;">${item.subject}</strong><br>
+            <span style="color: #6b7280; font-size: 13px;">${item.unit !== 'unknown' ? `Unit ${item.unit} • ` : ''}${formatDate(item.receivedAt)}</span>
+          </div>
+        `
       }
     }
   }
 
+  // VENDOR EMAILS Section
+  if (summary.recentEmails.length > 0) {
+    html += `<h2 style="color: #4b5563; margin: 24px 0 12px 0; font-size: 16px;">📧 VENDOR EMAILS TODAY (${summary.recentEmails.length})</h2>`
+    for (const email of summary.recentEmails.slice(0, 5)) {
+      const urgentBadge = email.isUrgent ? '<span style="display: inline-block; background: #ef4444; color: white; font-size: 11px; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">URGENT</span>' : ''
+      html += `
+        <div style="background: #f9fafb; padding: 12px 16px; margin: 8px 0; border-radius: 4px; border: 1px solid #e5e7eb;">
+          <strong style="color: #1f2937;">${email.vendorName || "Unknown"}</strong>${urgentBadge}<br>
+          <span style="color: #6b7280; font-size: 13px;">${email.subject}</span>
+        </div>
+      `
+    }
+    if (summary.recentEmails.length > 5) {
+      html += `<p style="color: #6b7280; font-size: 13px; margin: 8px 0;">...and ${summary.recentEmails.length - 5} more emails</p>`
+    }
+  }
+
+  // Footer
   html += `
-  <h2>Summary</h2>
-  <div class="stats">
-    <div class="stat-box">
-      <div class="stat-value">${summary.stats.totalBillsDue}</div>
-      <div class="stat-label">Bills Due This Week</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-value">${formatCurrency(summary.stats.totalBillsAmount)}</div>
-      <div class="stat-label">Amount Due</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-value">${summary.stats.urgentTasksCount}</div>
-      <div class="stat-label">Urgent Tasks</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-value">${summary.stats.newEmailsToday}</div>
-      <div class="stat-label">New Emails Today</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-value">${summary.stats.buildingLinkAttentionCount}</div>
-      <div class="stat-label">BuildingLink Items</div>
-    </div>
-  </div>
-  <div class="footer">
-    <p>This summary was automatically generated by your Property Management System.</p>
+  <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e5e5; color: #6b7280; font-size: 13px; text-align: center;">
+    <p style="margin: 0 0 8px 0;">
+      <a href="${appUrl}" style="color: #3b82f6; text-decoration: none;">View Dashboard</a> &bull;
+      <a href="${appUrl}/reports/daily-summary" style="color: #3b82f6; text-decoration: none;">View Full Report</a>
+    </p>
+    <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+      SPM System - Property Management for Anne
+    </p>
   </div>
 </body>
 </html>
 `
 
   return html
+}
+
+// Generate dynamic subject line based on summary data
+export async function generateSubjectLine(summary: DailySummaryData): Promise<string> {
+  if (summary.overdueItems.length > 0 || summary.urgentItems.length > 0) {
+    const parts: string[] = []
+    if (summary.overdueItems.length > 0) {
+      parts.push(`${summary.overdueItems.length} overdue`)
+    }
+    if (summary.urgentItems.length > 0) {
+      parts.push(`${summary.urgentItems.length} due soon`)
+    }
+    return `⚠️ ${parts.join(', ')} - SPM Daily`
+  }
+  return `✅ All clear - SPM Daily Summary`
 }
