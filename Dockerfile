@@ -5,17 +5,32 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci
+# Copy only lock file first for better caching
+COPY package-lock.json* ./
+COPY package.json ./
+
+# Use BuildKit cache mount for npm - survives even when package.json changes
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Builder
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+
+# Copy source files (excluding package.json to preserve npm ci cache)
+COPY src ./src
+COPY public ./public
+COPY scripts ./scripts
+COPY next.config.mjs tsconfig.json tailwind.config.ts postcss.config.mjs ./
+COPY package.json ./
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=3072"
+
+# Version passed at build time
+ARG BUILD_VERSION=dev
+ENV NEXT_PUBLIC_APP_VERSION=$BUILD_VERSION
 
 RUN npm run build
 

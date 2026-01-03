@@ -1,19 +1,11 @@
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Plus, Phone, Mail, MapPin } from "lucide-react"
-import { getVendorsFiltered, getVendorLocations, getProperties } from "@/lib/actions"
-import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
+import { Plus } from "lucide-react"
+import { getVendorsFiltered, getVendorLocations, getProperties, getStarredVendorIds } from "@/lib/actions"
+import { getUser } from "@/lib/auth"
 import { VendorFilters } from "@/components/vendors/vendor-filters"
+import { VendorList } from "@/components/vendors/vendor-list"
 import { QuickContact } from "@/components/dashboard/quick-contact"
 
 interface VendorsPageProps {
@@ -26,7 +18,9 @@ interface VendorsPageProps {
 
 export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   const params = await searchParams
-  const [vendors, locations, properties] = await Promise.all([
+  const user = await getUser()
+
+  const [vendors, locations, properties, starredIds] = await Promise.all([
     getVendorsFiltered({
       specialty: params.specialty,
       location: params.location,
@@ -34,6 +28,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
     }),
     getVendorLocations(),
     getProperties(),
+    user ? getStarredVendorIds(user.id) : Promise.resolve(new Set<string>()),
   ])
 
   return (
@@ -57,104 +52,11 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
         <QuickContact properties={properties} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <VendorFilters locations={locations} />
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Specialty</TableHead>
-                <TableHead className="hidden sm:table-cell">Location</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead className="hidden sm:table-cell">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {vendors.map((vendor) => (
-                <TableRow key={vendor.id} className="cursor-pointer hover:bg-muted/50">
-                  <TableCell>
-                    <Link href={`/vendors/${vendor.id}`} className="block">
-                      <p className="font-medium text-base">{vendor.company || vendor.name}</p>
-                      {vendor.company && vendor.name && (
-                        <p className="text-sm text-muted-foreground">
-                          {vendor.name}
-                        </p>
-                      )}
-                      {/* Show location on mobile under name */}
-                      {vendor.locations.length > 0 && (
-                        <p className="text-sm text-muted-foreground sm:hidden">
-                          {vendor.locations.join(", ")}
-                        </p>
-                      )}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {VENDOR_SPECIALTY_LABELS[vendor.specialty]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {vendor.locations.length > 0 ? (
-                      <div className="flex items-center gap-1 text-sm">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span>{vendor.locations.join(", ")}</span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      {vendor.phone && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <a
-                            href={`tel:${vendor.phone}`}
-                            className="hover:underline"
-                          >
-                            {vendor.phone}
-                          </a>
-                        </div>
-                      )}
-                      {vendor.email && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <a
-                            href={`mailto:${vendor.email}`}
-                            className="hover:underline"
-                          >
-                            {vendor.email}
-                          </a>
-                        </div>
-                      )}
-                      {!vendor.phone && !vendor.email && (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge
-                      variant={vendor.is_active ? "success" : "secondary"}
-                    >
-                      {vendor.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {vendors.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No vendors found matching your filters.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
+      <Card className="p-4">
+        <VendorFilters locations={locations} />
       </Card>
+
+      <VendorList vendors={vendors} starredIds={Array.from(starredIds)} />
     </div>
   )
 }

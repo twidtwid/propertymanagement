@@ -92,18 +92,19 @@ if [[ "${SKIP_BUILD}" == "false" ]]; then
     else
         START_TIME=$(date +%s)
 
-        # Build app (runner target)
+        # Build app (runner target) with BuildKit for cache mounts
         log "Building app image..."
-        docker build \
+        DOCKER_BUILDKIT=1 docker build \
             --platform linux/amd64 \
             --target runner \
+            --build-arg BUILD_VERSION=${TAG} \
             -t ${REGISTRY}/${IMAGE_NAME}:${TAG} \
             -t ${REGISTRY}/${IMAGE_NAME}:latest \
             .
 
-        # Build worker target
+        # Build worker target (reuses cached layers from app build)
         log "Building worker image..."
-        docker build \
+        DOCKER_BUILDKIT=1 docker build \
             --platform linux/amd64 \
             --target worker \
             -t ${REGISTRY}/${IMAGE_NAME}-worker:${TAG} \

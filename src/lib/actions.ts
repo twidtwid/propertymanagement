@@ -257,6 +257,43 @@ export async function getVendorCommunications(vendorId: string): Promise<VendorC
   )
 }
 
+// Get user's starred vendor IDs
+export async function getStarredVendorIds(userId: string): Promise<Set<string>> {
+  const stars = await query<{ vendor_id: string }>(
+    `SELECT vendor_id FROM user_starred_vendors WHERE user_id = $1`,
+    [userId]
+  )
+  return new Set(stars.map(s => s.vendor_id))
+}
+
+// Toggle star on a vendor for a user
+export async function toggleVendorStar(
+  vendorId: string,
+  userId: string
+): Promise<boolean> {
+  // Check if already starred
+  const existing = await queryOne<{ id: string }>(
+    `SELECT id FROM user_starred_vendors WHERE vendor_id = $1 AND user_id = $2`,
+    [vendorId, userId]
+  )
+
+  if (existing) {
+    // Unstar
+    await query(
+      `DELETE FROM user_starred_vendors WHERE vendor_id = $1 AND user_id = $2`,
+      [vendorId, userId]
+    )
+    return false
+  } else {
+    // Star
+    await query(
+      `INSERT INTO user_starred_vendors (vendor_id, user_id) VALUES ($1, $2)`,
+      [vendorId, userId]
+    )
+    return true
+  }
+}
+
 export async function getRecentCommunications(limit: number = 50): Promise<VendorCommunication[]> {
   return query<VendorCommunication>(
     `SELECT vc.*, row_to_json(v.*) as vendor
@@ -1795,6 +1832,9 @@ export async function getBuildingLinkNeedsAttention(
   }))
 
   const activeOutages = outages.filter(o => {
+    // If flagged by user, it's been manually dismissed
+    if (flaggedIds.has(o.id)) return false
+
     const outageKey = o.subject.toLowerCase().replace(/out of service|emergency/gi, '').trim()
     // Check if there's a matching restoration after this outage
     const hasRestoration = restorations.some(r => {
@@ -1835,9 +1875,9 @@ export async function getBuildingLinkNeedsAttention(
     return !pickedUpPackageNumbers.has(arrival.package_number)
   })
 
-  // Flagged messages (exclude package arrivals - those are "dismissed" not "important")
+  // Flagged messages (exclude package arrivals and outages - those are "dismissed" not "important")
   const flaggedMessages = messages
-    .filter(m => flaggedIds.has(m.id) && m.subcategory !== 'package_arrival')
+    .filter(m => flaggedIds.has(m.id) && m.subcategory !== 'package_arrival' && m.subcategory !== 'service_outage')
     .map(m => ({ ...m, is_flagged: true }))
 
   return {
