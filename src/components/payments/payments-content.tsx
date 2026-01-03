@@ -37,10 +37,10 @@ export function PaymentsContent({ payments, initialSmartPins, initialUserPins }:
     }
   }
 
-  // Separate into smart pins, user pins, and unpinned (only bills can be pinned)
-  const smartPinPayments = payments.filter(p => p.source === 'bill' && smartPins.has(p.source_id))
-  const userPinPayments = payments.filter(p => p.source === 'bill' && !smartPins.has(p.source_id) && userPins.has(p.source_id))
-  const unpinnedPayments = payments.filter(p => p.source !== 'bill' || !allPinnedIds.has(p.source_id))
+  // Separate into smart pins, user pins, and unpinned (all payment types can be pinned)
+  const smartPinPayments = payments.filter(p => smartPins.has(p.source_id))
+  const userPinPayments = payments.filter(p => !smartPins.has(p.source_id) && userPins.has(p.source_id))
+  const unpinnedPayments = payments.filter(p => !allPinnedIds.has(p.source_id))
 
   return (
     <>

@@ -70,7 +70,7 @@ export function QuickActions({ paymentsNeedingAttention }: QuickActionsProps) {
           </div>
           <div className="flex-1 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-amber-900">Payments Need Attention</h3>
+              <h3 className="font-semibold text-amber-900">Smart Pins</h3>
               <div className="flex gap-2">
                 {overduePayments.length > 0 && (
                   <Badge variant="destructive">{overduePayments.length} Overdue</Badge>
