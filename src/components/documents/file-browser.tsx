@@ -181,26 +181,46 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
   const currentFolderFiles = files
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        {/* Breadcrumb Navigation */}
-        <nav className="flex items-center gap-1 text-sm flex-wrap">
-          {breadcrumbs.map((crumb, index) => (
-            <div key={crumb.path} className="flex items-center">
-              {index > 0 && <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground" />}
-              <button
-                onClick={() => handleNavigate(crumb.path)}
-                className={`hover:underline ${
-                  index === breadcrumbs.length - 1
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {index === 0 ? <Home className="h-4 w-4" /> : crumb.name}
-              </button>
-            </div>
-          ))}
-        </nav>
+    <>
+      {/* Global Pinned Documents - Always shown at top */}
+      {pinnedFiles.length > 0 && (
+        <PinnedSection count={pinnedFiles.length} title="Pinned Documents" variant="user">
+          <div className="divide-y">
+            {pinnedFiles.map((entry) => (
+              <FileRow
+                key={entry.id || entry.path_display}
+                entry={entry}
+                onNavigate={handleNavigate}
+                onPreview={setPreviewFile}
+                summary={summaries[entry.path_display]}
+                isPinned={true}
+                onTogglePin={handleTogglePin}
+              />
+            ))}
+          </div>
+        </PinnedSection>
+      )}
+
+      <Card>
+        <CardHeader className="pb-4">
+          {/* Breadcrumb Navigation */}
+          <nav className="flex items-center gap-1 text-sm flex-wrap">
+            {breadcrumbs.map((crumb, index) => (
+              <div key={crumb.path} className="flex items-center">
+                {index > 0 && <ChevronRight className="h-4 w-4 mx-1 text-muted-foreground" />}
+                <button
+                  onClick={() => handleNavigate(crumb.path)}
+                  className={`hover:underline ${
+                    index === breadcrumbs.length - 1
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {index === 0 ? <Home className="h-4 w-4" /> : crumb.name}
+                </button>
+              </div>
+            ))}
+          </nav>
 
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="flex items-center gap-2 mt-4">
@@ -240,25 +260,6 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
       </CardHeader>
 
       <CardContent className="p-0">
-        {/* Global Pinned Documents - Always shown at top */}
-        {pinnedFiles.length > 0 && (
-          <PinnedSection count={pinnedFiles.length} title="Pinned Documents" variant="user">
-            <div className="divide-y">
-              {pinnedFiles.map((entry) => (
-                <FileRow
-                  key={entry.id || entry.path_display}
-                  entry={entry}
-                  onNavigate={handleNavigate}
-                  onPreview={setPreviewFile}
-                  summary={summaries[entry.path_display]}
-                  isPinned={true}
-                  onTogglePin={handleTogglePin}
-                />
-              ))}
-            </div>
-          </PinnedSection>
-        )}
-
         {/* Current Folder Contents */}
         {loading ? (
           <div className="divide-y">
@@ -316,6 +317,7 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
           </div>
         )}
       </CardContent>
+      </Card>
 
       {/* File Preview Modal */}
       <FilePreview
@@ -324,6 +326,6 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
         onClose={() => setPreviewFile(null)}
         onNavigate={setPreviewFile}
       />
-    </Card>
+    </>
   )
 }

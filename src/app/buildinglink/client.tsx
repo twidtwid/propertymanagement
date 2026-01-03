@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { BuildingLinkMessage } from "@/lib/actions"
 import { PinnedSection } from "@/components/ui/pinned-section"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { MessageRow } from "@/components/buildinglink/message-row"
 import { Timeline } from "@/components/buildinglink/timeline"
 import {
@@ -19,6 +21,7 @@ interface BuildingLinkClientProps {
   messages: BuildingLinkMessage[]
   smartPins: string[]
   userPins: string[]
+  uncollectedPackages: BuildingLinkMessage[]
   currentTab: string
   searchQuery: string
 }
@@ -33,6 +36,7 @@ export function BuildingLinkClient({
   messages,
   smartPins: initialSmartPins,
   userPins: initialUserPins,
+  uncollectedPackages,
   currentTab,
   searchQuery,
 }: BuildingLinkClientProps) {
@@ -129,6 +133,34 @@ export function BuildingLinkClient({
             ))}
           </div>
         </PinnedSection>
+      )}
+
+      {/* Uncollected Packages */}
+      {uncollectedPackages.length > 0 && (
+        <Card className="border-purple-200 bg-purple-50/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-purple-700 flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Uncollected Packages
+              </CardTitle>
+              <Badge variant="secondary" className="bg-purple-200 text-purple-800">
+                {uncollectedPackages.length}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-2">
+            {uncollectedPackages.map((message) => (
+              <MessageRow
+                key={message.id}
+                message={message}
+                showDate
+                compact
+                onTogglePin={handleTogglePin}
+              />
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       {/* Tabs and Search */}
