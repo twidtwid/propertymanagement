@@ -104,7 +104,7 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
       {/* Basic Information */}
       <Card>
         <CardHeader>

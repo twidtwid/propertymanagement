@@ -90,7 +90,7 @@ export function VehicleForm({ vehicle, properties = [], onSuccess }: VehicleForm
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
       {/* Vehicle Information */}
       <Card>
         <CardHeader>

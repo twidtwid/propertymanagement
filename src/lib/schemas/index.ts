@@ -1,5 +1,15 @@
 import { z } from "zod"
 
+// Helper for date fields that may receive Date objects from HTML date inputs
+const dateField = z.preprocess(
+  (val) => {
+    if (val instanceof Date) return val.toISOString().split('T')[0]
+    if (val === '') return null
+    return val
+  },
+  z.string().nullable().optional()
+)
+
 // ============================================
 // Property Schema
 // ============================================
@@ -13,7 +23,7 @@ export const propertySchema = z.object({
   postal_code: z.string().max(20).nullable().optional(),
   property_type: z.enum(["house", "condo", "land", "other"]).default("house"),
   square_feet: z.coerce.number().positive().nullable().optional(),
-  purchase_date: z.string().nullable().optional(),
+  purchase_date: dateField,
   purchase_price: z.coerce.number().positive().nullable().optional(),
   current_value: z.coerce.number().positive().nullable().optional(),
   span_number: z.string().max(50).nullable().optional(),
@@ -77,8 +87,8 @@ export const vehicleSchema = z.object({
   vin: z.string().max(20).nullable().optional(),
   license_plate: z.string().max(15).nullable().optional(),
   registration_state: z.string().max(10).default("RI"),
-  registration_expires: z.string().nullable().optional(),
-  inspection_expires: z.string().nullable().optional(),
+  registration_expires: dateField,
+  inspection_expires: dateField,
   garage_location: z.string().max(100).nullable().optional(),
   property_id: z.string().uuid().nullable().optional(), // Home property for visibility inheritance
   notes: z.string().nullable().optional(),
@@ -99,13 +109,13 @@ export const billSchema = z.object({
   description: z.string().max(200).nullable().optional(),
   amount: z.coerce.number().positive("Amount must be positive"),
   currency: z.string().default("USD"),
-  due_date: z.string().nullable().optional(),
+  due_date: dateField,
   recurrence: z.enum(["one_time", "monthly", "quarterly", "semi_annual", "annual"]).default("one_time"),
   status: z.enum(["pending", "sent", "confirmed", "overdue", "cancelled"]).default("pending"),
   payment_method: z.enum(["check", "auto_pay", "online", "wire", "cash", "other"]).nullable().optional(),
-  payment_date: z.string().nullable().optional(),
+  payment_date: dateField,
   payment_reference: z.string().max(100).nullable().optional(),
-  confirmation_date: z.string().nullable().optional(),
+  confirmation_date: dateField,
   confirmation_notes: z.string().nullable().optional(),
   days_to_confirm: z.coerce.number().min(1).max(90).default(14),
   document_url: z.string().url().nullable().optional(),
@@ -124,11 +134,11 @@ export const propertyTaxSchema = z.object({
   jurisdiction: z.string().max(100).nullable().optional(),
   installment: z.coerce.number().min(1).max(4).default(1),
   amount: z.coerce.number().positive("Amount must be positive"),
-  due_date: z.string().nullable().optional(),
+  due_date: dateField,
   payment_url: z.string().url().or(z.literal("")).nullable().optional(),
   status: z.enum(["pending", "sent", "confirmed", "overdue", "cancelled"]).default("pending"),
-  payment_date: z.string().nullable().optional(),
-  confirmation_date: z.string().nullable().optional(),
+  payment_date: dateField,
+  confirmation_date: dateField,
   notes: z.string().nullable().optional(),
 })
 
@@ -146,8 +156,8 @@ export const maintenanceTaskSchema = z.object({
   title: z.string().max(200).nullable().optional(),
   description: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
-  due_date: z.string().nullable().optional(),
-  completed_date: z.string().nullable().optional(),
+  due_date: dateField,
+  completed_date: dateField,
   recurrence: z.enum(["one_time", "monthly", "quarterly", "semi_annual", "annual"]).default("one_time"),
   status: z.enum(["pending", "in_progress", "completed", "cancelled"]).default("pending"),
   estimated_cost: z.coerce.number().positive().nullable().optional(),
@@ -174,8 +184,8 @@ export const insurancePolicySchema = z.object({
   premium_frequency: z.enum(["one_time", "monthly", "quarterly", "semi_annual", "annual"]).default("annual"),
   coverage_amount: z.coerce.number().positive().nullable().optional(),
   deductible: z.coerce.number().positive().nullable().optional(),
-  effective_date: z.string().nullable().optional(),
-  expiration_date: z.string().nullable().optional(),
+  effective_date: dateField,
+  expiration_date: dateField,
   auto_renew: z.boolean().default(true),
   payment_method: z.enum(["check", "auto_pay", "online", "wire", "cash", "other"]).nullable().optional(),
   document_url: z.string().url().or(z.literal("")).nullable().optional(),
@@ -202,7 +212,7 @@ export const sharedTaskItemSchema = z.object({
   list_id: z.string().uuid("List is required"),
   task: z.string().max(500).nullable().optional(),
   is_completed: z.boolean().default(false),
-  completed_date: z.string().nullable().optional(),
+  completed_date: dateField,
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
   notes: z.string().nullable().optional(),
   sort_order: z.coerce.number().default(0),

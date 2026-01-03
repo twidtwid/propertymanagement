@@ -87,12 +87,19 @@ export async function GET() {
 }
 ```
 
-## Gmail OAuth Security
+## OAuth Security
 
+### Gmail
 - Tokens encrypted with AES-256-GCM before storage
 - `TOKEN_ENCRYPTION_KEY` must be 32-byte hex string
 - Refresh tokens rotated on use
 - Tokens stored in `gmail_oauth_tokens` table
+
+### Dropbox
+- Tokens encrypted same as Gmail (AES-256-GCM)
+- Tokens stored in `dropbox_oauth_tokens` table
+- `namespace_id` stored for shared folder access
+- Scopes: files.metadata.read, files.content.read, files.content.write, sharing.read, account_info.read
 
 ## Sensitive Data Handling
 
@@ -103,6 +110,7 @@ export async function GET() {
 
 ### Encrypt at Rest
 - Gmail OAuth tokens
+- Dropbox OAuth tokens
 - Vendor login_info field (if used)
 
 ### Display Masking

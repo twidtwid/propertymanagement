@@ -1,23 +1,60 @@
 # Property Management System
 
-## WHAT: Project Context
+> Personal property management app for Anne managing 10 properties across 6 jurisdictions plus 7 vehicles.
 
-Personal property management app for Anne managing 10 properties across 6 jurisdictions plus 7 vehicles.
+## Quick Reference
 
-**Tech Stack:** Next.js 14 (App Router), TypeScript, Tailwind + shadcn/ui, PostgreSQL (Docker), Gmail OAuth
+| Item | Value |
+|------|-------|
+| **Tech Stack** | Next.js 14 (App Router), TypeScript, Tailwind + shadcn/ui, PostgreSQL |
+| **Production** | spmsystem.com (143.110.229.185) |
+| **Version** | Check `package.json` for current version |
+| **Deploy** | Use `/deploy` command (the ONE way to deploy) |
 
-**Users:**
-- Owners (full access): Anne, Todd, Michael, Amelia
-- Bookkeeper (bills/payments only): Barbara Brady @ CBIZ
+### Users
+| User | Role | Access |
+|------|------|--------|
+| Anne, Todd, Michael, Amelia | Owner | Full access |
+| Barbara Brady (CBIZ) | Bookkeeper | Bills/payments only |
 
-**Assets:**
-- 10 properties: 4 Vermont, 2 Brooklyn condos, RI house, Martinique, Paris, San Jose
-- 7 vehicles: 5 RI-registered (Anne), 2 CA-registered (Todd)
-- 70+ vendors organized by specialty and location
+### Assets
+- **10 properties:** 4 Vermont, 2 Brooklyn condos, RI house, Martinique, Paris, San Jose
+- **7 vehicles:** 5 RI-registered (Anne), 2 CA-registered (Todd)
+- **70+ vendors** organized by specialty and location
 
 ---
 
-## PRODUCTION ENVIRONMENT
+## File Locations
+
+### Core Application
+| Purpose | Location |
+|---------|----------|
+| Database schema | `scripts/init.sql` |
+| TypeScript types | `src/types/database.ts` |
+| Zod schemas | `src/lib/schemas/index.ts` |
+| Server actions (reads) | `src/lib/actions.ts` |
+| Server actions (writes) | `src/lib/mutations.ts` |
+| Utilities | `src/lib/utils.ts` |
+
+### Integrations
+| Integration | Files |
+|-------------|-------|
+| Gmail | `src/lib/gmail/` (auth, client, sync, matcher) |
+| Dropbox | `src/lib/dropbox/` (auth, files, sync, types) |
+| Tax lookup | `src/lib/taxes/` (sync, providers/) |
+| Banking import | `src/lib/banking/` (csv-parser, matcher) |
+
+### Components
+| Category | Location |
+|----------|----------|
+| UI primitives | `src/components/ui/` (shadcn) |
+| Layout | `src/components/layout/` |
+| Forms | `src/components/forms/` |
+| Feature-specific | `src/components/{feature}/` |
+
+---
+
+## Production Environment
 
 ### Server Details
 | Item | Value |
@@ -25,218 +62,260 @@ Personal property management app for Anne managing 10 properties across 6 jurisd
 | Provider | DigitalOcean Droplet |
 | IP Address | 143.110.229.185 |
 | Domain | spmsystem.com |
-| SSH User | root |
+| SSH | `ssh root@143.110.229.185` |
 | App Directory | /root/app |
-
-### Database
-| Item | Value |
-|------|-------|
-| Container | app-db-1 |
-| Database Name | propertymanagement |
-| User | propman |
-| Port | 5432 (internal) |
 
 ### Docker Containers
 | Container | Purpose |
 |-----------|---------|
 | app-app-1 | Next.js web application |
-| app-db-1 | PostgreSQL database |
+| app-db-1 | PostgreSQL database (user: propman) |
 | app-daily-summary-1 | Daily summary email scheduler |
 | app-email-sync-1 | Gmail sync service |
 
-### Production Commands
-```bash
-# SSH to production
-ssh root@143.110.229.185
+### Production Cron Jobs
+| Schedule | Task | Log |
+|----------|------|-----|
+| Every 15 min | Dropbox sync | /var/log/dropbox-sync.log |
+| 3 AM daily | Database backup | /var/log/backup.log |
+| 6 AM daily | Disk check | /var/log/disk-check.log |
+| Sunday 4 AM | Docker prune | /var/log/docker-prune.log |
 
-# View app logs
+### Quick Commands
+```bash
+# View logs
 ssh root@143.110.229.185 "docker logs app-app-1 --tail 100"
 
 # Database shell
 ssh root@143.110.229.185 "docker exec -it app-db-1 psql -U propman -d propertymanagement"
 
-# Run migration
-ssh root@143.110.229.185 "docker exec -i app-db-1 psql -U propman -d propertymanagement" < scripts/migrations/XXX.sql
+# Health check
+curl -s https://spmsystem.com/api/health
 
 # Restart app
 ssh root@143.110.229.185 "cd /root/app && docker compose -f docker-compose.prod.yml --env-file .env.production restart app"
-
-# Full rebuild and deploy
-ssh root@143.110.229.185 "cd /root/app && git pull && docker compose -f docker-compose.prod.yml --env-file .env.production build app && docker compose -f docker-compose.prod.yml --env-file .env.production up -d app"
-
-# Health check
-curl -s https://spmsystem.com/api/health
 ```
 
-### Backup to Local
-```bash
-# Full database backup to local backups/ directory
-ssh root@143.110.229.185 "docker exec app-db-1 pg_dump -U propman -d propertymanagement --no-owner --no-acl" > backups/backup_full_$(date +%Y%m%d_%H%M%S).sql
-```
-
-### Migrations Applied to Production
-| Migration | Description | Date |
-|-----------|-------------|------|
-| 002 | Tax lookup system | Dec 2024 |
-| 003 | Seed tax configs | Dec 2024 |
-| 004 | Seed property taxes | Jan 2025 |
-| 005 | Audit log | Jan 2025 |
-| 006 | Tax lookup URL field | Jan 2025 |
-| 007 | Property visibility | Jan 2025 |
-| 008 | Dropbox schema (agreed_value, HOA fields, coverage_details) | Jan 2025 |
-| 009 | Import Dropbox data (vehicles, insurance, vendors) | Jan 2025 |
-| 010 | Insurance Portfolio + umbrella/auto/fine art policies | Jan 2025 |
-| 011 | Audiovisual vendor specialty | Jan 2025 |
-| 012 | Vendor contacts table (multiple contacts per vendor) | Jan 2025 |
-
 ---
 
-## WHY: Business Requirements
+## Claude Skills & Commands
 
-**CRITICAL - Never miss:**
-1. Property tax payments (quarterly/semi-annual across 6 jurisdictions)
-2. Insurance policy renewals (Berkley One, GEICO)
-3. Check confirmation - Bank of America has reliability issues; flag unconfirmed checks >14 days
-
-**Core Workflows:**
-- Quick vendor lookup: "Who handles HVAC in Rhode Island?" → Select property + specialty
-- Payment confirmation: pending → sent → confirmed (track days waiting)
-- BuildingLink message triage: Filter noise (packages) from important (elevator outages, maintenance)
-- Shared task lists for contractors (Justin @ Parker Construction manages RI + VT)
-
-**Mobile-first:** All interfaces optimized for iPhone. Large touch targets, simple navigation.
-
----
-
-## HOW: Development Patterns
-
-### Local Development Commands
-```bash
-docker compose up -d          # Start app + database
-docker compose logs -f app    # View app logs
-npm run dev                   # Local dev (if not using Docker)
-```
-
-### Key Files
-| Purpose | Location |
-|---------|----------|
-| Database schema | `scripts/init.sql` |
-| TypeScript types | `src/types/database.ts` |
-| Server actions (queries) | `src/lib/actions.ts` |
-| Mutations | `src/lib/mutations.ts` |
-| Gmail sync | `src/lib/gmail/` |
-| Visibility filtering | `src/lib/visibility.ts` |
-| Insurance forms | `src/components/insurance/` |
-
-### Code Conventions
-- Server Components by default, "use client" only when needed
-- Server Actions for data mutations (no API routes)
-- Use `date-fns` for date formatting
-- Icons from `lucide-react`
-- Forms with `react-hook-form` + `zod` validation
-
-### Database Patterns
-- PostgreSQL enums for constrained values (see @.claude/rules/database.md)
-- UUID primary keys via `gen_random_uuid()`
-- `updated_at` triggers on all mutable tables
-- Cast integers in date arithmetic: `CURRENT_DATE + ($1::INTEGER)`
-- CASCADE DELETE on vendor_communications FK (deleting vendor deletes all linked emails)
-
-### Git Workflow
-- Branch format: `feature/description` or `fix/description`
-- Run build before committing significant changes
-- Commit messages: imperative mood, explain why not what
-- Use `/deploy` skill for production deployments (runs tests, bumps version, commits, deploys)
-
----
-
-## FEATURE: Property Visibility
-
-Per-property access control for sensitive properties (e.g., 125 Dana Avenue restricted to Anne + Todd).
-
-### How It Works
-- `property_visibility` table: if rows exist for a property, ONLY those users can see it
-- If no rows exist, all owners can see the property (default)
-- Vehicles can be linked to properties via `vehicles.property_id` and inherit visibility
-
-### Current Configuration
-| Property | Visible To |
-|----------|------------|
-| 125 Dana Avenue | Anne, Todd only |
-| All others | All owners |
-
-### Key Files
-| Purpose | Location |
-|---------|----------|
-| Visibility helper | `src/lib/visibility.ts` |
-| Migration | `scripts/migrations/007_property_visibility.sql` |
-
----
-
-## FEATURE: Insurance Management
-
-Full CRUD for insurance policies with detail pages and cross-linking.
-
-### Insurance Pages
-| Route | Purpose |
+### Skills (read-only reference)
+| Skill | Purpose |
 |-------|---------|
-| `/insurance` | List all policies (tabbed: Property, Auto, Other, Claims) |
-| `/insurance/[id]` | Policy detail page |
-| `/insurance/[id]/edit` | Edit policy |
-| `/insurance/new` | Add new policy |
+| `/test` | Run test suite |
+| `/build` | Run Next.js build (check for TypeScript errors) |
+| `/health` | Check production health |
+| `/schema` | Database schema reference |
 
-### Cross-Linking
-- Property detail pages show "Insurance" tab with linked policies
-- Vehicle detail pages show "Insurance" section with linked policies
-- Click policy row → navigate to policy detail
+### Commands (actions)
+| Command | Purpose |
+|---------|---------|
+| `/deploy` | **THE deployment command** - tests, version bump, commit, deploy |
+| `/backup` | Full production database backup to local |
+| `/prod-logs` | View production application logs |
+| `/prod-db` | Open production database shell |
+| `/migrate` | Run a migration on production |
 
-### Coverage Details
-Insurance policies have a `coverage_details` JSONB field for line-item coverage:
-```json
-{
-  "dwelling": 500000,
-  "contents": 250000,
-  "liability": 300000,
-  "deductible": 5000,
-  "collision": 50000,
-  "comprehensive": 50000,
-  "bodily_injury": 100000,
-  "property_damage": 100000
-}
+---
+
+## NPM Scripts
+
+```bash
+# Development
+npm run dev                    # Start local dev server
+npm run build                  # Production build
+npm run lint                   # Lint check
+
+# Testing
+npm run test                   # Watch mode
+npm run test:run               # Single run
+
+# Tax sync (Python/Playwright scrapers)
+npm run tax:sync               # Dry run all
+npm run tax:sync:live          # Post to local app
+npm run tax:sync:scc           # Santa Clara County
+npm run tax:sync:providence    # Providence RI
+npm run tax:sync:vermont       # Vermont
+
+# Dropbox sync
+npm run dropbox:sync           # Incremental (new files only)
+npm run dropbox:sync:force     # Force regenerate all AI summaries
 ```
 
-### Key Files
-| Purpose | Location |
-|---------|----------|
-| List page | `src/app/insurance/page.tsx` |
-| Detail page | `src/app/insurance/[id]/page.tsx` |
-| Edit page | `src/app/insurance/[id]/edit/page.tsx` |
-| Form component | `src/components/insurance/policy-form.tsx` |
-| Actions | `src/lib/actions.ts` (getInsurancePolicy, getInsurancePoliciesForProperty, etc.) |
-| Mutations | `src/lib/mutations.ts` (updateInsurancePolicy) |
+---
+
+## Database
+
+### Key Enums
+```
+user_role: owner | bookkeeper
+payment_status: pending | sent | confirmed | overdue | cancelled
+payment_method: check | auto_pay | online | wire | cash | other
+bill_type: property_tax | insurance | utility | maintenance | mortgage | hoa | other
+insurance_type: homeowners | auto | umbrella | flood | earthquake | liability | health | travel | other
+vendor_specialty: hvac | plumbing | electrical | roofing | general_contractor | landscaping | cleaning | fuel_oil | fireplace | insurance | auto | elevator | flooring | parking | masonry | alarm_security | audiovisual | ... (31 total)
+```
+
+### Key Tables
+| Table | Purpose |
+|-------|---------|
+| properties | Real estate assets |
+| vehicles | Cars/trucks |
+| vendors | Service providers |
+| vendor_contacts | Multiple contacts per vendor (one is_primary) |
+| bills | Payment entries with status workflow |
+| property_taxes | Tax payments by jurisdiction/installment |
+| insurance_policies | Policy details with coverage_details JSONB |
+| dropbox_folder_mappings | Entity → Dropbox folder paths |
+| dropbox_file_summaries | AI-generated document summaries |
+
+### Query Patterns
+```sql
+-- CRITICAL: Cast integers in date arithmetic
+WHERE due_date <= CURRENT_DATE + ($1::INTEGER)  -- CORRECT
+WHERE due_date <= CURRENT_DATE + $1              -- WRONG (ambiguous)
+
+-- UUID generation
+INSERT INTO ... (id, ...) VALUES (gen_random_uuid(), ...)
+
+-- Optional relations need LEFT JOIN
+SELECT b.*, p.name FROM bills b LEFT JOIN properties p ON b.property_id = p.id
+```
+
+### Migrations Applied
+| # | Description |
+|---|-------------|
+| 002-006 | Tax lookup system, configs, audit log |
+| 007 | Property visibility (restricted properties) |
+| 008-011 | Dropbox schema, data import, insurance portfolio |
+| 012 | Vendor contacts (multiple per vendor) |
+| 013 | BuildingLink flags, alert enhancements |
+| 014-015 | Berkley auto insurance, vendor data merge |
+| 016 | Data reconciliation |
+
+---
+
+## Integrations
+
+### Dropbox Document Sync
+
+**Architecture:**
+- OAuth tokens stored encrypted in `dropbox_oauth_tokens`
+- Shared folder accessed via `namespace_id` (13490620643 for "Property Management")
+- Folders mapped to entities in `dropbox_folder_mappings`
+- AI summaries generated with Claude Haiku, stored in `dropbox_file_summaries`
+- Sync runs every 15 minutes via production cron
+
+**Key Functions:**
+```typescript
+// src/lib/dropbox/files.ts
+getInsuranceFolderPaths(propertyId, vehicleId, carrierName)
+  // Returns { entityPath, portfolioPath } for insurance document display
+  // entityPath = property/vehicle specific Insurance folder
+  // portfolioPath = portfolio-wide (Berkley One) folder
+
+// src/lib/dropbox/sync.ts
+runDropboxSync({ verbose, forceRegenerate })
+  // Scans all mapped folders, generates AI summaries for new files
+```
+
+**Folder Mappings:**
+| Entity Type | Example Path |
+|-------------|--------------|
+| property | `/Properties/Rhode Island House` |
+| vehicle | `/Vehicles/2019 Audi Q7` |
+| insurance_portfolio | `/Insurance Portfolio` |
+
+### Gmail Integration
+
+- OAuth tokens encrypted in `gmail_oauth_tokens`
+- Emails synced to `vendor_communications`
+- Matched to vendors via email address/domain
+- Daily summary emails sent via `app-daily-summary-1` container
+
+### Tax Lookup System
+
+**Providers:**
+| Jurisdiction | Method | Script |
+|--------------|--------|--------|
+| NYC | Open Data API | `src/lib/taxes/providers/nyc-open-data.ts` |
+| Santa Clara CA | Playwright | `scripts/lookup_scc_tax.py` |
+| Providence RI | Playwright | `scripts/lookup_providence_tax.py` |
+| Vermont | Playwright | `scripts/lookup_vermont_tax.py` |
+
+**Note:** Brooklyn condos have 421-a tax abatement (~$110-120/year actual vs API estimates). Manually update from NYC Finance bills.
+
+---
+
+## Code Conventions
+
+### React/Next.js
+- Server Components by default, "use client" only when needed
+- Server Actions for mutations (no API routes for data)
+- Forms: `react-hook-form` + `zod` validation
+- Icons: `lucide-react`
+- Dates: `date-fns` (formatDate, formatDateTime from utils)
+
+### TypeScript
+- All database types in `src/types/database.ts`
+- Zod schemas mirror database enums in `src/lib/schemas/index.ts`
+- When adding enum values: update BOTH PostgreSQL AND Zod schema
+
+### Components
+- EntityDocuments: `title` prop overrides default "Documents" label
+- Forms support create/edit via optional entity prop
+- Use `useTransition` for optimistic updates with server actions
+
+---
+
+## Business Rules
+
+### Critical - Never Miss
+1. **Property tax payments** - Quarterly/semi-annual across 6 jurisdictions
+2. **Insurance renewals** - Berkley One (Anne), GEICO (Todd)
+3. **Check confirmation** - Bank of America unreliable; flag unconfirmed >14 days
+
+### Payment Status Flow
+```
+pending → sent → confirmed
+              ↘ overdue (if past due)
+              ↘ cancelled
+```
+
+### Property Visibility
+- `property_visibility` table whitelists users per property
+- If no rows exist for a property, all owners can see it
+- Currently: 125 Dana Avenue restricted to Anne + Todd only
+
+### Insurance Carriers
+| Carrier | Covers |
+|---------|--------|
+| Berkley One | Anne's properties + vehicles (portfolio policy) |
+| GEICO | Todd's CA property + vehicles |
 
 ---
 
 ## Authorization Matrix
 
 | Resource | Owner | Bookkeeper |
-|----------|-------|-----------|
+|----------|-------|------------|
 | Properties | Full CRUD | No access |
 | Vehicles | Full CRUD | No access |
 | Vendors | Full CRUD | View only |
 | Bills/Payments | Full CRUD | Full CRUD |
 | Insurance | Full CRUD | View only |
 | Reports | Full access | No access |
-| Settings | Full access | No access |
+| Settings | Full access | Profile only |
 
-Bookkeeper access enforced via middleware restricting routes to: `/`, `/payments/**`, `/settings` (profile only)
+Enforced via middleware restricting bookkeeper to: `/`, `/payments/**`, `/settings`
 
 ---
 
 ## Property Tax Identifiers
 
 | Property | Jurisdiction | ID Type | Value |
-|----------|-------------|---------|-------|
+|----------|--------------|---------|-------|
 | Vermont Main House | Dummerston, VT | SPAN | 186-059-10695 |
 | Booth House | Dummerston, VT | SPAN | 186-059-10098 |
 | Guest House | Dummerston, VT | SPAN | 186-059-10693 |
@@ -248,249 +327,34 @@ Bookkeeper access enforced via middleware restricting routes to: `/`, `/payments
 
 ---
 
-## Automated Property Tax Lookup System
-
-### Overview
-Automated weekly sync of property tax data from government sources. Data feeds into the calendar and payments page.
-
-### Architecture
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    TAX LOOKUP SYSTEM                             │
-├─────────────────────────────────────────────────────────────────┤
-│  Web App (Serverless)              External Scripts (Playwright) │
-│  ├── NYC Open Data API  ────────►  ├── Santa Clara County       │
-│  └── /api/cron/sync-taxes          ├── Providence (City Hall)   │
-│                                    └── Vermont (NEMRC)          │
-│                    │                          │                  │
-│                    └──────────┬───────────────┘                  │
-│                               ▼                                  │
-│                    /api/taxes/sync/callback                      │
-│                               │                                  │
-│                               ▼                                  │
-│           ┌─────────────────────────────────────┐                │
-│           │  tax_lookup_results (audit)         │                │
-│           │  property_taxes (calendar/payments) │                │
-│           └─────────────────────────────────────┘                │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Providers & Scripts
-
-| Provider | Method | Script | Automated? |
-|----------|--------|--------|------------|
-| NYC (Brooklyn) | Open Data API | `src/lib/taxes/providers/nyc-open-data.ts` | ⚠️ See note |
-| Santa Clara, CA | Playwright | `scripts/lookup_scc_tax.py` | ✅ Weekly cron |
-| Providence, RI | Playwright | `scripts/lookup_providence_tax.py` | ✅ Weekly cron |
-| Vermont (Dummerston) | Playwright | `scripts/lookup_vermont_tax.py` | ✅ Weekly cron |
-| Vermont (Brattleboro) | AxisGIS | Manual | ❌ Manual |
-
-**⚠️ NYC 421-a Tax Abatement:** The Brooklyn condos (PH2E, PH2F) have 421-a tax abatements through 2036. The Open Data API returns assessed values, NOT actual tax bills. The abatement reduces annual taxes to ~$110-120/year (not the thousands the API would estimate). These values are stored in `init.sql` and should be updated manually from actual NYC Finance bills. The API sync is disabled for these properties - taxes are annual (1 installment due July 1st).
-
-### Running Tax Sync
-
-```bash
-# Run all scrapers (dry run - shows what would be synced)
-npm run tax:sync
-
-# Run all scrapers and post to local app
-npm run tax:sync:live
-
-# Individual providers
-npm run tax:sync:scc         # Santa Clara County
-npm run tax:sync:providence  # Providence RI
-npm run tax:sync:vermont     # Vermont (Dummerston)
-
-# NYC syncs via web app API
-curl -X POST http://localhost:3000/api/cron/sync-taxes
-```
-
----
-
-## Dropbox Document Sync
-
-Automated sync of documents from Dropbox with AI-generated summaries.
-
-### What It Does
-- Scans mapped Dropbox folders for new/changed files
-- Generates one-line AI summaries using Claude Haiku
-- Removes summaries for deleted files
-- Updates document counts for each property/vehicle
-
-### Running Sync
-
-```bash
-# Incremental sync (new files only)
-npm run dropbox:sync
-
-# Force regenerate all summaries
-npm run dropbox:sync:force
-
-# Via API (requires CRON_SECRET)
-curl -X POST "http://localhost:3000/api/cron/dropbox-sync" \
-  -H "Authorization: Bearer $CRON_SECRET"
-```
-
-### Cron Setup (Production)
-
-Add to crontab on production server to run every 15 minutes:
-
-```bash
-# Edit crontab
-ssh root@143.110.229.185 "crontab -e"
-
-# Add this line (runs every 15 minutes)
-*/15 * * * * curl -s -X GET "http://localhost:3000/api/cron/dropbox-sync" -H "Authorization: Bearer YOUR_CRON_SECRET" >> /var/log/dropbox-sync.log 2>&1
-```
-
-### Key Files
-
-| Purpose | Location |
-|---------|----------|
-| Sync library | `src/lib/dropbox/sync.ts` |
-| Cron endpoint | `src/app/api/cron/dropbox-sync/route.ts` |
-| Manual endpoint | `src/app/api/dropbox/sync/route.ts` |
-| CLI script | `scripts/dropbox_sync.ts` |
-| Folder mappings | `dropbox_folder_mappings` table |
-| File summaries | `dropbox_file_summaries` table |
-
-### Folder Mappings
-
-Properties and vehicles are mapped to Dropbox folders:
-
-| Entity | Dropbox Path |
-|--------|--------------|
-| Rhode Island House | `/88 Williams St - Providence RI` |
-| Brooklyn PH2E | `/34 N 7th St - Brooklyn` |
-| Vermont (all 4) | `/Vermont` |
-| Paris | `/Paris - 8 Rue Guynemer` |
-| Insurance Portfolio | `/non-House-specific Insurance` |
-| Vehicles | `/Vehicles/{name}` |
-
----
-
-## Vendor Specialties
-
-30+ categories including: hvac, plumbing, electrical, roofing, general_contractor, landscaping, cleaning, fuel_oil, fireplace, insurance, auto, elevator, flooring, parking, masonry, alarm_security, audiovisual, and more.
-
-See `src/types/database.ts` for `VendorSpecialty` type and `VENDOR_SPECIALTY_LABELS`.
-
----
-
-## FEATURE: Vendor Contacts
-
-Vendors can have multiple contacts with one designated as primary.
-
-### How It Works
-- `vendor_contacts` table stores contacts linked to vendors via `vendor_id`
-- Each contact has: name, title, email, phone, notes, is_primary flag
-- Only one contact per vendor can be `is_primary` (enforced by partial unique index)
-- Primary contact shown in vendor header and used for quick search displays
-- Contacts tab is the default view on vendor detail page
-
-### Key Files
-| Purpose | Location |
-|---------|----------|
-| Contact list component | `src/components/vendors/vendor-contacts-list.tsx` |
-| Mutations | `src/lib/mutations.ts` (createVendorContact, updateVendorContact, deleteVendorContact, setPrimaryVendorContact) |
-| Types | `src/types/database.ts` (VendorContact interface) |
-| Migration | `scripts/migrations/012_vendor_contacts.sql` |
-
----
-
-## Important Constraints
-
-- **Check confirmation:** Bills paid by check must track `payment_date` and `confirmation_date`. Alert if unconfirmed >14 days.
-- **BuildingLink:** Brooklyn condos use BuildingLink for building management. Most messages are package notifications (noise). Surface elevator outages, maintenance, HOA notices prominently.
-- **Insurance carriers:** Berkley One (Anne's properties/vehicles), GEICO (Todd's CA property/vehicles)
-- **Caretaker:** Justin @ Parker Construction oversees RI and VT properties
-- **CASCADE DELETE:** `vendor_communications` has ON DELETE CASCADE - deleting a vendor deletes all linked emails
-
----
-
-## Logging & Audit System
-
-### Architecture
-
-Two-tier logging system:
-1. **User Audit Log** - PostgreSQL table (`user_audit_log`) for compliance and user action tracking
-2. **System Log** - Pino structured JSON logging for debugging and AI troubleshooting
-
-### Key Files
-
-| Purpose | Location |
-|---------|----------|
-| Core Pino logger | `src/lib/logger/index.ts` |
-| Request context | `src/lib/logger/context.ts` |
-| Context-aware helper | `src/lib/logger/contextual.ts` |
-| Audit service | `src/lib/logger/audit.ts` |
-| API route wrapper | `src/lib/logger/api-wrapper.ts` |
-| Server action wrapper | `src/lib/logger/action-wrapper.ts` |
-| Database migration | `scripts/migrations/005_audit_log.sql` |
-
-### Audit Log Queries
-
-```sql
--- User activity this week
-SELECT created_at, action, entity_type, entity_name, user_email
-FROM user_audit_log
-WHERE user_id = 'user-uuid'
-  AND created_at > NOW() - INTERVAL '7 days'
-ORDER BY created_at DESC;
-
--- Bill history
-SELECT created_at, action, changes, user_email
-FROM user_audit_log
-WHERE entity_type = 'bill' AND entity_id = 'bill-uuid'
-ORDER BY created_at;
-```
-
----
-
-## Claude Skills
-
-Available skills for common operations (invoke with `/skillname`):
-
-| Skill | Purpose |
-|-------|---------|
-| `/deploy` | **THE deployment command** - runs tests, bumps version, commits, deploys to production |
-| `/backup` | Full production database backup to local |
-| `/prod-logs` | View production application logs |
-| `/prod-db` | Open production database shell |
-| `/migrate` | Run a specific migration on production |
-
----
-
 ## Detailed Rules
 
-See modular rules for specific domains:
-- @.claude/rules/database.md - Schema details, enum values, relationships
-- @.claude/rules/payments.md - Payment workflow, tax schedules, confirmation logic
-- @.claude/rules/security.md - Authorization details, RLS policies
+See modular rules for deep dives:
+- `.claude/rules/database.md` - Schema, enums, relationships, query patterns
+- `.claude/rules/payments.md` - Payment workflows, tax schedules, confirmation logic
+- `.claude/rules/security.md` - Authorization, RLS policies, data handling
 
 ---
 
-## Development Patterns & Lessons Learned
+## Development Patterns
+
+### Adding New Features
+1. Add database columns/tables via migration in `scripts/migrations/`
+2. Update TypeScript types in `src/types/database.ts`
+3. Update Zod schemas in `src/lib/schemas/index.ts`
+4. Add server actions in `actions.ts` (reads) or `mutations.ts` (writes)
+5. Create/update components
+6. Run `/build` to verify TypeScript
+7. Run `/test` to verify tests pass
+8. Deploy with `/deploy`
+
+### Common Gotchas
+- **Zod validation errors** → Check enum values match database
+- **Date arithmetic errors** → Cast to INTEGER: `$1::INTEGER`
+- **Empty Dropbox folders** → Check `namespace_id` is set in `dropbox_oauth_tokens`
+- **Insurance docs not showing** → Check `getInsuranceFolderPaths` returns correct paths
 
 ### UI Components
-- When adding new Radix UI components (AlertDialog, etc.), check `package.json` - most are already installed
-- AlertDialog uses `buttonVariants` from `@/components/ui/button` for consistent styling
-- Use `formatDateTime` from `@/lib/utils.ts` for date+time display (e.g., "Jan 1, 3:45 PM")
-
-### Form Dialogs
-- Support both create and edit modes by passing optional entity prop
-- Use `isEditing = !!entity` pattern to switch between create/update mutations
-- Reset form state in useEffect when dialog opens/closes
-
-### Zod Schema Updates
-- When adding new enum values to database, also update Zod schemas in `src/lib/schemas/index.ts`
-- Validation errors from Zod indicate missing enum values in the schema array
-
-### Client Components
-- Interactive lists (checkboxes, dropdown menus) require "use client" directive
-- Use `useTransition` for optimistic updates with server actions
-- Keep server data fetching in parent server component, pass to client component as props
-
-### Notification/Alert Linking
-- Alerts have `related_table` and `related_id` for navigation
-- Map table names to routes: properties→`/properties/[id]`, bills→`/payments`, etc.
+- shadcn/ui components in `src/components/ui/`
+- Most Radix primitives already installed (check package.json)
+- Use `buttonVariants` for consistent button styling in AlertDialog

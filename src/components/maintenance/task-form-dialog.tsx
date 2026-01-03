@@ -142,7 +142,7 @@ export function TaskFormDialog({
           <DialogTitle>{isEditing ? "Edit Task" : "Add Maintenance Task"}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <FormField
             label="Title"
             {...register("title")}

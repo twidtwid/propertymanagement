@@ -125,7 +125,7 @@ export function BillFormDialog({
           <DialogTitle>Add Bill</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <FormSelect
             label="Bill Type"
             name="bill_type"
