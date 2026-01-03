@@ -456,6 +456,30 @@ export async function togglePin(params: {
 }
 
 /**
+ * Undo dismissal of a smart pin (restore it to active)
+ * Returns true if successfully restored
+ */
+export async function undoDismissPin(params: {
+  entityType: PinnedEntityType
+  entityId: string
+}): Promise<boolean> {
+  const restored = await queryOne<{ id: string }>(
+    `UPDATE pinned_items
+     SET dismissed_at = NULL,
+         dismissed_by = NULL,
+         dismissed_by_name = NULL
+     WHERE entity_type = $1
+       AND entity_id = $2
+       AND is_system_pin = true
+       AND dismissed_at IS NOT NULL
+     RETURNING id`,
+    [params.entityType, params.entityId]
+  )
+
+  return restored !== null
+}
+
+/**
  * Get all pinned items with full entity details (for daily summary)
  */
 export async function getAllPinnedItems(): Promise<{

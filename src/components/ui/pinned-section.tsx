@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Star, Zap } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Star, Zap, Info } from "lucide-react"
 
 interface PinnedSectionProps {
   count: number
@@ -42,12 +43,26 @@ export function PinnedSection({
   const styles = VARIANT_STYLES[variant]
   const Icon = variant === 'smart' ? Zap : Star
 
+  const tooltipContent = variant === 'smart'
+    ? "Smart Pins are automatically generated based on urgency and attention. Click the star to dismiss items you've already addressed."
+    : "User Pins are manually pinned items that all users can see. Click the star to unpin."
+
   return (
     <Card className={`${styles.card} ${className || ''}`}>
       <CardHeader className="pb-3">
         <CardTitle className={`text-sm font-medium ${styles.title} flex items-center gap-2`}>
           <Icon className={`h-4 w-4 ${styles.icon}`} />
           {title}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 opacity-60 hover:opacity-100 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>{tooltipContent}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Badge variant="secondary" className={`ml-auto ${styles.badge}`}>
             {count}
           </Badge>

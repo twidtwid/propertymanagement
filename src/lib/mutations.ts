@@ -5,6 +5,7 @@ import { query, queryOne } from "./db"
 import { getLogger } from "./logger/contextual"
 import { audit } from "./logger/audit"
 import { canAccessProperty, canAccessVehicle } from "./visibility"
+import { syncSmartPinsBills, syncSmartPinsTickets } from "./actions"
 import type {
   Property,
   Vehicle,
@@ -756,6 +757,13 @@ export async function updateBill(id: string, formData: unknown): Promise<ActionR
       changes: Object.keys(billChanges).length > 0 ? billChanges : undefined,
     })
 
+    // Sync smart pins if status or due_date changed
+    if (billChanges.status || billChanges.due_date) {
+      await syncSmartPinsBills().catch((err) =>
+        log.warn("Failed to sync smart pins after bill update", { error: err })
+      )
+    }
+
     revalidatePath("/payments")
     log.info("Bill updated", { billId: bill.id, amount: bill.amount })
     return { success: true, data: bill }
@@ -841,6 +849,11 @@ export async function confirmBillPayment(id: string, notes?: string): Promise<Ac
       },
       metadata: notes ? { notes } : undefined,
     })
+
+    // Sync smart pins to remove this bill from "needs attention" if applicable
+    await syncSmartPinsBills().catch((err) =>
+      log.warn("Failed to sync smart pins after bill confirmation", { error: err })
+    )
 
     revalidatePath("/payments")
     log.info("Bill payment confirmed", { billId: bill.id, description: bill.description })
@@ -1476,6 +1489,13 @@ export async function updateTicket(id: string, formData: unknown): Promise<Actio
       entityName: ticket.title,
     })
 
+    // Sync smart pins if priority changed
+    if (oldTicket.priority !== ticket.priority) {
+      await syncSmartPinsTickets().catch((err) =>
+        log.warn("Failed to sync smart pins after ticket update", { error: err })
+      )
+    }
+
     revalidatePath("/tickets")
     revalidatePath("/maintenance")
     log.info("Ticket updated", { ticketId: ticket.id, title: ticket.title })
@@ -1568,6 +1588,11 @@ export async function closeTicket(id: string, formData: unknown): Promise<Action
       changes: { status: { old: oldTicket.status, new: 'completed' } },
       metadata: { resolution: d.resolution },
     })
+
+    // Sync smart pins to remove completed ticket
+    await syncSmartPinsTickets().catch((err) =>
+      log.warn("Failed to sync smart pins after ticket closure", { error: err })
+    )
 
     revalidatePath("/tickets")
     revalidatePath("/maintenance")

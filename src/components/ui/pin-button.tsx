@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
-import { Star, Loader2 } from "lucide-react"
+import { Star, Loader2, Undo2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 import type { PinnedEntityType } from "@/types/database"
 
 interface PinButtonProps {
@@ -37,10 +38,35 @@ export function PinButton({
 }: PinButtonProps) {
   const [isPinned, setIsPinned] = useState(initialPinned)
   const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
+
+  const handleUndo = async () => {
+    try {
+      const response = await fetch("/api/pinned/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType, entityId }),
+      })
+
+      if (response.ok) {
+        setIsPinned(true)
+        onToggle?.(true)
+        toast({
+          title: "Smart pin restored",
+          description: "The item is back in your smart pins.",
+        })
+      }
+    } catch (error) {
+      console.error("Undo error:", error)
+    }
+  }
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+
+    const wasPinned = isPinned
+    const wasSmartPin = pinType === 'smart'
 
     startTransition(async () => {
       try {
@@ -54,6 +80,26 @@ export function PinButton({
           const data = await response.json()
           setIsPinned(data.isPinned)
           onToggle?.(data.isPinned)
+
+          // Show undo toast for dismissed smart pins
+          if (wasPinned && wasSmartPin && !data.isPinned) {
+            toast({
+              title: "Smart pin dismissed",
+              description: "This item has been removed from your smart pins.",
+              action: (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUndo}
+                  className="gap-2"
+                >
+                  <Undo2 className="h-4 w-4" />
+                  Undo
+                </Button>
+              ),
+              duration: 10000, // 10 seconds to undo
+            })
+          }
         } else {
           console.error("Failed to toggle pin:", await response.text())
         }
