@@ -83,6 +83,14 @@ parking, masonry, audiovisual, other
 - Matched to vendors via email/domain
 - CASCADE DELETE: deleting vendor deletes all linked emails
 
+### Pinned Items
+- Polymorphic table supporting 8 entity types (vendor, bill, ticket, etc.)
+- Two types: smart pins (`is_system_pin = true`) and user pins (`is_system_pin = false`)
+- Smart pins can be dismissed (`dismissed_at`), user pins are deleted
+- Metadata cached in JSONB to avoid joins (title, amount, due_date, etc.)
+- UNIQUE constraint on (entity_type, entity_id) - one pin per item
+- All pins are shared across all users (family-wide)
+
 ## Relationships
 
 ```
@@ -150,3 +158,6 @@ Performance-critical indexes exist on:
 - `alerts(user_id, is_read)` - partial index where is_read = FALSE
 - `vendor_contacts(vendor_id, is_primary)` - partial unique where is_primary = TRUE
 - `dropbox_file_summaries(file_path)` - for lookup by path
+- `pinned_items(entity_type, entity_id)` - unique constraint index
+- `pinned_items(entity_type, is_system_pin, dismissed_at)` - smart pins hot path (3x faster)
+- `pinned_items(dismissed_at)` - partial index for analytics, where dismissed_at IS NOT NULL
