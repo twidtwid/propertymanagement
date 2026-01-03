@@ -9,8 +9,7 @@ import {
   getActiveVehicles,
   getSmartAndUserPins,
 } from "@/lib/actions"
-import { PaymentFilters } from "@/components/payments/payment-filters"
-import { PaymentsContent } from "@/components/payments/payments-content"
+import { PaymentsWithPins } from "@/components/payments/payments-with-pins"
 import { QuickActions } from "@/components/payments/quick-actions"
 import { AwaitingConfirmation } from "@/components/payments/awaiting-confirmation"
 import { AddBillButton } from "@/components/payments/add-bill-button"
@@ -74,14 +73,15 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
         </div>
       </div>
 
+      {/* Smart Pins - auto-generated based on urgency */}
       <QuickActions paymentsNeedingAttention={attentionPayments} />
 
       <AwaitingConfirmation payments={awaitingConfirmation} />
 
-      <PaymentFilters properties={properties} />
-
-      <PaymentsContent
+      {/* User Pins (before filters) + Filters + Unpinned payments (after filters) */}
+      <PaymentsWithPins
         payments={payments}
+        properties={properties}
         initialSmartPins={Array.from(pins.smartPins)}
         initialUserPins={Array.from(pins.userPins)}
       />

@@ -4,23 +4,23 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { PaymentTable } from "./payment-table"
 import { PinnedSection } from "@/components/ui/pinned-section"
+import { PaymentFilters } from "./payment-filters"
 import type { UnifiedPayment } from "@/types/database"
+import type { Property } from "@/types/database"
 
-interface PaymentsContentProps {
+interface PaymentsWithPinsProps {
   payments: UnifiedPayment[]
+  properties: Property[]
   initialSmartPins: string[]
   initialUserPins: string[]
-  showUserPinsOnly?: boolean
-  showUnpinnedOnly?: boolean
 }
 
-export function PaymentsContent({
+export function PaymentsWithPins({
   payments,
+  properties,
   initialSmartPins,
   initialUserPins,
-  showUserPinsOnly = false,
-  showUnpinnedOnly = false,
-}: PaymentsContentProps) {
+}: PaymentsWithPinsProps) {
   const [smartPins, setSmartPins] = useState<Set<string>>(new Set(initialSmartPins))
   const [userPins, setUserPins] = useState<Set<string>>(new Set(initialUserPins))
 
@@ -45,28 +45,27 @@ export function PaymentsContent({
     }
   }
 
-  // Separate into smart pins, user pins, and unpinned (all payment types can be pinned)
+  // Separate into user pins and unpinned
   const userPinPayments = payments.filter(p => !smartPins.has(p.source_id) && userPins.has(p.source_id))
   const unpinnedPayments = payments.filter(p => !allPinnedIds.has(p.source_id))
 
-  // Render only User Pins section (shown before filters)
-  if (showUserPinsOnly) {
-    if (userPinPayments.length === 0) return null
+  return (
+    <>
+      {/* User Pins - manually pinned items (shown BEFORE filters) */}
+      {userPinPayments.length > 0 && (
+        <PinnedSection count={userPinPayments.length} title="User Pins" variant="user">
+          <PaymentTable
+            payments={userPinPayments}
+            pinnedIds={allPinnedIds}
+            onTogglePin={handleTogglePin}
+          />
+        </PinnedSection>
+      )}
 
-    return (
-      <PinnedSection count={userPinPayments.length} title="User Pins" variant="user">
-        <PaymentTable
-          payments={userPinPayments}
-          pinnedIds={allPinnedIds}
-          onTogglePin={handleTogglePin}
-        />
-      </PinnedSection>
-    )
-  }
+      {/* Filters */}
+      <PaymentFilters properties={properties} />
 
-  // Render only unpinned payments (shown after filters)
-  if (showUnpinnedOnly) {
-    return (
+      {/* All unpinned payments (shown AFTER filters) */}
       <Card>
         <CardContent className="pt-6">
           <PaymentTable
@@ -76,9 +75,6 @@ export function PaymentsContent({
           />
         </CardContent>
       </Card>
-    )
-  }
-
-  // Default: render all sections (legacy, not used anymore)
-  return null
+    </>
+  )
 }
