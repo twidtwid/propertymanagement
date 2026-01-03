@@ -74,6 +74,26 @@ export function BuildingLinkClient({
     updateParams({ search: search || undefined })
   }
 
+  // Handle pin toggle
+  const handleTogglePin = (messageId: string, isPinned: boolean) => {
+    if (isPinned) {
+      // Adding a pin - always goes to user pins
+      setUserPins((prev) => new Set(prev).add(messageId))
+    } else {
+      // Removing a pin - could be from either smart or user pins
+      setSmartPins((prev) => {
+        const next = new Set(prev)
+        next.delete(messageId)
+        return next
+      })
+      setUserPins((prev) => {
+        const next = new Set(prev)
+        next.delete(messageId)
+        return next
+      })
+    }
+  }
+
   // Separate messages into smart pins, user pins, and unpinned
   const smartPinMessages = messages.filter(m => smartPins.has(m.id))
   const userPinMessages = messages.filter(m => !smartPins.has(m.id) && userPins.has(m.id))
@@ -86,7 +106,11 @@ export function BuildingLinkClient({
         <PinnedSection count={smartPinMessages.length} title="Smart Pins" variant="smart">
           <div className="space-y-2">
             {smartPinMessages.map((message) => (
-              <MessageRow key={message.id} message={{ ...message, is_flagged: true }} />
+              <MessageRow
+                key={message.id}
+                message={{ ...message, is_flagged: true }}
+                onTogglePin={handleTogglePin}
+              />
             ))}
           </div>
         </PinnedSection>
@@ -97,7 +121,11 @@ export function BuildingLinkClient({
         <PinnedSection count={userPinMessages.length} title="User Pins" variant="user">
           <div className="space-y-2">
             {userPinMessages.map((message) => (
-              <MessageRow key={message.id} message={{ ...message, is_flagged: true }} />
+              <MessageRow
+                key={message.id}
+                message={{ ...message, is_flagged: true }}
+                onTogglePin={handleTogglePin}
+              />
             ))}
           </div>
         </PinnedSection>

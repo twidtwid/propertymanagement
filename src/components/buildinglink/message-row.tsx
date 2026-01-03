@@ -27,6 +27,7 @@ interface MessageRowProps {
   showTime?: boolean
   showDate?: boolean
   compact?: boolean
+  onTogglePin?: (messageId: string, isPinned: boolean) => void
 }
 
 const CATEGORY_CONFIG: Record<BuildingLinkCategory, {
@@ -54,7 +55,7 @@ function getIcon(category: BuildingLinkCategory, subcategory: string) {
   return CATEGORY_CONFIG[category].icon
 }
 
-export function MessageRow({ message, showTime = true, showDate = false, compact = false }: MessageRowProps) {
+export function MessageRow({ message, showTime = true, showDate = false, compact = false, onTogglePin }: MessageRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const config = CATEGORY_CONFIG[message.category]
@@ -86,6 +87,7 @@ export function MessageRow({ message, showTime = true, showDate = false, compact
           size="sm"
           variant="ghost"
           className="h-6 w-6 p-0 shrink-0"
+          onToggle={onTogglePin ? (isPinned) => onTogglePin(message.id, isPinned) : undefined}
           metadata={{
             title: message.subject,
             unit: message.unit || 'unknown',

@@ -170,19 +170,14 @@ export function TicketList({ tickets, pinnedIds: initialPinnedIds }: TicketListP
     })
   }
 
-  // Group tickets by status and priority
-  const urgentTickets = tickets.filter(
-    (t) => (t.priority === "urgent" || t.priority === "high") && t.status === "pending"
-  )
-  const openTickets = tickets.filter(
-    (t) => t.status === "pending" && t.priority !== "urgent" && t.priority !== "high"
-  )
+  // Group tickets by status (no separate urgent section - Smart Pins handles that)
+  const openTickets = tickets.filter((t) => t.status === "pending")
   const inProgressTickets = tickets.filter((t) => t.status === "in_progress")
   const closedTickets = tickets.filter(
     (t) => t.status === "completed" || t.status === "cancelled"
   )
 
-  const hasOpenTickets = urgentTickets.length > 0 || openTickets.length > 0 || inProgressTickets.length > 0
+  const hasOpenTickets = openTickets.length > 0 || inProgressTickets.length > 0
 
   if (tickets.length === 0) {
     return (
@@ -198,15 +193,6 @@ export function TicketList({ tickets, pinnedIds: initialPinnedIds }: TicketListP
 
   return (
     <div className="space-y-4">
-      <TicketSection
-        title="Urgent"
-        tickets={urgentTickets}
-        icon={<AlertTriangle className="h-4 w-4" />}
-        variant="urgent"
-        pinnedIds={pinnedIds}
-        onTogglePin={handleTogglePin}
-      />
-
       <TicketSection
         title="Open"
         tickets={openTickets}
