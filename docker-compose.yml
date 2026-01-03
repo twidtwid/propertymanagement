@@ -77,5 +77,25 @@ services:
     command: node scripts/daily-summary-scheduler.js
     restart: unless-stopped
 
+  # Smart pins sync - auto-pins urgent items every hour
+  smart-pins-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      - APP_HOST=app
+      - APP_PORT=3000
+    env_file:
+      - .env.local
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - app
+      - db
+    # Run sync every 60 minutes using watch mode
+    command: node scripts/sync-smart-pins.js --watch --interval=60
+    restart: unless-stopped
+
 volumes:
   postgres_data:
