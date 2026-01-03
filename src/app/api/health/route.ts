@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import packageJson from "../../../../package.json"
 
 /**
  * GET /api/health
@@ -20,7 +21,7 @@ export async function GET() {
       services: {
         database: dbConnected ? "connected" : "disconnected",
       },
-      version: process.env.npm_package_version || "0.1.0",
+      version: packageJson.version,
       environment: process.env.NODE_ENV || "development",
     })
   } catch (error) {
