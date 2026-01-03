@@ -864,6 +864,86 @@ export async function confirmBillPayment(id: string, notes?: string): Promise<Ac
   }
 }
 
+export async function markPropertyTaxPaid(id: string, paymentDate: string, paymentMethod?: string): Promise<ActionResult<PropertyTax>> {
+  const log = getLogger("mutations.property_tax")
+  try {
+    const oldTax = await queryOne<PropertyTax>("SELECT * FROM property_taxes WHERE id = $1", [id])
+
+    const tax = await queryOne<PropertyTax>(
+      `UPDATE property_taxes SET
+        status = 'sent',
+        payment_date = $2,
+        payment_method = COALESCE($3, payment_method)
+      WHERE id = $1
+      RETURNING *`,
+      [id, paymentDate, paymentMethod || null]
+    )
+
+    if (!tax) {
+      log.warn("Property tax not found for mark paid", { taxId: id })
+      return { success: false, error: "Property tax not found" }
+    }
+
+    await audit({
+      action: "mark_paid",
+      entityType: "property_tax",
+      entityId: tax.id,
+      entityName: `${tax.jurisdiction} ${tax.tax_year} Q${tax.installment}`,
+      changes: {
+        status: { old: oldTax?.status || "pending", new: "sent" },
+        payment_date: { old: oldTax?.payment_date, new: paymentDate },
+      },
+    })
+
+    revalidatePath("/payments")
+    log.info("Property tax marked as paid", { taxId: tax.id, paymentDate })
+    return { success: true, data: tax }
+  } catch (error) {
+    log.error("Failed to mark property tax paid", { taxId: id, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to mark property tax paid" }
+  }
+}
+
+export async function confirmPropertyTaxPayment(id: string, notes?: string): Promise<ActionResult<PropertyTax>> {
+  const log = getLogger("mutations.property_tax")
+  try {
+    const oldTax = await queryOne<PropertyTax>("SELECT * FROM property_taxes WHERE id = $1", [id])
+
+    const tax = await queryOne<PropertyTax>(
+      `UPDATE property_taxes SET
+        status = 'confirmed',
+        confirmation_date = CURRENT_DATE,
+        notes = COALESCE($2, notes)
+      WHERE id = $1
+      RETURNING *`,
+      [id, notes || null]
+    )
+
+    if (!tax) {
+      log.warn("Property tax not found for confirmation", { taxId: id })
+      return { success: false, error: "Property tax not found" }
+    }
+
+    await audit({
+      action: "confirm",
+      entityType: "property_tax",
+      entityId: tax.id,
+      entityName: `${tax.jurisdiction} ${tax.tax_year} Q${tax.installment}`,
+      changes: {
+        status: { old: oldTax?.status || "sent", new: "confirmed" },
+        confirmation_date: { old: null, new: tax.confirmation_date },
+      },
+    })
+
+    revalidatePath("/payments")
+    log.info("Property tax payment confirmed", { taxId: tax.id })
+    return { success: true, data: tax }
+  } catch (error) {
+    log.error("Failed to confirm property tax payment", { taxId: id, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to confirm property tax payment" }
+  }
+}
+
 export async function deleteBill(id: string): Promise<ActionResult> {
   const log = getLogger("mutations.bill")
   try {

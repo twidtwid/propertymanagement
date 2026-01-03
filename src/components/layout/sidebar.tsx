@@ -16,6 +16,7 @@ import {
   FileText,
   BarChart3,
   Settings,
+  Landmark,
 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { GlobalSearch } from "@/components/shared/global-search"
@@ -28,6 +29,7 @@ const navigation = [
   { name: "Vehicles", href: "/vehicles", icon: Car },
   { name: "Vendors", href: "/vendors", icon: Users },
   { name: "Payments", href: "/payments", icon: CreditCard },
+  { name: "Taxes", href: "/payments/taxes", icon: Landmark },
   { name: "Insurance", href: "/insurance", icon: Shield },
   { name: "Tickets", href: "/tickets", icon: Wrench },
   { name: "Documents", href: "/documents", icon: FileText },
