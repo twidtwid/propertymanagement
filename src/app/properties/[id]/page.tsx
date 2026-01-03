@@ -27,7 +27,7 @@ import {
   FolderOpen,
 } from "lucide-react"
 import { EntityDocuments } from "@/components/documents/entity-documents"
-import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory, getInsurancePoliciesForProperty } from "@/lib/actions"
+import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory, getInsurancePoliciesForProperty, getTicketsForProperty } from "@/lib/actions"
 import { getDocumentCountForEntity } from "@/lib/dropbox/files"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PROPERTY_TYPE_LABELS, VENDOR_SPECIALTY_LABELS, INSURANCE_TYPE_LABELS, RECURRENCE_LABELS } from "@/types/database"
@@ -44,12 +44,13 @@ export default async function PropertyDetailPage({
     notFound()
   }
 
-  const [vendors, taskLists, taxHistory, insurancePolicies, documentCount] = await Promise.all([
+  const [vendors, taskLists, taxHistory, insurancePolicies, documentCount, tickets] = await Promise.all([
     getPropertyVendors(id),
     getSharedTaskListsForProperty(id),
     getPropertyTaxHistory(id),
     getInsurancePoliciesForProperty(id),
     getDocumentCountForEntity("property", id),
+    getTicketsForProperty(id),
   ])
 
   return (
@@ -282,9 +283,9 @@ export default async function PropertyDetailPage({
             <Shield className="h-4 w-4" />
             Insurance ({insurancePolicies.length})
           </TabsTrigger>
-          <TabsTrigger value="maintenance" className="gap-2">
+          <TabsTrigger value="tickets" className="gap-2">
             <Wrench className="h-4 w-4" />
-            Maintenance
+            Tickets ({tickets.length})
           </TabsTrigger>
           <TabsTrigger value="documents" className="gap-2">
             <FolderOpen className="h-4 w-4" />
@@ -545,18 +546,68 @@ export default async function PropertyDetailPage({
           </Card>
         </TabsContent>
 
-        <TabsContent value="maintenance">
+        <TabsContent value="tickets">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Maintenance History</CardTitle>
-              <Button variant="outline" size="sm">
-                Add Entry
+              <CardTitle>Maintenance Tickets</CardTitle>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/tickets/new?property=${property.id}`}>
+                  New Ticket
+                </Link>
               </Button>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground text-center py-8">
-                Maintenance history will appear here
-              </p>
+              {tickets.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No open tickets for this property
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {tickets.map((ticket) => (
+                    <Link
+                      key={ticket.id}
+                      href={`/tickets/${ticket.id}`}
+                      className="flex items-center justify-between p-4 rounded-xl border hover:bg-muted/50 transition-colors"
+                    >
+                      <div>
+                        <p className="text-base font-medium">{ticket.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {ticket.vendor_name || "Unassigned"}
+                          {ticket.vendor_contact_name && ` (${ticket.vendor_contact_name})`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            ticket.priority === "urgent"
+                              ? "destructive"
+                              : ticket.priority === "high"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {ticket.priority}
+                        </Badge>
+                        <Badge variant="outline">
+                          {ticket.status === "pending"
+                            ? "Open"
+                            : ticket.status === "in_progress"
+                            ? "In Progress"
+                            : "Closed"}
+                        </Badge>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              <div className="mt-4 pt-4 border-t">
+                <Link
+                  href={`/tickets?property=${property.id}&showClosed=true`}
+                  className="text-sm text-primary hover:underline"
+                >
+                  View all tickets for this property
+                </Link>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

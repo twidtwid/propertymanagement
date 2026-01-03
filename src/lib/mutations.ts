@@ -27,8 +27,11 @@ import {
   maintenanceTaskSchema,
   sharedTaskListSchema,
   sharedTaskItemSchema,
+  ticketSchema,
+  closeTicketSchema,
   type ActionResult,
 } from "./schemas"
+import { getUser } from "./auth"
 
 /**
  * Convert empty strings to null for database fields.
@@ -1321,11 +1324,284 @@ export async function deleteMaintenanceTask(id: string): Promise<ActionResult> {
     }
 
     revalidatePath("/maintenance")
+    revalidatePath("/tickets")
     log.info("Maintenance task deleted", { taskId: id })
     return { success: true, data: undefined }
   } catch (error) {
     log.error("Failed to delete maintenance task", { taskId: id, error: error instanceof Error ? error.message : "Unknown" })
     return { success: false, error: "Failed to delete maintenance task" }
+  }
+}
+
+// ============================================
+// Tickets (Enhanced Maintenance Tasks)
+// ============================================
+
+async function logTicketActivity(
+  ticketId: string,
+  action: 'created' | 'status_changed' | 'assigned' | 'updated' | 'closed',
+  details?: Record<string, unknown>
+): Promise<void> {
+  const user = await getUser()
+  const userName = user?.full_name || user?.email || 'System'
+
+  await query(
+    `INSERT INTO ticket_activity (ticket_id, user_id, user_name, action, details)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [ticketId, user?.id || null, userName, action, details ? JSON.stringify(details) : null]
+  )
+}
+
+export async function createTicket(formData: unknown): Promise<ActionResult<MaintenanceTask>> {
+  const log = getLogger("mutations.tickets")
+  const parsed = ticketSchema.safeParse(formData)
+  if (!parsed.success) {
+    log.warn("Ticket validation failed", { errors: parsed.error.errors })
+    return { success: false, error: parsed.error.errors[0].message }
+  }
+
+  const user = await getUser()
+
+  try {
+    const d = parsed.data
+    const ticket = await queryOne<MaintenanceTask>(
+      `INSERT INTO maintenance_tasks (
+        property_id, vehicle_id, vendor_id, vendor_contact_id, title, description,
+        priority, status, recurrence, estimated_cost
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'one_time', $8)
+      RETURNING *`,
+      [
+        emptyToNull(d.property_id), emptyToNull(d.vehicle_id), emptyToNull(d.vendor_id),
+        emptyToNull(d.vendor_contact_id), d.title, emptyToNull(d.description),
+        d.priority, emptyToNull(d.estimated_cost)
+      ]
+    )
+
+    if (ticket) {
+      await logTicketActivity(ticket.id, 'created')
+
+      // Log assignment if vendor was set
+      if (d.vendor_id) {
+        const vendor = await queryOne<{ company: string }>(
+          "SELECT company FROM vendors WHERE id = $1",
+          [d.vendor_id]
+        )
+        await logTicketActivity(ticket.id, 'assigned', {
+          vendor: vendor?.company || 'Unknown vendor'
+        })
+      }
+    }
+
+    await audit({
+      action: "create",
+      entityType: "ticket",
+      entityId: ticket!.id,
+      entityName: ticket!.title,
+      metadata: { priority: ticket!.priority },
+    })
+
+    revalidatePath("/tickets")
+    revalidatePath("/maintenance")
+    log.info("Ticket created", { ticketId: ticket!.id, title: ticket!.title })
+    return { success: true, data: ticket! }
+  } catch (error) {
+    log.error("Failed to create ticket", { error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to create ticket" }
+  }
+}
+
+export async function updateTicket(id: string, formData: unknown): Promise<ActionResult<MaintenanceTask>> {
+  const log = getLogger("mutations.tickets")
+  const parsed = ticketSchema.partial().safeParse(formData)
+  if (!parsed.success) {
+    log.warn("Ticket update validation failed", { ticketId: id, errors: parsed.error.errors })
+    return { success: false, error: parsed.error.errors[0].message }
+  }
+
+  try {
+    const oldTicket = await queryOne<MaintenanceTask>("SELECT * FROM maintenance_tasks WHERE id = $1", [id])
+    if (!oldTicket) {
+      return { success: false, error: "Ticket not found" }
+    }
+
+    const d = parsed.data
+    const ticket = await queryOne<MaintenanceTask>(
+      `UPDATE maintenance_tasks SET
+        property_id = COALESCE($2, property_id),
+        vehicle_id = $3,
+        vendor_id = $4,
+        vendor_contact_id = $5,
+        title = COALESCE($6, title),
+        description = $7,
+        priority = COALESCE($8, priority),
+        estimated_cost = $9,
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING *`,
+      [
+        id,
+        emptyToNull(d.property_id), emptyToNull(d.vehicle_id), emptyToNull(d.vendor_id),
+        emptyToNull(d.vendor_contact_id), d.title, emptyToNull(d.description),
+        d.priority, emptyToNull(d.estimated_cost)
+      ]
+    )
+
+    if (!ticket) {
+      return { success: false, error: "Ticket not found" }
+    }
+
+    // Log changes
+    const changes: string[] = []
+    if (oldTicket.priority !== ticket.priority) {
+      changes.push(`priority changed to ${ticket.priority}`)
+      await logTicketActivity(id, 'updated', { field: 'priority', from: oldTicket.priority, to: ticket.priority })
+    }
+    if (oldTicket.vendor_id !== ticket.vendor_id) {
+      if (ticket.vendor_id) {
+        const vendor = await queryOne<{ company: string }>(
+          "SELECT company FROM vendors WHERE id = $1",
+          [ticket.vendor_id]
+        )
+        await logTicketActivity(id, 'assigned', { vendor: vendor?.company || 'Unknown vendor' })
+      }
+    }
+    if (oldTicket.title !== ticket.title) {
+      await logTicketActivity(id, 'updated', { field: 'title', to: ticket.title })
+    }
+
+    await audit({
+      action: "update",
+      entityType: "ticket",
+      entityId: ticket.id,
+      entityName: ticket.title,
+    })
+
+    revalidatePath("/tickets")
+    revalidatePath("/maintenance")
+    log.info("Ticket updated", { ticketId: ticket.id, title: ticket.title })
+    return { success: true, data: ticket }
+  } catch (error) {
+    log.error("Failed to update ticket", { ticketId: id, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to update ticket" }
+  }
+}
+
+export async function updateTicketStatus(id: string, status: 'pending' | 'in_progress'): Promise<ActionResult<MaintenanceTask>> {
+  const log = getLogger("mutations.tickets")
+
+  try {
+    const oldTicket = await queryOne<MaintenanceTask>("SELECT * FROM maintenance_tasks WHERE id = $1", [id])
+    if (!oldTicket) {
+      return { success: false, error: "Ticket not found" }
+    }
+
+    const ticket = await queryOne<MaintenanceTask>(
+      `UPDATE maintenance_tasks SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [id, status]
+    )
+
+    if (ticket && oldTicket.status !== status) {
+      await logTicketActivity(id, 'status_changed', { from: oldTicket.status, to: status })
+    }
+
+    await audit({
+      action: "update",
+      entityType: "ticket",
+      entityId: id,
+      entityName: ticket!.title,
+      changes: { status: { old: oldTicket.status, new: status } },
+    })
+
+    revalidatePath("/tickets")
+    revalidatePath("/maintenance")
+    log.info("Ticket status updated", { ticketId: id, from: oldTicket.status, to: status })
+    return { success: true, data: ticket! }
+  } catch (error) {
+    log.error("Failed to update ticket status", { ticketId: id, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to update ticket status" }
+  }
+}
+
+export async function closeTicket(id: string, formData: unknown): Promise<ActionResult<MaintenanceTask>> {
+  const log = getLogger("mutations.tickets")
+  const parsed = closeTicketSchema.safeParse(formData)
+  if (!parsed.success) {
+    log.warn("Close ticket validation failed", { ticketId: id, errors: parsed.error.errors })
+    return { success: false, error: parsed.error.errors[0].message }
+  }
+
+  const user = await getUser()
+
+  try {
+    const oldTicket = await queryOne<MaintenanceTask>("SELECT * FROM maintenance_tasks WHERE id = $1", [id])
+    if (!oldTicket) {
+      return { success: false, error: "Ticket not found" }
+    }
+
+    const d = parsed.data
+    const ticket = await queryOne<MaintenanceTask>(
+      `UPDATE maintenance_tasks SET
+        status = 'completed',
+        resolution = $2,
+        actual_cost = COALESCE($3, actual_cost),
+        resolved_at = NOW(),
+        resolved_by = $4,
+        completed_date = CURRENT_DATE,
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING *`,
+      [id, d.resolution, emptyToNull(d.actual_cost), user?.id || null]
+    )
+
+    if (ticket) {
+      await logTicketActivity(id, 'closed', {
+        resolution: d.resolution,
+        actual_cost: d.actual_cost || null
+      })
+    }
+
+    await audit({
+      action: "update",
+      entityType: "ticket",
+      entityId: id,
+      entityName: ticket!.title,
+      changes: { status: { old: oldTicket.status, new: 'completed' } },
+      metadata: { resolution: d.resolution },
+    })
+
+    revalidatePath("/tickets")
+    revalidatePath("/maintenance")
+    log.info("Ticket closed", { ticketId: id, resolution: d.resolution })
+    return { success: true, data: ticket! }
+  } catch (error) {
+    log.error("Failed to close ticket", { ticketId: id, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to close ticket" }
+  }
+}
+
+export async function deleteTicket(id: string): Promise<ActionResult> {
+  const log = getLogger("mutations.tickets")
+  try {
+    const ticket = await queryOne<MaintenanceTask>("SELECT * FROM maintenance_tasks WHERE id = $1", [id])
+
+    await query("DELETE FROM maintenance_tasks WHERE id = $1", [id])
+
+    if (ticket) {
+      await audit({
+        action: "delete",
+        entityType: "ticket",
+        entityId: id,
+        entityName: ticket.title,
+      })
+    }
+
+    revalidatePath("/tickets")
+    revalidatePath("/maintenance")
+    log.info("Ticket deleted", { ticketId: id })
+    return { success: true, data: undefined }
+  } catch (error) {
+    log.error("Failed to delete ticket", { ticketId: id, error: error instanceof Error ? error.message : "Unknown" })
+    return { success: false, error: "Failed to delete ticket" }
   }
 }
 

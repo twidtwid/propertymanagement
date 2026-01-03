@@ -278,6 +278,7 @@ export interface MaintenanceTask {
   vehicle_id: string | null
   equipment_id: string | null
   vendor_id: string | null
+  vendor_contact_id: string | null  // Specific contact at vendor for this ticket
   title: string
   description: string | null
   priority: TaskPriority
@@ -287,6 +288,9 @@ export interface MaintenanceTask {
   status: TaskStatus
   estimated_cost: number | null
   actual_cost: number | null
+  resolution: string | null  // How the issue was resolved (required when closing)
+  resolved_at: string | null  // When ticket was closed
+  resolved_by: string | null  // User ID who closed the ticket
   notes: string | null
   created_at: string
   updated_at: string
@@ -295,6 +299,28 @@ export interface MaintenanceTask {
   vehicle?: Vehicle
   equipment?: Equipment
   vendor?: Vendor
+  vendor_contact?: VendorContact
+}
+
+// Ticket activity types for audit trail
+export type TicketActivityAction = 'created' | 'status_changed' | 'assigned' | 'updated' | 'closed'
+
+export interface TicketActivity {
+  id: string
+  ticket_id: string
+  user_id: string | null
+  user_name: string
+  action: TicketActivityAction
+  details: {
+    from?: string
+    to?: string
+    field?: string
+    value?: string
+    resolution?: string
+    vendor?: string
+    contact?: string
+  } | null
+  created_at: string
 }
 
 export interface MaintenanceHistory {
@@ -462,6 +488,14 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
   medium: 'Medium',
   high: 'High',
   urgent: 'Urgent',
+}
+
+// Ticket status labels (user-friendly names for task statuses in ticket context)
+export const TICKET_STATUS_LABELS: Record<TaskStatus, string> = {
+  pending: 'Open',
+  in_progress: 'In Progress',
+  completed: 'Closed',
+  cancelled: 'Closed',
 }
 
 export const BILL_TYPE_LABELS: Record<BillType, string> = {

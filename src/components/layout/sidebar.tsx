@@ -29,7 +29,7 @@ const navigation = [
   { name: "Vendors", href: "/vendors", icon: Users },
   { name: "Payments", href: "/payments", icon: CreditCard },
   { name: "Insurance", href: "/insurance", icon: Shield },
-  { name: "Maintenance", href: "/maintenance", icon: Wrench },
+  { name: "Tickets", href: "/tickets", icon: Wrench },
   { name: "Documents", href: "/documents", icon: FileText },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ]

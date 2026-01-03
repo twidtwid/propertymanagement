@@ -153,6 +153,7 @@ export const maintenanceTaskSchema = z.object({
   vehicle_id: z.string().uuid().nullable().optional(),
   equipment_id: z.string().uuid().nullable().optional(),
   vendor_id: z.string().uuid().nullable().optional(),
+  vendor_contact_id: z.string().uuid().nullable().optional(),
   title: z.string().max(200).nullable().optional(),
   description: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
@@ -162,10 +163,32 @@ export const maintenanceTaskSchema = z.object({
   status: z.enum(["pending", "in_progress", "completed", "cancelled"]).default("pending"),
   estimated_cost: z.coerce.number().positive().nullable().optional(),
   actual_cost: z.coerce.number().positive().nullable().optional(),
+  resolution: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
 })
 
 export type MaintenanceTaskFormData = z.infer<typeof maintenanceTaskSchema>
+
+// Ticket-specific schemas
+export const ticketSchema = z.object({
+  property_id: z.string().uuid().nullable().optional(),
+  vehicle_id: z.string().uuid().nullable().optional(),
+  vendor_id: z.string().uuid().nullable().optional(),
+  vendor_contact_id: z.string().uuid().nullable().optional(),
+  title: z.string().min(1, "Title is required").max(200),
+  description: z.string().nullable().optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  estimated_cost: z.coerce.number().positive().nullable().optional(),
+})
+
+export type TicketFormData = z.infer<typeof ticketSchema>
+
+export const closeTicketSchema = z.object({
+  resolution: z.string().min(1, "Resolution is required"),
+  actual_cost: z.coerce.number().positive().nullable().optional(),
+})
+
+export type CloseTicketFormData = z.infer<typeof closeTicketSchema>
 
 // ============================================
 // Insurance Policy Schema
