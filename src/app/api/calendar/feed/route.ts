@@ -95,9 +95,13 @@ export async function GET(request: Request) {
     const startDate = new Date(now.getFullYear() - 1, 0, 1).toISOString().split("T")[0]
     const endDate = new Date(now.getFullYear() + 2, 11, 31).toISOString().split("T")[0]
 
-    // Get base URL from request or use production URL
-    const url = new URL(request.url)
-    const baseUrl = `${url.protocol}//${url.host}`
+    // Get base URL - use production domain in production, request URL otherwise
+    const baseUrl = process.env.NODE_ENV === "production"
+      ? "https://spmsystem.com"
+      : (() => {
+          const url = new URL(request.url)
+          return `${url.protocol}//${url.host}`
+        })()
 
     const events = await getCalendarEvents(startDate, endDate)
 
