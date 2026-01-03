@@ -21,7 +21,7 @@ export type VendorSpecialty =
   | 'shoveling' | 'plowing' | 'mowing' | 'other'
 export type Season = 'winter' | 'spring' | 'summer' | 'fall' | 'annual'
 export type AlertSeverity = 'info' | 'warning' | 'critical'
-export type PinnedEntityType = 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message'
+export type PinnedEntityType = 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message' | 'property_tax' | 'insurance_premium' | 'document'
 
 export interface Profile {
   id: string

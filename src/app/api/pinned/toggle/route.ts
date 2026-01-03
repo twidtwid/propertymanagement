@@ -9,7 +9,7 @@ import type { PinnedEntityType } from "@/types/database"
  *
  * Request body:
  * {
- *   entityType: 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message',
+ *   entityType: 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message' | 'property_tax' | 'insurance_premium' | 'document',
  *   entityId: string (UUID),
  *   metadata?: Record<string, any>  // Optional cached display data
  * }
@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
       'insurance_policy',
       'ticket',
       'buildinglink_message',
+      'property_tax',
+      'insurance_premium',
+      'document',
     ]
     if (!validTypes.includes(entityType)) {
       return NextResponse.json(

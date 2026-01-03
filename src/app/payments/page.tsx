@@ -29,7 +29,7 @@ interface PaymentsPageProps {
 async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
   const params = await searchParams
 
-  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles, pins] = await Promise.all([
+  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles, billPins, taxPins, insurancePins] = await Promise.all([
     getAllPayments({
       category: params.category,
       status: params.status,
@@ -41,7 +41,23 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
     getActiveProperties(),
     getActiveVehicles(),
     getSmartAndUserPins('bill'),
+    getSmartAndUserPins('property_tax'),
+    getSmartAndUserPins('insurance_premium'),
   ])
+
+  // Merge pins from all payment sources
+  const pins = {
+    smartPins: new Set([
+      ...Array.from(billPins.smartPins),
+      ...Array.from(taxPins.smartPins),
+      ...Array.from(insurancePins.smartPins),
+    ]),
+    userPins: new Set([
+      ...Array.from(billPins.userPins),
+      ...Array.from(taxPins.userPins),
+      ...Array.from(insurancePins.userPins),
+    ]),
+  }
 
   return (
     <div className="space-y-6">

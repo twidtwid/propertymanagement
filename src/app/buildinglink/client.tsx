@@ -181,7 +181,7 @@ export function BuildingLinkClient({
       )}
 
       {/* Message Timeline */}
-      <Timeline messages={unpinnedMessages} />
+      <Timeline messages={unpinnedMessages} onTogglePin={handleTogglePin} />
     </div>
   )
 }

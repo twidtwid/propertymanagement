@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 interface TimelineProps {
   messages: BuildingLinkMessage[]
   initialLimit?: number
+  onTogglePin?: (messageId: string, isPinned: boolean) => void
 }
 
 function formatDateHeader(date: Date): string {
@@ -30,7 +31,7 @@ function groupByDate(messages: BuildingLinkMessage[]): Map<string, BuildingLinkM
   return groups
 }
 
-export function Timeline({ messages, initialLimit = 50 }: TimelineProps) {
+export function Timeline({ messages, initialLimit = 50, onTogglePin }: TimelineProps) {
   const [showAll, setShowAll] = useState(false)
 
   const displayMessages = showAll ? messages : messages.slice(0, initialLimit)
@@ -56,6 +57,7 @@ export function Timeline({ messages, initialLimit = 50 }: TimelineProps) {
               <MessageRow
                 key={msg.id}
                 message={msg}
+                onTogglePin={onTogglePin}
               />
             ))}
           </div>

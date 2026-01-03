@@ -73,7 +73,7 @@ export function TicketsContent({ tickets, initialSmartPins, initialUserPins }: T
         </PinnedSection>
       )}
 
-      <TicketList tickets={unpinnedTickets} pinnedIds={allPinnedIds} />
+      <TicketList tickets={unpinnedTickets} pinnedIds={allPinnedIds} onTogglePin={handleTogglePin} />
     </>
   )
 }

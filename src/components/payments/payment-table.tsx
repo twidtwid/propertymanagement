@@ -103,20 +103,22 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin }: PaymentTableP
               className={payment.is_overdue ? "bg-red-50/50" : undefined}
             >
               <TableCell className="w-10">
-                {payment.source === 'bill' && (
-                  <PinButton
-                    entityType="bill"
-                    entityId={payment.source_id}
-                    isPinned={pinnedIds.has(payment.source_id)}
-                    onToggle={onTogglePin ? (isPinned) => onTogglePin(payment.source_id, isPinned) : undefined}
-                    metadata={{
-                      title: payment.description,
-                      amount: Number(payment.amount),
-                      dueDate: payment.due_date,
-                      status: payment.status,
-                    }}
-                  />
-                )}
+                <PinButton
+                  entityType={
+                    payment.source === 'bill' ? 'bill' :
+                    payment.source === 'property_tax' ? 'property_tax' :
+                    'insurance_premium'
+                  }
+                  entityId={payment.source_id}
+                  isPinned={pinnedIds.has(payment.source_id)}
+                  onToggle={onTogglePin ? (isPinned) => onTogglePin(payment.source_id, isPinned) : undefined}
+                  metadata={{
+                    title: payment.description,
+                    amount: Number(payment.amount),
+                    dueDate: payment.due_date,
+                    status: payment.status,
+                  }}
+                />
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-3">

@@ -20,6 +20,7 @@ import { PinButton } from "@/components/ui/pin-button"
 interface TicketListProps {
   tickets: TicketWithDetails[]
   pinnedIds: Set<string>
+  onTogglePin?: (ticketId: string, isPinned: boolean) => void
 }
 
 function getPriorityVariant(priority: string): "default" | "secondary" | "destructive" | "outline" {
@@ -155,20 +156,8 @@ function TicketSection({ title, tickets, icon, variant, defaultExpanded = true, 
   )
 }
 
-export function TicketList({ tickets, pinnedIds: initialPinnedIds }: TicketListProps) {
-  const [pinnedIds, setPinnedIds] = useState<Set<string>>(initialPinnedIds)
-
-  const handleTogglePin = (ticketId: string, isPinned: boolean) => {
-    setPinnedIds((prev) => {
-      const next = new Set(prev)
-      if (isPinned) {
-        next.add(ticketId)
-      } else {
-        next.delete(ticketId)
-      }
-      return next
-    })
-  }
+export function TicketList({ tickets, pinnedIds, onTogglePin }: TicketListProps) {
+  // No internal state - controlled by parent component
 
   // Group tickets by status (no separate urgent section - Smart Pins handles that)
   const openTickets = tickets.filter((t) => t.status === "pending")
@@ -199,7 +188,7 @@ export function TicketList({ tickets, pinnedIds: initialPinnedIds }: TicketListP
         icon={<Circle className="h-4 w-4" />}
         variant="open"
         pinnedIds={pinnedIds}
-        onTogglePin={handleTogglePin}
+        onTogglePin={onTogglePin || (() => {})}
       />
 
       <TicketSection
@@ -208,7 +197,7 @@ export function TicketList({ tickets, pinnedIds: initialPinnedIds }: TicketListP
         icon={<Clock className="h-4 w-4" />}
         variant="progress"
         pinnedIds={pinnedIds}
-        onTogglePin={handleTogglePin}
+        onTogglePin={onTogglePin || (() => {})}
       />
 
       {closedTickets.length > 0 && (
@@ -219,7 +208,7 @@ export function TicketList({ tickets, pinnedIds: initialPinnedIds }: TicketListP
           variant="closed"
           defaultExpanded={!hasOpenTickets}
           pinnedIds={pinnedIds}
-          onTogglePin={handleTogglePin}
+          onTogglePin={onTogglePin || (() => {})}
         />
       )}
     </div>
