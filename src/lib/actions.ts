@@ -3373,7 +3373,7 @@ export async function getCalendarEvents(
       vendorName: bill.vendor_name,
       isOverdue,
       isUrgent: isOverdue,
-      href: '/payments',
+      href: `/payments`,
     })
   }
 
@@ -3418,7 +3418,7 @@ export async function getCalendarEvents(
       vendorName: null,
       isOverdue,
       isUrgent: isOverdue,
-      href: '/payments',
+      href: `/payments/taxes`,
     })
   }
 
@@ -3462,7 +3462,7 @@ export async function getCalendarEvents(
       vendorName: null,
       isOverdue: daysUntil < 0,
       isUrgent: daysUntil <= 30,
-      href: '/insurance',
+      href: `/insurance/${policy.id}`,
     })
   }
 
@@ -3584,7 +3584,7 @@ export async function getCalendarEvents(
       vendorName: task.vendor_name,
       isOverdue,
       isUrgent: isOverdue || task.priority === 'urgent' || task.priority === 'high',
-      href: '/maintenance',
+      href: `/tickets/${task.id}`,
     })
   }
 
@@ -3663,15 +3663,15 @@ export async function getCalendarEvents(
         break
       case 'insurance_policy':
         title = note.insurance_carrier ? `${note.insurance_carrier} Policy` : 'Insurance Policy'
-        href = '/insurance'
+        href = `/insurance/${note.entity_id}`
         break
       case 'property_tax':
         title = note.tax_jurisdiction ? `${note.property_name || ''} ${note.tax_jurisdiction} Tax`.trim() : 'Property Tax'
-        href = '/payments'
+        href = '/payments/taxes'
         break
       case 'insurance_premium':
         title = note.insurance_carrier ? `${note.insurance_carrier} Premium` : 'Insurance Premium'
-        href = '/payments'
+        href = `/insurance/${note.entity_id}`
         break
       case 'buildinglink_message':
         title = 'BuildingLink Message'

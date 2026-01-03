@@ -63,7 +63,7 @@ function buildDescription(event: CalendarEvent): string {
     parts.push("OVERDUE")
   }
 
-  return parts.join("\\n")
+  return parts.join("\n")
 }
 
 // Map event type to category
@@ -88,12 +88,16 @@ function getEventCategory(type: string): string {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // Get events for the next 2 years (covers annual items)
     const now = new Date()
     const startDate = new Date(now.getFullYear() - 1, 0, 1).toISOString().split("T")[0]
     const endDate = new Date(now.getFullYear() + 2, 11, 31).toISOString().split("T")[0]
+
+    // Get base URL from request or use production URL
+    const url = new URL(request.url)
+    const baseUrl = `${url.protocol}//${url.host}`
 
     const events = await getCalendarEvents(startDate, endDate)
 
@@ -132,6 +136,11 @@ export async function GET() {
       }
 
       lines.push(`CATEGORIES:${category}`)
+
+      // Add URL to link back to the item in SPM
+      if (event.href) {
+        lines.push(`URL:${baseUrl}${event.href}`)
+      }
 
       // Add alarm for urgent items (1 day before)
       if (event.isUrgent || event.isOverdue) {
