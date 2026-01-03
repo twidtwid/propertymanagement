@@ -3,6 +3,9 @@ import { cookies } from "next/headers"
 import { queryOne } from "@/lib/db"
 import type { Profile } from "@/types/database"
 
+// Force dynamic rendering (uses cookies)
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/auth/bootstrap?secret=xxx&email=xxx
  *

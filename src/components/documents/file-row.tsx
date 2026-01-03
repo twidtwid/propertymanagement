@@ -99,6 +99,21 @@ export function FileRow({ entry, onNavigate, onPreview, summary, isPinned, onTog
       }`}
       onClick={handleClick}
     >
+      {/* Pin button (files only) - leftmost for consistency */}
+      {!entry.is_folder && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <PinButton
+            entityType="document"
+            entityId={fileId}
+            isPinned={isPinned || false}
+            onToggle={onTogglePin ? (isPinned) => onTogglePin(fileId, isPinned) : undefined}
+            size="sm"
+            variant="ghost"
+            metadata={createDocumentMetadata(entry)}
+          />
+        </div>
+      )}
+
       <div className="flex-shrink-0">{getIcon()}</div>
 
       <div className="flex-1 min-w-0">
@@ -118,17 +133,9 @@ export function FileRow({ entry, onNavigate, onPreview, summary, isPinned, onTog
         )}
       </div>
 
+      {/* Download button (files only) */}
       {!entry.is_folder && (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <PinButton
-            entityType="document"
-            entityId={fileId}
-            isPinned={isPinned || false}
-            onToggle={onTogglePin ? (isPinned) => onTogglePin(fileId, isPinned) : undefined}
-            size="sm"
-            variant="ghost"
-            metadata={createDocumentMetadata(entry)}
-          />
+        <div onClick={(e) => e.stopPropagation()}>
           <Button
             variant="ghost"
             size="icon"
