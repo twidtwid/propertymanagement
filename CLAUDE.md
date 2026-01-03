@@ -24,6 +24,20 @@
 
 ---
 
+## 🚨 DEPLOYMENT POLICY
+
+**CRITICAL: Never deploy to production manually. Only deploy using the `/deploy` skill.**
+
+- ❌ DO NOT run deployment commands yourself (docker compose, ssh, etc.)
+- ❌ DO NOT manually push to production
+- ❌ DO NOT restart production services directly
+- ✅ ONLY use the `/deploy` skill when deployment is needed
+- ✅ The `/deploy` skill handles tests, version bump, commit, push, and deployment automatically
+
+This ensures consistency, proper version tracking, and complete audit trail for all deployments.
+
+---
+
 ## File Locations
 
 ### Core Application
