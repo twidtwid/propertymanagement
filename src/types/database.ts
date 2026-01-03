@@ -21,6 +21,7 @@ export type VendorSpecialty =
   | 'shoveling' | 'plowing' | 'mowing' | 'other'
 export type Season = 'winter' | 'spring' | 'summer' | 'fall' | 'annual'
 export type AlertSeverity = 'info' | 'warning' | 'critical'
+export type PinnedEntityType = 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message'
 
 export interface Profile {
   id: string
@@ -619,4 +620,17 @@ export interface PaymentAuditLog {
   performed_by: string | null
   performed_at: string
   notes: string | null
+}
+
+// Pinned items (shared across all users)
+export interface PinnedItem {
+  id: string
+  entity_type: PinnedEntityType
+  entity_id: string
+  metadata: Record<string, any> | null
+  pinned_at: string
+  pinned_by: string | null
+  pinned_by_name: string | null
+  is_system_pin: boolean  // True for smart pins (system-generated), false for user pins
+  dismissed_at: string | null  // When user dismissed this smart pin (NULL = active)
 }

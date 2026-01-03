@@ -181,7 +181,7 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
     flaggedMessages: [],
   }
   try {
-    buildingLinkAttention = await getBuildingLinkNeedsAttention(anneUserId)
+    buildingLinkAttention = await getBuildingLinkNeedsAttention()
   } catch (error) {
     console.error("[Daily Summary] Failed to get BuildingLink data:", error)
   }

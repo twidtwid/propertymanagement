@@ -17,10 +17,9 @@ import {
 
 interface NeedsAttentionProps {
   items: NeedsAttentionItems
-  onFlag: (messageId: string) => Promise<void>
 }
 
-export function NeedsAttention({ items, onFlag }: NeedsAttentionProps) {
+export function NeedsAttention({ items }: NeedsAttentionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
   const totalCount =
@@ -95,10 +94,8 @@ export function NeedsAttention({ items, onFlag }: NeedsAttentionProps) {
                   <MessageRow
                     key={msg.id}
                     message={msg}
-                    onFlag={onFlag}
                     showDate
                     compact
-                    inNeedsAttention
                   />
                 ))}
               </div>
@@ -119,10 +116,8 @@ export function NeedsAttention({ items, onFlag }: NeedsAttentionProps) {
                   <MessageRow
                     key={msg.id}
                     message={msg}
-                    onFlag={onFlag}
                     showDate
                     compact
-                    inNeedsAttention
                   />
                 ))}
               </div>
@@ -143,10 +138,8 @@ export function NeedsAttention({ items, onFlag }: NeedsAttentionProps) {
                   <MessageRow
                     key={msg.id}
                     message={msg}
-                    onFlag={onFlag}
                     showDate
                     compact
-                    inNeedsAttention
                   />
                 ))}
               </div>

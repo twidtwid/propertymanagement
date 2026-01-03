@@ -20,6 +20,10 @@ import type {
   SharedTaskItem,
   UnifiedPayment,
   TicketActivity,
+  PinnedEntityType,
+  PaymentStatus,
+  TaskPriority,
+  TaskStatus,
 } from "@/types/database"
 
 // Properties
@@ -293,6 +297,430 @@ export async function toggleVendorStar(
     )
     return true
   }
+}
+
+// ============================================================================
+// UNIFIED PINNING SYSTEM (Shared across all users)
+// ============================================================================
+
+/**
+ * Get all pinned item IDs for a specific entity type (both system and user pins)
+ * Returns Set for fast O(1) lookups in UI components
+ */
+export async function getPinnedIds(entityType: PinnedEntityType): Promise<Set<string>> {
+  const rows = await query<{ entity_id: string }>(
+    `SELECT entity_id FROM pinned_items WHERE entity_type = $1`,
+    [entityType]
+  )
+  return new Set(rows.map(r => r.entity_id))
+}
+
+/**
+ * Get smart pins and user pins separately for a specific entity type
+ * Returns object with two Sets: smartPins and userPins
+ * Excludes dismissed items
+ */
+export async function getSmartAndUserPins(entityType: PinnedEntityType): Promise<{
+  smartPins: Set<string>
+  userPins: Set<string>
+}> {
+  const rows = await query<{ entity_id: string; is_system_pin: boolean }>(
+    `SELECT entity_id, is_system_pin FROM pinned_items
+     WHERE entity_type = $1 AND dismissed_at IS NULL`,
+    [entityType]
+  )
+
+  const smartPins = new Set<string>()
+  const userPins = new Set<string>()
+
+  for (const row of rows) {
+    if (row.is_system_pin) {
+      smartPins.add(row.entity_id)
+    } else {
+      userPins.add(row.entity_id)
+    }
+  }
+
+  return { smartPins, userPins }
+}
+
+/**
+ * Create or update a smart pin (system-generated)
+ * Smart pins are automatically managed by the system based on urgency/attention rules
+ * Respects user dismissals - will not re-pin dismissed items
+ */
+export async function upsertSmartPin(params: {
+  entityType: PinnedEntityType
+  entityId: string
+  metadata?: Record<string, any>
+}): Promise<void> {
+  // Check if this item was dismissed by user
+  const dismissed = await queryOne<{ dismissed_at: string | null }>(
+    `SELECT dismissed_at FROM pinned_items
+     WHERE entity_type = $1 AND entity_id = $2`,
+    [params.entityType, params.entityId]
+  )
+
+  // Don't re-pin if user dismissed it
+  if (dismissed && dismissed.dismissed_at) {
+    return
+  }
+
+  await query(
+    `INSERT INTO pinned_items (entity_type, entity_id, is_system_pin, metadata, pinned_by_name, dismissed_at)
+     VALUES ($1, $2, true, $3, 'System', NULL)
+     ON CONFLICT (entity_type, entity_id)
+     DO UPDATE SET
+       metadata = EXCLUDED.metadata,
+       is_system_pin = true,
+       dismissed_at = NULL`,
+    [
+      params.entityType,
+      params.entityId,
+      params.metadata ? JSON.stringify(params.metadata) : null,
+    ]
+  )
+}
+
+/**
+ * Remove a smart pin (when item no longer needs attention)
+ */
+export async function removeSmartPin(entityType: PinnedEntityType, entityId: string): Promise<void> {
+  await query(
+    `DELETE FROM pinned_items
+     WHERE entity_type = $1 AND entity_id = $2 AND is_system_pin = true`,
+    [entityType, entityId]
+  )
+}
+
+/**
+ * Toggle pin state (shared across all users)
+ * - User pins: Deleted when unpinned
+ * - Smart pins: Marked as dismissed (won't come back) when unpinned
+ * - Only creates user pins (never creates smart pins manually)
+ * Returns true if now pinned, false if unpinned
+ */
+export async function togglePin(params: {
+  entityType: PinnedEntityType
+  entityId: string
+  userId: string
+  userName: string
+  metadata?: Record<string, any>
+}): Promise<boolean> {
+  const existing = await queryOne<{ id: string; is_system_pin: boolean }>(
+    `SELECT id, is_system_pin FROM pinned_items
+     WHERE entity_type = $1 AND entity_id = $2 AND dismissed_at IS NULL`,
+    [params.entityType, params.entityId]
+  )
+
+  if (existing) {
+    if (existing.is_system_pin) {
+      // Dismiss smart pin (mark as dismissed, don't delete)
+      await query(
+        `UPDATE pinned_items
+         SET dismissed_at = NOW()
+         WHERE entity_type = $1 AND entity_id = $2`,
+        [params.entityType, params.entityId]
+      )
+    } else {
+      // Delete user pin completely
+      await query(
+        `DELETE FROM pinned_items
+         WHERE entity_type = $1 AND entity_id = $2`,
+        [params.entityType, params.entityId]
+      )
+    }
+    return false
+  } else {
+    // Create user pin (never creates smart pins manually)
+    await query(
+      `INSERT INTO pinned_items (entity_type, entity_id, pinned_by, pinned_by_name, metadata, is_system_pin, dismissed_at)
+       VALUES ($1, $2, $3, $4, $5, false, NULL)
+       ON CONFLICT (entity_type, entity_id)
+       DO UPDATE SET
+         pinned_by = EXCLUDED.pinned_by,
+         pinned_by_name = EXCLUDED.pinned_by_name,
+         metadata = EXCLUDED.metadata,
+         is_system_pin = false,
+         dismissed_at = NULL`,
+      [
+        params.entityType,
+        params.entityId,
+        params.userId,
+        params.userName,
+        params.metadata ? JSON.stringify(params.metadata) : null,
+      ]
+    )
+    return true
+  }
+}
+
+/**
+ * Get all pinned items with full entity details (for daily summary)
+ */
+export async function getAllPinnedItems(): Promise<{
+  vendors: VendorWithLocations[]
+  bills: Bill[]
+  insurancePolicies: InsurancePolicy[]
+  tickets: MaintenanceTask[]
+  buildingLinkMessages: VendorCommunication[]
+}> {
+  // Fetch all pinned IDs by type
+  const [vendorIds, billIds, insuranceIds, ticketIds, blIds] = await Promise.all([
+    getPinnedIds('vendor'),
+    getPinnedIds('bill'),
+    getPinnedIds('insurance_policy'),
+    getPinnedIds('ticket'),
+    getPinnedIds('buildinglink_message'),
+  ])
+
+  // Fetch full entity details for each pinned item
+  const [vendors, bills, insurancePolicies, tickets, buildingLinkMessages] = await Promise.all([
+    // Vendors with locations
+    vendorIds.size > 0
+      ? query<VendorWithLocations>(
+          `SELECT v.*,
+            ARRAY_AGG(DISTINCT p.name ORDER BY p.name) FILTER (WHERE p.name IS NOT NULL) as locations
+          FROM vendors v
+          LEFT JOIN property_vendors pv ON v.id = pv.vendor_id
+          LEFT JOIN properties p ON pv.property_id = p.id
+          WHERE v.id = ANY($1::UUID[])
+          GROUP BY v.id
+          ORDER BY COALESCE(v.company, v.name)`,
+          [Array.from(vendorIds)]
+        )
+      : [],
+
+    // Bills with related entities
+    billIds.size > 0
+      ? query<Bill>(
+          `SELECT b.*,
+            row_to_json(p.*) as property,
+            row_to_json(veh.*) as vehicle,
+            row_to_json(v.*) as vendor
+          FROM bills b
+          LEFT JOIN properties p ON b.property_id = p.id
+          LEFT JOIN vehicles veh ON b.vehicle_id = veh.id
+          LEFT JOIN vendors v ON b.vendor_id = v.id
+          WHERE b.id = ANY($1::UUID[])
+          ORDER BY
+            CASE b.status
+              WHEN 'pending' THEN 1
+              WHEN 'sent' THEN 2
+              WHEN 'overdue' THEN 3
+              ELSE 4
+            END,
+            b.due_date`,
+          [Array.from(billIds)]
+        )
+      : [],
+
+    // Insurance policies
+    insuranceIds.size > 0
+      ? query<InsurancePolicy>(
+          `SELECT ip.*,
+            row_to_json(p.*) as property,
+            row_to_json(v.*) as vehicle
+          FROM insurance_policies ip
+          LEFT JOIN properties p ON ip.property_id = p.id
+          LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+          WHERE ip.id = ANY($1::UUID[])
+          ORDER BY ip.expiration_date NULLS LAST`,
+          [Array.from(insuranceIds)]
+        )
+      : [],
+
+    // Tickets/maintenance tasks
+    ticketIds.size > 0
+      ? query<MaintenanceTask>(
+          `SELECT mt.*,
+            row_to_json(p.*) as property,
+            row_to_json(veh.*) as vehicle,
+            row_to_json(v.*) as vendor,
+            row_to_json(vc.*) as vendor_contact
+          FROM maintenance_tasks mt
+          LEFT JOIN properties p ON mt.property_id = p.id
+          LEFT JOIN vehicles veh ON mt.vehicle_id = veh.id
+          LEFT JOIN vendors v ON mt.vendor_id = v.id
+          LEFT JOIN vendor_contacts vc ON mt.vendor_contact_id = vc.id
+          WHERE mt.id = ANY($1::UUID[])
+          ORDER BY
+            CASE mt.priority
+              WHEN 'urgent' THEN 1
+              WHEN 'high' THEN 2
+              WHEN 'medium' THEN 3
+              ELSE 4
+            END,
+            mt.created_at DESC`,
+          [Array.from(ticketIds)]
+        )
+      : [],
+
+    // BuildingLink messages
+    blIds.size > 0
+      ? query<VendorCommunication>(
+          `SELECT vc.*,
+            row_to_json(v.*) as vendor
+          FROM vendor_communications vc
+          LEFT JOIN vendors v ON vc.vendor_id = v.id
+          WHERE vc.id = ANY($1::UUID[])
+          ORDER BY vc.received_at DESC`,
+          [Array.from(blIds)]
+        )
+      : [],
+  ])
+
+  return {
+    vendors,
+    bills,
+    insurancePolicies,
+    tickets,
+    buildingLinkMessages,
+  }
+}
+
+/**
+ * Sync smart pins for bills based on business rules
+ * Auto-pins: overdue, awaiting confirmation >14 days, due within 7 days
+ */
+export async function syncSmartPinsBills(): Promise<void> {
+  // Get bills that need attention
+  const bills = await query<{ id: string; description: string; amount: string; due_date: string; status: PaymentStatus }>(
+    `SELECT id, description, amount, due_date, status
+     FROM bills
+     WHERE (
+       -- Overdue
+       (status = 'pending' AND due_date < CURRENT_DATE)
+       -- Awaiting confirmation >14 days
+       OR (status = 'sent' AND payment_date IS NOT NULL AND confirmation_date IS NULL
+           AND payment_date < CURRENT_DATE - INTERVAL '14 days')
+       -- Due within 7 days
+       OR (status = 'pending' AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND due_date >= CURRENT_DATE)
+     )`
+  )
+
+  // Get currently smart-pinned bills
+  const currentSmartPins = await query<{ entity_id: string }>(
+    `SELECT entity_id FROM pinned_items WHERE entity_type = 'bill' AND is_system_pin = true`
+  )
+  const currentSet = new Set(currentSmartPins.map(p => p.entity_id))
+
+  // Pin bills that need attention
+  for (const bill of bills) {
+    await upsertSmartPin({
+      entityType: 'bill',
+      entityId: bill.id,
+      metadata: {
+        title: bill.description,
+        amount: Number(bill.amount),
+        dueDate: bill.due_date,
+        status: bill.status,
+      },
+    })
+    currentSet.delete(bill.id) // Remove from set
+  }
+
+  // Unpin bills that no longer need attention
+  for (const billId of Array.from(currentSet)) {
+    await removeSmartPin('bill', billId)
+  }
+}
+
+/**
+ * Sync smart pins for tickets based on business rules
+ * Auto-pins: urgent/high priority pending tickets
+ */
+export async function syncSmartPinsTickets(): Promise<void> {
+  // Get urgent/high priority pending tickets
+  const tickets = await query<{ id: string; title: string; priority: TaskPriority; status: TaskStatus }>(
+    `SELECT id, title, priority, status
+     FROM maintenance_tasks
+     WHERE (priority = 'urgent' OR priority = 'high')
+       AND (status = 'pending' OR status = 'in_progress')`
+  )
+
+  // Get currently smart-pinned tickets
+  const currentSmartPins = await query<{ entity_id: string }>(
+    `SELECT entity_id FROM pinned_items WHERE entity_type = 'ticket' AND is_system_pin = true`
+  )
+  const currentSet = new Set(currentSmartPins.map(p => p.entity_id))
+
+  // Pin urgent tickets
+  for (const ticket of tickets) {
+    await upsertSmartPin({
+      entityType: 'ticket',
+      entityId: ticket.id,
+      metadata: {
+        title: ticket.title,
+        priority: ticket.priority,
+        status: ticket.status,
+      },
+    })
+    currentSet.delete(ticket.id)
+  }
+
+  // Unpin tickets that are no longer urgent
+  for (const ticketId of Array.from(currentSet)) {
+    await removeSmartPin('ticket', ticketId)
+  }
+}
+
+/**
+ * Sync smart pins for BuildingLink messages based on business rules
+ * Auto-pins: critical/important messages from last 7 days
+ */
+export async function syncSmartPinsBuildingLink(): Promise<void> {
+  // Get all BuildingLink messages from last 7 days
+  const vendorId = await getBuildingLinkVendorId()
+  if (!vendorId) return
+
+  const recentMessages = await query<{ id: string; subject: string; body_snippet: string | null }>(
+    `SELECT id, subject, body_snippet
+     FROM vendor_communications
+     WHERE vendor_id = $1
+       AND received_at > CURRENT_DATE - INTERVAL '7 days'`,
+    [vendorId]
+  )
+
+  // Get currently smart-pinned messages
+  const currentSmartPins = await query<{ entity_id: string }>(
+    `SELECT entity_id FROM pinned_items WHERE entity_type = 'buildinglink_message' AND is_system_pin = true`
+  )
+  const currentSet = new Set(currentSmartPins.map(p => p.entity_id))
+
+  // Filter and pin critical/important messages using dynamic categorization
+  for (const msg of recentMessages) {
+    const { category } = categorizeBuildingLinkMessage(msg.subject, msg.body_snippet)
+
+    if (category === 'critical' || category === 'important') {
+      const unit = extractUnit(msg.subject, msg.body_snippet)
+      await upsertSmartPin({
+        entityType: 'buildinglink_message',
+        entityId: msg.id,
+        metadata: {
+          title: msg.subject,
+          unit: unit || 'unknown',
+        },
+      })
+      currentSet.delete(msg.id)
+    }
+  }
+
+  // Unpin messages that are too old or no longer important
+  for (const msgId of Array.from(currentSet)) {
+    await removeSmartPin('buildinglink_message', msgId)
+  }
+}
+
+/**
+ * Sync all smart pins (run daily via cron)
+ */
+export async function syncAllSmartPins(): Promise<void> {
+  await Promise.all([
+    syncSmartPinsBills(),
+    syncSmartPinsTickets(),
+    syncSmartPinsBuildingLink(),
+  ])
 }
 
 export async function getRecentCommunications(limit: number = 50): Promise<VendorCommunication[]> {
@@ -1964,11 +2392,9 @@ export interface NeedsAttentionItems {
   flaggedMessages: BuildingLinkMessage[]
 }
 
-export async function getBuildingLinkNeedsAttention(
-  userId: string
-): Promise<NeedsAttentionItems> {
+export async function getBuildingLinkNeedsAttention(): Promise<NeedsAttentionItems> {
   const messages = await getBuildingLinkMessages({ limit: 500 })
-  const flaggedIds = await getBuildingLinkFlaggedIds(userId)
+  const pinnedIds = await getPinnedIds('buildinglink_message')
 
   // Active outages: service_outage within last 7 days without matching service_restored
   const recentMessages = messages.filter(m => {
@@ -1985,8 +2411,8 @@ export async function getBuildingLinkNeedsAttention(
   }))
 
   const activeOutages = outages.filter(o => {
-    // If flagged by user, it's been manually dismissed
-    if (flaggedIds.has(o.id)) return false
+    // If pinned, it's been manually dismissed
+    if (pinnedIds.has(o.id)) return false
 
     const outageKey = o.subject.toLowerCase().replace(/out of service|emergency/gi, '').trim()
     // Check if there's a matching restoration after this outage
@@ -2011,15 +2437,15 @@ export async function getBuildingLinkNeedsAttention(
       .filter((pn): pn is string => pn !== null && pn !== undefined)
   )
 
-  // Find uncollected packages: not picked up AND not flagged (flagged = dismissed by user)
+  // Find uncollected packages: not picked up AND not pinned (pinned = dismissed)
   // Only show packages from last 2 weeks to avoid initial clutter
   const twoWeeksAgo = Date.now() - (14 * 24 * 60 * 60 * 1000)
   const uncollectedPackages = allArrivals.filter(arrival => {
     // Skip packages older than 2 weeks (initial cleanup)
     if (new Date(arrival.received_at).getTime() < twoWeeksAgo) return false
 
-    // If flagged by user, it's been manually dismissed
-    if (flaggedIds.has(arrival.id)) return false
+    // If pinned, it's been manually dismissed
+    if (pinnedIds.has(arrival.id)) return false
 
     // If no package number could be extracted, show it (let user manually dismiss)
     if (!arrival.package_number) return true
@@ -2028,14 +2454,14 @@ export async function getBuildingLinkNeedsAttention(
     return !pickedUpPackageNumbers.has(arrival.package_number)
   })
 
-  // Flagged messages (exclude package arrivals and outages - those are "dismissed" not "important")
+  // Pinned messages (exclude package arrivals and outages - those are "dismissed" not "important")
   const flaggedMessages = messages
-    .filter(m => flaggedIds.has(m.id) && m.subcategory !== 'package_arrival' && m.subcategory !== 'service_outage')
+    .filter(m => pinnedIds.has(m.id) && m.subcategory !== 'package_arrival' && m.subcategory !== 'service_outage')
     .map(m => ({ ...m, is_flagged: true }))
 
   return {
-    activeOutages: activeOutages.map(m => ({ ...m, is_flagged: flaggedIds.has(m.id) })),
-    uncollectedPackages: uncollectedPackages.map(m => ({ ...m, is_flagged: flaggedIds.has(m.id) })),
+    activeOutages: activeOutages.map(m => ({ ...m, is_flagged: pinnedIds.has(m.id) })),
+    uncollectedPackages: uncollectedPackages.map(m => ({ ...m, is_flagged: pinnedIds.has(m.id) })),
     flaggedMessages,
   }
 }

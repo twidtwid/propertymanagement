@@ -4,8 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import type { BuildingLinkMessage, NeedsAttentionItems } from "@/lib/actions"
-import { NeedsAttention } from "@/components/buildinglink/needs-attention"
+import type { BuildingLinkMessage } from "@/lib/actions"
+import { PinnedSection } from "@/components/ui/pinned-section"
+import { MessageRow } from "@/components/buildinglink/message-row"
 import { Timeline } from "@/components/buildinglink/timeline"
 import {
   Search,
@@ -16,7 +17,8 @@ import {
 
 interface BuildingLinkClientProps {
   messages: BuildingLinkMessage[]
-  needsAttention: NeedsAttentionItems
+  smartPins: string[]
+  userPins: string[]
   currentTab: string
   searchQuery: string
 }
@@ -29,7 +31,8 @@ const TABS = [
 
 export function BuildingLinkClient({
   messages,
-  needsAttention,
+  smartPins: initialSmartPins,
+  userPins: initialUserPins,
   currentTab,
   searchQuery,
 }: BuildingLinkClientProps) {
@@ -37,6 +40,10 @@ export function BuildingLinkClient({
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState(searchQuery)
+  const [smartPins, setSmartPins] = useState<Set<string>>(new Set(initialSmartPins))
+  const [userPins, setUserPins] = useState<Set<string>>(new Set(initialUserPins))
+
+  const allPinnedIds = new Set([...Array.from(smartPins), ...Array.from(userPins)])
 
   // Update URL params
   const updateParams = useCallback(
@@ -67,23 +74,34 @@ export function BuildingLinkClient({
     updateParams({ search: search || undefined })
   }
 
-  // Handle flag toggle
-  const handleFlag = async (messageId: string) => {
-    const response = await fetch("/api/buildinglink/flag", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messageId }),
-    })
-    if (response.ok) {
-      // Refresh to get updated data
-      router.refresh()
-    }
-  }
+  // Separate messages into smart pins, user pins, and unpinned
+  const smartPinMessages = messages.filter(m => smartPins.has(m.id))
+  const userPinMessages = messages.filter(m => !smartPins.has(m.id) && userPins.has(m.id))
+  const unpinnedMessages = messages.filter(m => !allPinnedIds.has(m.id))
 
   return (
     <div className="space-y-4">
-      {/* Needs Attention */}
-      <NeedsAttention items={needsAttention} onFlag={handleFlag} />
+      {/* Smart Pins */}
+      {smartPinMessages.length > 0 && (
+        <PinnedSection count={smartPinMessages.length} title="Smart Pins" variant="smart">
+          <div className="space-y-2">
+            {smartPinMessages.map((message) => (
+              <MessageRow key={message.id} message={{ ...message, is_flagged: true }} />
+            ))}
+          </div>
+        </PinnedSection>
+      )}
+
+      {/* User Pins */}
+      {userPinMessages.length > 0 && (
+        <PinnedSection count={userPinMessages.length} title="User Pins" variant="user">
+          <div className="space-y-2">
+            {userPinMessages.map((message) => (
+              <MessageRow key={message.id} message={{ ...message, is_flagged: true }} />
+            ))}
+          </div>
+        </PinnedSection>
+      )}
 
       {/* Tabs and Search */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
@@ -135,7 +153,7 @@ export function BuildingLinkClient({
       )}
 
       {/* Message Timeline */}
-      <Timeline messages={messages} onFlag={handleFlag} />
+      <Timeline messages={unpinnedMessages} />
     </div>
   )
 }

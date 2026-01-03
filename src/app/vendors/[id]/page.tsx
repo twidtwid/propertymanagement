@@ -26,13 +26,12 @@ import {
   ChevronDown,
   CreditCard,
 } from "lucide-react"
-import { getVendor, getVendorCommunications, getPropertiesForVendor, getStarredVendorIds } from "@/lib/actions"
+import { getVendor, getVendorCommunications, getPropertiesForVendor } from "@/lib/actions"
 import { getUser } from "@/lib/auth"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
 import { VendorJournal } from "@/components/vendors/vendor-journal"
 import { VendorContactsList } from "@/components/vendors/vendor-contacts-list"
 import { DeleteVendorButton } from "@/components/vendors/delete-vendor-button"
-import { StarVendorButton } from "@/components/vendors/star-vendor-button"
 
 export default async function VendorDetailPage({
   params,
@@ -49,13 +48,10 @@ export default async function VendorDetailPage({
     notFound()
   }
 
-  const [communications, assignedProperties, starredIds] = await Promise.all([
+  const [communications, assignedProperties] = await Promise.all([
     getVendorCommunications(id),
     getPropertiesForVendor(id),
-    user ? getStarredVendorIds(user.id) : Promise.resolve(new Set<string>()),
   ])
-
-  const isStarred = starredIds.has(id)
 
   const hasAccountInfo = vendor.account_number || vendor.login_info || vendor.payment_method
 
@@ -70,13 +66,6 @@ export default async function VendorDetailPage({
         </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <StarVendorButton
-              vendorId={id}
-              isStarred={isStarred}
-              size="lg"
-              variant="ghost"
-              className="h-10 w-10 p-0"
-            />
             <h1 className="text-3xl font-semibold tracking-tight">
               {vendor.company || vendor.name}
             </h1>

@@ -2,9 +2,9 @@ import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
-import { getTickets, getProperties, getVendors } from "@/lib/actions"
+import { getTickets, getProperties, getVendors, getSmartAndUserPins } from "@/lib/actions"
 import { TicketFilters } from "@/components/tickets/ticket-filters"
-import { TicketList } from "@/components/tickets/ticket-list"
+import { TicketsContent } from "@/components/tickets/tickets-content"
 
 interface TicketsPageProps {
   searchParams: Promise<{
@@ -18,7 +18,7 @@ interface TicketsPageProps {
 export default async function TicketsPage({ searchParams }: TicketsPageProps) {
   const params = await searchParams
 
-  const [tickets, properties, vendors] = await Promise.all([
+  const [tickets, properties, vendors, pins] = await Promise.all([
     getTickets({
       propertyId: params.property,
       vendorId: params.vendor,
@@ -27,6 +27,7 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
     }),
     getProperties(),
     getVendors(),
+    getSmartAndUserPins('ticket'),
   ])
 
   const openCount = tickets.filter(
@@ -54,7 +55,11 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
         <TicketFilters properties={properties} vendors={vendors} />
       </Card>
 
-      <TicketList tickets={tickets} />
+      <TicketsContent
+        tickets={tickets}
+        initialSmartPins={Array.from(pins.smartPins)}
+        initialUserPins={Array.from(pins.userPins)}
+      />
     </div>
   )
 }

@@ -15,9 +15,11 @@ import {
 } from "lucide-react"
 import { TASK_PRIORITY_LABELS, TICKET_STATUS_LABELS } from "@/types/database"
 import type { TicketWithDetails } from "@/lib/actions"
+import { PinButton } from "@/components/ui/pin-button"
 
 interface TicketListProps {
   tickets: TicketWithDetails[]
+  pinnedIds: Set<string>
 }
 
 function getPriorityVariant(priority: string): "default" | "secondary" | "destructive" | "outline" {
@@ -45,35 +47,48 @@ function getStatusIcon(status: string) {
   }
 }
 
-function TicketRow({ ticket }: { ticket: TicketWithDetails }) {
+export function TicketRowSimple({ ticket, pinnedIds, onTogglePin }: { ticket: TicketWithDetails; pinnedIds: Set<string>; onTogglePin?: (id: string, isPinned: boolean) => void }) {
   const locationName = ticket.property_name || ticket.vehicle_name || "Unassigned"
   const assigneeName = ticket.vendor_contact_name
     ? `${ticket.vendor_name} (${ticket.vendor_contact_name})`
     : ticket.vendor_name || "Unassigned"
 
   return (
-    <Link
-      href={`/tickets/${ticket.id}`}
-      className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-    >
-      {getStatusIcon(ticket.status)}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium">{ticket.title}</p>
-          <Badge variant={getPriorityVariant(ticket.priority)} className="text-xs">
-            {TASK_PRIORITY_LABELS[ticket.priority]}
-          </Badge>
+    <div className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+      <PinButton
+        entityType="ticket"
+        entityId={ticket.id}
+        isPinned={pinnedIds.has(ticket.id)}
+        onToggle={onTogglePin ? (isPinned) => onTogglePin(ticket.id, isPinned) : undefined}
+        size="sm"
+        variant="ghost"
+        className="shrink-0"
+        metadata={{
+          title: ticket.title,
+          priority: ticket.priority,
+          status: ticket.status,
+        }}
+      />
+      <Link href={`/tickets/${ticket.id}`} className="flex items-start gap-3 flex-1 min-w-0">
+        {getStatusIcon(ticket.status)}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-medium">{ticket.title}</p>
+            <Badge variant={getPriorityVariant(ticket.priority)} className="text-xs">
+              {TASK_PRIORITY_LABELS[ticket.priority]}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+            <span>{locationName}</span>
+            <span>·</span>
+            <span>{assigneeName}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-          <span>{locationName}</span>
-          <span>·</span>
-          <span>{assigneeName}</span>
-        </div>
-      </div>
-      <Badge variant="outline" className="text-xs shrink-0">
-        {TICKET_STATUS_LABELS[ticket.status]}
-      </Badge>
-    </Link>
+        <Badge variant="outline" className="text-xs shrink-0">
+          {TICKET_STATUS_LABELS[ticket.status]}
+        </Badge>
+      </Link>
+    </div>
   )
 }
 
@@ -83,9 +98,11 @@ interface TicketSectionProps {
   icon: React.ReactNode
   variant: "urgent" | "open" | "progress" | "closed"
   defaultExpanded?: boolean
+  pinnedIds: Set<string>
+  onTogglePin: (id: string, isPinned: boolean) => void
 }
 
-function TicketSection({ title, tickets, icon, variant, defaultExpanded = true }: TicketSectionProps) {
+function TicketSection({ title, tickets, icon, variant, defaultExpanded = true, pinnedIds, onTogglePin }: TicketSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   if (tickets.length === 0) return null
@@ -129,7 +146,7 @@ function TicketSection({ title, tickets, icon, variant, defaultExpanded = true }
         <CardContent className="pt-0">
           <div className="space-y-2">
             {tickets.map((ticket) => (
-              <TicketRow key={ticket.id} ticket={ticket} />
+              <TicketRowSimple key={ticket.id} ticket={ticket} pinnedIds={pinnedIds} onTogglePin={onTogglePin} />
             ))}
           </div>
         </CardContent>
@@ -138,7 +155,21 @@ function TicketSection({ title, tickets, icon, variant, defaultExpanded = true }
   )
 }
 
-export function TicketList({ tickets }: TicketListProps) {
+export function TicketList({ tickets, pinnedIds: initialPinnedIds }: TicketListProps) {
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(initialPinnedIds)
+
+  const handleTogglePin = (ticketId: string, isPinned: boolean) => {
+    setPinnedIds((prev) => {
+      const next = new Set(prev)
+      if (isPinned) {
+        next.add(ticketId)
+      } else {
+        next.delete(ticketId)
+      }
+      return next
+    })
+  }
+
   // Group tickets by status and priority
   const urgentTickets = tickets.filter(
     (t) => (t.priority === "urgent" || t.priority === "high") && t.status === "pending"
@@ -172,6 +203,8 @@ export function TicketList({ tickets }: TicketListProps) {
         tickets={urgentTickets}
         icon={<AlertTriangle className="h-4 w-4" />}
         variant="urgent"
+        pinnedIds={pinnedIds}
+        onTogglePin={handleTogglePin}
       />
 
       <TicketSection
@@ -179,6 +212,8 @@ export function TicketList({ tickets }: TicketListProps) {
         tickets={openTickets}
         icon={<Circle className="h-4 w-4" />}
         variant="open"
+        pinnedIds={pinnedIds}
+        onTogglePin={handleTogglePin}
       />
 
       <TicketSection
@@ -186,6 +221,8 @@ export function TicketList({ tickets }: TicketListProps) {
         tickets={inProgressTickets}
         icon={<Clock className="h-4 w-4" />}
         variant="progress"
+        pinnedIds={pinnedIds}
+        onTogglePin={handleTogglePin}
       />
 
       {closedTickets.length > 0 && (
@@ -195,6 +232,8 @@ export function TicketList({ tickets }: TicketListProps) {
           icon={<CheckCircle2 className="h-4 w-4" />}
           variant="closed"
           defaultExpanded={!hasOpenTickets}
+          pinnedIds={pinnedIds}
+          onTogglePin={handleTogglePin}
         />
       )}
     </div>

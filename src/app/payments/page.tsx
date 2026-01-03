@@ -7,9 +7,10 @@ import {
   getPaymentsAwaitingConfirmation,
   getActiveProperties,
   getActiveVehicles,
+  getSmartAndUserPins,
 } from "@/lib/actions"
 import { PaymentFilters } from "@/components/payments/payment-filters"
-import { PaymentTable } from "@/components/payments/payment-table"
+import { PaymentsContent } from "@/components/payments/payments-content"
 import { QuickActions } from "@/components/payments/quick-actions"
 import { AwaitingConfirmation } from "@/components/payments/awaiting-confirmation"
 import { AddBillButton } from "@/components/payments/add-bill-button"
@@ -25,10 +26,10 @@ interface PaymentsPageProps {
   }>
 }
 
-async function PaymentsContent({ searchParams }: PaymentsPageProps) {
+async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
   const params = await searchParams
 
-  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles] = await Promise.all([
+  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles, pins] = await Promise.all([
     getAllPayments({
       category: params.category,
       status: params.status,
@@ -39,6 +40,7 @@ async function PaymentsContent({ searchParams }: PaymentsPageProps) {
     getPaymentsAwaitingConfirmation(),
     getActiveProperties(),
     getActiveVehicles(),
+    getSmartAndUserPins('bill'),
   ])
 
   return (
@@ -62,11 +64,11 @@ async function PaymentsContent({ searchParams }: PaymentsPageProps) {
 
       <PaymentFilters properties={properties} />
 
-      <Card>
-        <CardContent className="pt-6">
-          <PaymentTable payments={payments} />
-        </CardContent>
-      </Card>
+      <PaymentsContent
+        payments={payments}
+        initialSmartPins={Array.from(pins.smartPins)}
+        initialUserPins={Array.from(pins.userPins)}
+      />
     </div>
   )
 }
@@ -105,7 +107,7 @@ function PaymentsLoading() {
 export default async function PaymentsPage(props: PaymentsPageProps) {
   return (
     <Suspense fallback={<PaymentsLoading />}>
-      <PaymentsContent searchParams={props.searchParams} />
+      <PaymentsContentWrapper searchParams={props.searchParams} />
     </Suspense>
   )
 }

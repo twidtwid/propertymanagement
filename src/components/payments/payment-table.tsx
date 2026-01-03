@@ -25,9 +25,12 @@ import { BILL_TYPE_LABELS, PAYMENT_STATUS_LABELS } from "@/types/database"
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils"
 import { ConfirmPaymentButton } from "./confirm-payment-button"
 import { MarkPaidButton } from "./mark-paid-button"
+import { PinButton } from "@/components/ui/pin-button"
 
 interface PaymentTableProps {
   payments: UnifiedPayment[]
+  pinnedIds: Set<string>
+  onTogglePin?: (billId: string, isPinned: boolean) => void
 }
 
 function getStatusVariant(status: string, isOverdue: boolean, daysWaiting: number | null): "default" | "secondary" | "destructive" | "outline" | "success" | "warning" {
@@ -62,7 +65,8 @@ function getCategoryIcon(category: string) {
   }
 }
 
-export function PaymentTable({ payments }: PaymentTableProps) {
+export function PaymentTable({ payments, pinnedIds, onTogglePin }: PaymentTableProps) {
+
   if (payments.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -75,6 +79,7 @@ export function PaymentTable({ payments }: PaymentTableProps) {
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10"></TableHead>
           <TableHead className="w-[300px]">Description</TableHead>
           <TableHead>Property / Vehicle</TableHead>
           <TableHead>Due Date</TableHead>
@@ -97,6 +102,22 @@ export function PaymentTable({ payments }: PaymentTableProps) {
               key={`${payment.source}-${payment.source_id}`}
               className={payment.is_overdue ? "bg-red-50/50" : undefined}
             >
+              <TableCell className="w-10">
+                {payment.source === 'bill' && (
+                  <PinButton
+                    entityType="bill"
+                    entityId={payment.source_id}
+                    isPinned={pinnedIds.has(payment.source_id)}
+                    onToggle={onTogglePin ? (isPinned) => onTogglePin(payment.source_id, isPinned) : undefined}
+                    metadata={{
+                      title: payment.description,
+                      amount: Number(payment.amount),
+                      dueDate: payment.due_date,
+                      status: payment.status,
+                    }}
+                  />
+                )}
+              </TableCell>
               <TableCell>
                 <div className="flex items-center gap-3">
                   <div className="text-muted-foreground">

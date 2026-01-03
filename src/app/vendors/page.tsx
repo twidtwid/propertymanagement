@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
-import { getVendorsFiltered, getVendorLocations, getProperties, getStarredVendorIds } from "@/lib/actions"
+import { getVendorsFiltered, getVendorLocations, getProperties, getSmartAndUserPins } from "@/lib/actions"
 import { getUser } from "@/lib/auth"
 import { VendorFilters } from "@/components/vendors/vendor-filters"
 import { VendorList } from "@/components/vendors/vendor-list"
@@ -20,7 +20,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   const params = await searchParams
   const user = await getUser()
 
-  const [vendors, locations, properties, starredIds] = await Promise.all([
+  const [vendors, locations, properties, pins] = await Promise.all([
     getVendorsFiltered({
       specialty: params.specialty,
       location: params.location,
@@ -28,7 +28,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
     }),
     getVendorLocations(),
     getProperties(),
-    user ? getStarredVendorIds(user.id) : Promise.resolve(new Set<string>()),
+    getSmartAndUserPins('vendor'),
   ])
 
   return (
@@ -56,7 +56,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
         <VendorFilters locations={locations} />
       </Card>
 
-      <VendorList vendors={vendors} starredIds={Array.from(starredIds)} />
+      <VendorList vendors={vendors} userPins={Array.from(pins.userPins)} />
     </div>
   )
 }

@@ -4,9 +4,8 @@ import Link from "next/link"
 import { getUser } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import {
-  getBuildingLinkMessagesWithFlags,
-  getBuildingLinkNeedsAttention,
-  type NeedsAttentionItems,
+  getBuildingLinkMessages,
+  getSmartAndUserPins,
   type BuildingLinkMessage,
 } from "@/lib/actions"
 
@@ -33,14 +32,16 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
   const currentTab = params.tab || "activity"
 
   // Fetch data in parallel (social messages always hidden)
-  const [messages, needsAttention] = await Promise.all([
-    getBuildingLinkMessagesWithFlags(user.id, {
+  const [allMessages, pins] = await Promise.all([
+    getBuildingLinkMessages({
       limit: 500,
-      includeSocial: false,
       search: params.search,
     }),
-    getBuildingLinkNeedsAttention(user.id),
+    getSmartAndUserPins('buildinglink_message'),
   ])
+
+  // Filter out social messages
+  const messages = allMessages.filter(msg => msg.category !== 'social')
 
   // Filter messages based on current tab
   let filteredMessages = messages
@@ -77,7 +78,8 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
       {/* Client-side interactive content */}
       <BuildingLinkClient
         messages={filteredMessages}
-        needsAttention={needsAttention}
+        smartPins={Array.from(pins.smartPins)}
+        userPins={Array.from(pins.userPins)}
         currentTab={currentTab}
         searchQuery={params.search || ""}
       />

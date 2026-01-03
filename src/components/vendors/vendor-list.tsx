@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -12,23 +12,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Phone, Mail, MapPin, Star } from "lucide-react"
+import { Phone, Mail, MapPin } from "lucide-react"
 import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
-import { StarVendorButton } from "./star-vendor-button"
+import { PinButton } from "@/components/ui/pin-button"
+import { PinnedSection } from "@/components/ui/pinned-section"
 import type { VendorWithLocations } from "@/lib/actions"
 
 interface VendorListProps {
   vendors: VendorWithLocations[]
-  starredIds: string[]
+  userPins: string[]
 }
 
-export function VendorList({ vendors, starredIds: initialStarredIds }: VendorListProps) {
-  const [starredIds, setStarredIds] = useState<Set<string>>(new Set(initialStarredIds))
+export function VendorList({ vendors, userPins: initialUserPins }: VendorListProps) {
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set(initialUserPins))
 
-  const handleToggleStar = (vendorId: string, isStarred: boolean) => {
-    setStarredIds((prev) => {
+  const handleTogglePin = (vendorId: string, isPinned: boolean) => {
+    setPinnedIds((prev) => {
       const next = new Set(prev)
-      if (isStarred) {
+      if (isPinned) {
         next.add(vendorId)
       } else {
         next.delete(vendorId)
@@ -38,16 +39,21 @@ export function VendorList({ vendors, starredIds: initialStarredIds }: VendorLis
   }
 
   // Separate pinned and unpinned vendors
-  const pinnedVendors = vendors.filter((v) => starredIds.has(v.id))
-  const unpinnedVendors = vendors.filter((v) => !starredIds.has(v.id))
+  const pinnedVendors = vendors.filter((v) => pinnedIds.has(v.id))
+  const unpinnedVendors = vendors.filter((v) => !pinnedIds.has(v.id))
 
   const renderVendorRow = (vendor: VendorWithLocations) => (
     <TableRow key={vendor.id} className="cursor-pointer hover:bg-muted/50">
       <TableCell className="w-10">
-        <StarVendorButton
-          vendorId={vendor.id}
-          isStarred={starredIds.has(vendor.id)}
-          onToggle={(isStarred) => handleToggleStar(vendor.id, isStarred)}
+        <PinButton
+          entityType="vendor"
+          entityId={vendor.id}
+          isPinned={pinnedIds.has(vendor.id)}
+          onToggle={(isPinned) => handleTogglePin(vendor.id, isPinned)}
+          metadata={{
+            title: vendor.company || vendor.name,
+            specialty: vendor.specialty,
+          }}
         />
       </TableCell>
       <TableCell>
@@ -109,27 +115,14 @@ export function VendorList({ vendors, starredIds: initialStarredIds }: VendorLis
 
   return (
     <div className="space-y-6">
-      {/* Pinned Vendors Section */}
-      {pinnedVendors.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/10">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              Pinned Vendors
-              <Badge variant="secondary" className="bg-yellow-200 text-yellow-800">
-                {pinnedVendors.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <Table>
-              <TableBody>
-                {pinnedVendors.map(renderVendorRow)}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      {/* User Pins Section */}
+      <PinnedSection count={pinnedVendors.length} title="User Pins" variant="user">
+        <Table>
+          <TableBody>
+            {pinnedVendors.map(renderVendorRow)}
+          </TableBody>
+        </Table>
+      </PinnedSection>
 
       {/* All Vendors Table */}
       <Card>

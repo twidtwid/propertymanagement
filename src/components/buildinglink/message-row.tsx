@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { format, formatDistanceToNow } from "date-fns"
 import type { BuildingLinkMessage, BuildingLinkCategory } from "@/lib/actions"
+import { PinButton } from "@/components/ui/pin-button"
 import {
   AlertTriangle,
   Bell,
@@ -14,7 +14,6 @@ import {
   Package,
   Calendar,
   Users,
-  Star,
   ChevronDown,
   ChevronUp,
   LogIn,
@@ -25,11 +24,9 @@ import {
 
 interface MessageRowProps {
   message: BuildingLinkMessage
-  onFlag?: (messageId: string) => Promise<void>
   showTime?: boolean
   showDate?: boolean
   compact?: boolean
-  inNeedsAttention?: boolean  // If true, show filled star (click to dismiss)
 }
 
 const CATEGORY_CONFIG: Record<BuildingLinkCategory, {
@@ -57,25 +54,13 @@ function getIcon(category: BuildingLinkCategory, subcategory: string) {
   return CATEGORY_CONFIG[category].icon
 }
 
-export function MessageRow({ message, onFlag, showTime = true, showDate = false, compact = false, inNeedsAttention = false }: MessageRowProps) {
+export function MessageRow({ message, showTime = true, showDate = false, compact = false }: MessageRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [isFlagged, setIsFlagged] = useState(message.is_flagged || false)
-  const [isPending, startTransition] = useTransition()
 
   const config = CATEGORY_CONFIG[message.category]
   const Icon = getIcon(message.category, message.subcategory)
   const isPickup = message.subcategory === 'package_pickup'
   const isRestored = message.subcategory === 'service_restored'
-
-  const handleFlag = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (onFlag) {
-      startTransition(async () => {
-        await onFlag(message.id)
-        setIsFlagged(!isFlagged)
-      })
-    }
-  }
 
   return (
     <div
@@ -94,6 +79,19 @@ export function MessageRow({ message, onFlag, showTime = true, showDate = false,
         )}
         onClick={() => setIsExpanded(!isExpanded)}
       >
+        <PinButton
+          entityType="buildinglink_message"
+          entityId={message.id}
+          isPinned={message.is_flagged || false}
+          size="sm"
+          variant="ghost"
+          className="h-6 w-6 p-0 shrink-0"
+          metadata={{
+            title: message.subject,
+            unit: message.unit || 'unknown',
+          }}
+        />
+
         <Icon className={cn("h-4 w-4 shrink-0", config.color)} />
 
         {showTime && (
@@ -121,24 +119,6 @@ export function MessageRow({ message, onFlag, showTime = true, showDate = false,
           <Badge variant="outline" className="text-xs shrink-0">
             {message.unit === 'both' ? 'Both' : message.unit}
           </Badge>
-        )}
-
-        {onFlag && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 shrink-0"
-            onClick={handleFlag}
-            disabled={isPending}
-            title={inNeedsAttention ? "Dismiss" : (isFlagged ? "Remove from Needs Attention" : "Add to Needs Attention")}
-          >
-            <Star
-              className={cn(
-                "h-4 w-4",
-                (inNeedsAttention || isFlagged) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
-              )}
-            />
-          </Button>
         )}
 
         {message.body_html && (

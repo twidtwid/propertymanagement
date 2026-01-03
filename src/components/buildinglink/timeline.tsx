@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 
 interface TimelineProps {
   messages: BuildingLinkMessage[]
-  onFlag: (messageId: string) => Promise<void>
   initialLimit?: number
 }
 
@@ -31,7 +30,7 @@ function groupByDate(messages: BuildingLinkMessage[]): Map<string, BuildingLinkM
   return groups
 }
 
-export function Timeline({ messages, onFlag, initialLimit = 50 }: TimelineProps) {
+export function Timeline({ messages, initialLimit = 50 }: TimelineProps) {
   const [showAll, setShowAll] = useState(false)
 
   const displayMessages = showAll ? messages : messages.slice(0, initialLimit)
@@ -57,7 +56,6 @@ export function Timeline({ messages, onFlag, initialLimit = 50 }: TimelineProps)
               <MessageRow
                 key={msg.id}
                 message={msg}
-                onFlag={onFlag}
               />
             ))}
           </div>
