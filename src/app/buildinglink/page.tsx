@@ -6,7 +6,7 @@ import { redirect } from "next/navigation"
 import {
   getBuildingLinkMessages,
   getSmartAndUserPins,
-  getSmartBuildingLinkMessages,
+  getBuildingLinkNeedsAttention,
   type BuildingLinkMessage,
 } from "@/lib/actions"
 
@@ -33,13 +33,13 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
   const currentTab = params.tab || "activity"
 
   // Fetch data in parallel (social messages always hidden)
-  const [allMessages, pins, smartMessages] = await Promise.all([
+  const [allMessages, pins, needsAttention] = await Promise.all([
     getBuildingLinkMessages({
       limit: 500,
       search: params.search,
     }),
     getSmartAndUserPins('buildinglink_message'),
-    getSmartBuildingLinkMessages(),
+    getBuildingLinkNeedsAttention(),
   ])
 
   // Filter out social messages
@@ -82,7 +82,7 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
         messages={filteredMessages}
         smartPins={Array.from(pins.smartPins)}
         userPins={Array.from(pins.userPins)}
-        uncollectedPackages={smartMessages.uncollectedPackages}
+        uncollectedPackages={needsAttention.uncollectedPackages}
         currentTab={currentTab}
         searchQuery={params.search || ""}
       />
