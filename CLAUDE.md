@@ -112,6 +112,32 @@ ssh root@143.110.229.185 "cd /root/app && docker compose -f docker-compose.prod.
 
 ---
 
+## Development
+
+### Local Development Server
+
+**IMPORTANT: Always restart dev after code changes to clear Next.js cache**
+
+```bash
+# Restart dev with clean cache (run this after every code change)
+docker compose down && rm -rf .next && docker compose up -d
+
+# Check if dev server is ready
+docker compose logs app --tail 20
+
+# Dev server should show "Ready in XXXms" when compilation is complete
+```
+
+**Why?** Next.js caches compiled files in `.next/` directory. Stale cache causes:
+- Blank pages
+- Old code running
+- Import/export errors
+- React hooks errors
+
+**Always restart dev** when you see these issues or after making code changes.
+
+---
+
 ## Claude Skills & Commands
 
 ### Skills (read-only reference)
