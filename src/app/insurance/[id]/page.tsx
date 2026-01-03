@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { EntityDocuments } from "@/components/documents/entity-documents"
 import { getInsurancePolicy } from "@/lib/actions"
-import { getDocumentCountForPath } from "@/lib/dropbox/files"
+import { getDocumentCountForPath, getInsuranceFolderPaths } from "@/lib/dropbox/files"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { INSURANCE_TYPE_LABELS, RECURRENCE_LABELS } from "@/types/database"
 import { CoverageDetails } from "@/types/database"
@@ -95,15 +95,18 @@ export default async function InsurancePolicyDetailPage({
     notFound()
   }
 
-  // Calculate folder path for documents
-  const folderPath = policy.property
-    ? `/Properties/${policy.property.name}/Insurance`
-    : policy.vehicle
-    ? `/Vehicles/${policy.vehicle.year} ${policy.vehicle.make} ${policy.vehicle.model}/Insurance`
-    : `/Insurance/${policy.carrier_name}`
+  // Get the Dropbox folder paths for this policy's documents
+  // entityPath = property/vehicle specific Insurance folder
+  // portfolioPath = portfolio-wide folder (for Berkley One, etc.)
+  const { entityPath, portfolioPath } = await getInsuranceFolderPaths(
+    policy.property_id,
+    policy.vehicle_id,
+    policy.carrier_name
+  )
 
-  // Get cached document count
-  const documentCount = await getDocumentCountForPath(folderPath)
+  // Get cached document counts
+  const entityDocCount = entityPath ? await getDocumentCountForPath(entityPath) : 0
+  const portfolioDocCount = portfolioPath ? await getDocumentCountForPath(portfolioPath) : 0
 
   return (
     <div className="space-y-8">
@@ -115,6 +118,12 @@ export default async function InsurancePolicyDetailPage({
           </Link>
         </Button>
         <div className="flex-1">
+          {/* Property/Vehicle name for context */}
+          {(policy.property || policy.vehicle) && (
+            <p className="text-sm text-muted-foreground mb-1">
+              {policy.property?.name || `${policy.vehicle?.year} ${policy.vehicle?.make} ${policy.vehicle?.model}`}
+            </p>
+          )}
           <div className="flex items-center gap-3">
             <Shield className="h-8 w-8 text-primary" />
             <h1 className="text-3xl font-semibold tracking-tight">
@@ -336,14 +345,29 @@ export default async function InsurancePolicyDetailPage({
         </Card>
       )}
 
-      {/* Policy Documents */}
-      <EntityDocuments
-        entityType="insurance"
-        entityId={policy.id}
-        entityName={`${policy.carrier_name}/${INSURANCE_TYPE_LABELS[policy.policy_type]}`}
-        folderPath={folderPath}
-        documentCount={documentCount}
-      />
+      {/* Policy Documents - Property/Vehicle Specific */}
+      {entityPath && (
+        <EntityDocuments
+          entityType="insurance"
+          entityId={policy.id}
+          entityName={policy.property?.name || policy.vehicle ? `${policy.vehicle?.year} ${policy.vehicle?.make} ${policy.vehicle?.model}` : policy.carrier_name}
+          folderPath={entityPath}
+          documentCount={entityDocCount}
+          title={policy.property?.name ? `${policy.property.name} Insurance` : policy.vehicle ? "Vehicle Insurance" : "Policy Documents"}
+        />
+      )}
+
+      {/* Portfolio Documents - Berkley One Portfolio Docs */}
+      {portfolioPath && (
+        <EntityDocuments
+          entityType="insurance"
+          entityId={policy.id}
+          entityName="Insurance Portfolio"
+          folderPath={portfolioPath}
+          documentCount={portfolioDocCount}
+          title="Insurance Portfolio"
+        />
+      )}
 
       {/* Notes */}
       {policy.notes && (

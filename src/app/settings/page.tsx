@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { User, Bell, Shield, Users, Database, Mail, ArrowRight } from "lucide-react"
+import { User, Bell, Shield, Users, Database, Mail, Cloud, ArrowRight } from "lucide-react"
 
 export default function SettingsPage() {
   return (
@@ -198,6 +198,32 @@ export default function SettingsPage() {
             </div>
             <Button variant="outline" asChild>
               <Link href="/settings/gmail">
+                Configure
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Cloud className="h-5 w-5" />
+            Dropbox Integration
+          </CardTitle>
+          <CardDescription>Connect Dropbox to access property documents</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="font-medium">Document Access</p>
+              <p className="text-sm text-muted-foreground">
+                Browse, search, and download documents from Dropbox
+              </p>
+            </div>
+            <Button variant="outline" asChild>
+              <Link href="/settings/dropbox">
                 Configure
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Link>

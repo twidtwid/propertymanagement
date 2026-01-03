@@ -30,6 +30,7 @@ interface EntityDocumentsProps {
   showTitle?: boolean
   maxFiles?: number
   documentCount?: number // Pre-fetched document count to show in title
+  title?: string // Override default "Documents" title
 }
 
 export function EntityDocuments({
@@ -40,6 +41,7 @@ export function EntityDocuments({
   showTitle = true,
   maxFiles = 10,
   documentCount,
+  title = "Documents",
 }: EntityDocumentsProps) {
   const router = useRouter()
   const [entries, setEntries] = useState<DropboxFileEntry[]>([])
@@ -197,7 +199,7 @@ export function EntityDocuments({
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <FolderOpen className="h-5 w-5" />
-              Documents{documentCount !== undefined ? ` (${documentCount})` : ""}
+              {title}{documentCount !== undefined ? ` (${documentCount})` : ""}
             </CardTitle>
           </CardHeader>
         )}
@@ -223,7 +225,7 @@ export function EntityDocuments({
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
               <FolderOpen className="h-5 w-5" />
-              Documents{documentCount !== undefined ? ` (${documentCount})` : ""}
+              {title}{documentCount !== undefined ? ` (${documentCount})` : ""}
             </CardTitle>
             <Button variant="ghost" size="sm" asChild>
               <Link href={browsePath}>

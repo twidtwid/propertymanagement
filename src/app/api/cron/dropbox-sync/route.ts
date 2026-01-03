@@ -17,9 +17,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("[Cron] Starting Dropbox sync...")
+    // Check for force regeneration via query param
+    const forceRegenerate = request.nextUrl.searchParams.get("force") === "true"
 
-    const result = await runDropboxSync({ verbose: true })
+    console.log(`[Cron] Starting Dropbox sync (force=${forceRegenerate})...`)
+
+    const result = await runDropboxSync({ verbose: true, forceRegenerate })
 
     console.log("[Cron] Dropbox sync complete:", result)
 

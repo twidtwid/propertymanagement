@@ -330,5 +330,120 @@ export async function refreshAllDocumentCounts(): Promise<void> {
   }
 }
 
+/**
+ * Create a folder in Dropbox.
+ */
+export async function createFolder(
+  email: string,
+  path: string
+): Promise<void> {
+  const dbx = await getDropboxClient(email)
+  try {
+    await dbx.filesCreateFolderV2({ path, autorename: false })
+  } catch (error: unknown) {
+    const err = error as { status?: number; error?: { error_summary?: string } }
+    // Ignore "path/conflict/folder" - folder already exists
+    if (err.error?.error_summary?.includes("path/conflict/folder")) {
+      return
+    }
+    throw error
+  }
+}
+
+/**
+ * Copy a file in Dropbox.
+ */
+export async function copyFile(
+  email: string,
+  fromPath: string,
+  toPath: string
+): Promise<void> {
+  const dbx = await getDropboxClient(email)
+  await dbx.filesCopyV2({ from_path: fromPath, to_path: toPath })
+}
+
+/**
+ * Move a file in Dropbox.
+ */
+export async function moveFile(
+  email: string,
+  fromPath: string,
+  toPath: string
+): Promise<void> {
+  const dbx = await getDropboxClient(email)
+  await dbx.filesMoveV2({ from_path: fromPath, to_path: toPath })
+}
+
+/**
+ * Get the Dropbox folder paths for an insurance policy.
+ * Returns an array of paths to check for documents:
+ * 1. Property/vehicle specific insurance folder
+ * 2. Portfolio-wide insurance folder (for carriers like Berkley One)
+ */
+export async function getInsuranceFolderPaths(
+  propertyId: string | null,
+  vehicleId: string | null,
+  carrierName: string | null
+): Promise<{ entityPath: string | null; portfolioPath: string | null }> {
+  let entityPath: string | null = null
+  let portfolioPath: string | null = null
+
+  // For property-linked policies, get the property's folder + /Insurance
+  if (propertyId) {
+    const mapping = await getFolderMappingForEntity("property", propertyId)
+    if (mapping) {
+      entityPath = `${mapping.dropbox_folder_path}/Insurance`
+    }
+  }
+
+  // For vehicle-linked policies, get the vehicle's folder + /Insurance
+  if (vehicleId && !entityPath) {
+    const mapping = await getFolderMappingForEntity("vehicle", vehicleId)
+    if (mapping) {
+      entityPath = `${mapping.dropbox_folder_path}/Insurance`
+    }
+  }
+
+  // For portfolio carriers (Berkley One, etc.), also include the portfolio folder
+  // This ensures portfolio-wide policy docs appear on individual property/vehicle pages
+  const portfolioCarriers = ["Berkley One", "Hudson Excess"]
+  if (carrierName && portfolioCarriers.includes(carrierName)) {
+    const portfolioMapping = await queryOne<DropboxFolderMapping>(
+      `SELECT * FROM dropbox_folder_mappings
+       WHERE entity_type = 'insurance_portfolio' AND is_active = true
+       LIMIT 1`
+    )
+    if (portfolioMapping) {
+      portfolioPath = portfolioMapping.dropbox_folder_path
+    }
+  }
+
+  // For policies with no property/vehicle, use portfolio as primary
+  if (!entityPath && !portfolioPath) {
+    const portfolioMapping = await queryOne<DropboxFolderMapping>(
+      `SELECT * FROM dropbox_folder_mappings
+       WHERE entity_type = 'insurance_portfolio' AND is_active = true
+       LIMIT 1`
+    )
+    if (portfolioMapping) {
+      entityPath = portfolioMapping.dropbox_folder_path
+    }
+  }
+
+  return { entityPath, portfolioPath }
+}
+
+/**
+ * Get the Dropbox folder path for an insurance policy (legacy single-path version).
+ * @deprecated Use getInsuranceFolderPaths instead
+ */
+export async function getInsuranceFolderPath(
+  propertyId: string | null,
+  vehicleId: string | null
+): Promise<string | null> {
+  const { entityPath, portfolioPath } = await getInsuranceFolderPaths(propertyId, vehicleId, null)
+  return entityPath || portfolioPath
+}
+
 // Utility functions are in utils.ts for client-side use
 export { getRelativePath, getPathBreadcrumbs, formatFileSize, getFileExtension, getFileIconType } from "./utils"

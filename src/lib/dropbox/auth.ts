@@ -6,6 +6,7 @@ import type { DropboxOAuthTokens, DropboxCredentials } from "./types"
 const DROPBOX_SCOPES = [
   "files.metadata.read",
   "files.content.read",
+  "files.content.write",
   "sharing.read",
   "account_info.read",
 ]
