@@ -167,6 +167,7 @@ export async function scanEmailsForPaymentSuggestions(
     FROM vendor_communications vc
     LEFT JOIN vendors v ON vc.vendor_id = v.id
     WHERE vc.direction = 'inbound'
+      AND vc.vendor_id IS NOT NULL
       AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
       AND NOT EXISTS (
         SELECT 1 FROM payment_suggestions ps
