@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { syncEmails } from "@/lib/gmail/sync"
 import { scanEmailsForPaymentSuggestions } from "@/lib/payments/suggestions"
-import { autoMatchEmailsToPayments } from "@/lib/payments/email-links"
+import { autoMatchEmailsToPayments, createBillsFromConfirmationEmails } from "@/lib/payments/email-links"
 
 /**
  * GET /api/cron/sync-emails
@@ -41,14 +41,22 @@ export async function GET(request: NextRequest) {
       // Don't fail the whole sync if suggestion scanning fails
     }
 
-    // Auto-match confirmation emails to auto-pay bills
+    // Create bills from confirmation emails (auto-pay processing)
+    let billsFromEmails = 0
+    try {
+      billsFromEmails = await createBillsFromConfirmationEmails(14)
+      console.log("[Cron] Bills created from confirmation emails:", billsFromEmails)
+    } catch (billError) {
+      console.error("[Cron] Bill creation from emails error:", billError)
+    }
+
+    // Auto-match confirmation emails to existing bills
     let emailLinksCreated = 0
     try {
       emailLinksCreated = await autoMatchEmailsToPayments(14, 0.7)
       console.log("[Cron] Email links created:", emailLinksCreated)
     } catch (linkError) {
       console.error("[Cron] Email link matching error:", linkError)
-      // Don't fail the whole sync if email linking fails
     }
 
     const message = result.success

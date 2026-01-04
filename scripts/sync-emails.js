@@ -129,6 +129,99 @@ function extractAmountFromText(text) {
   return null;
 }
 
+// Create bills from confirmation emails (auto-pay processing)
+async function createBillsFromConfirmationEmails(daysBack = 14) {
+  console.log('\n💳 Creating bills from confirmation emails...');
+
+  // Get confirmation emails from known vendors that aren't already linked
+  const emailResult = await pool.query(`
+    SELECT
+      vc.id, vc.vendor_id, v.name as vendor_name,
+      vc.subject, vc.body_snippet, vc.received_at
+    FROM vendor_communications vc
+    JOIN vendors v ON vc.vendor_id = v.id
+    WHERE vc.direction = 'inbound'
+      AND vc.vendor_id IS NOT NULL
+      AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
+      AND NOT EXISTS (
+        SELECT 1 FROM payment_email_links pel WHERE pel.email_id = vc.id
+      )
+    ORDER BY vc.received_at DESC
+    LIMIT 100
+  `, [daysBack]);
+
+  const emails = emailResult.rows;
+  let billsCreated = 0;
+
+  for (const email of emails) {
+    // Only process confirmation emails
+    if (!isConfirmationEmailText(email.subject, email.body_snippet)) {
+      continue;
+    }
+
+    // Extract amount from email
+    const text = [email.subject, email.body_snippet].filter(Boolean).join(' ');
+    const amount = extractAmountFromText(text);
+
+    if (!amount) {
+      continue; // Can't create bill without amount
+    }
+
+    // Generate description from subject
+    let description = email.subject || `Payment to ${email.vendor_name}`;
+    // Clean up common prefixes
+    description = description
+      .replace(/^(Payment\s*[-–]\s*)/i, '')
+      .replace(/^(Your payment has been received)\s*[-–]?\s*/i, '')
+      .replace(/^(Payment confirmation:?\s*)/i, '')
+      .trim();
+
+    // If description is generic, use vendor name
+    if (description.toLowerCase() === 'your payment has been received' ||
+        description.toLowerCase().includes('autopay payment confirmation')) {
+      description = `${email.vendor_name} - Auto Pay`;
+    }
+
+    // Create the bill
+    const billResult = await pool.query(`
+      INSERT INTO bills (
+        vendor_id,
+        amount,
+        due_date,
+        payment_date,
+        confirmation_date,
+        description,
+        status,
+        payment_method,
+        bill_type
+      ) VALUES (
+        $1, $2, $3::date, $3::date, $3::date, $4, 'confirmed', 'auto_pay', 'other'
+      )
+      RETURNING id
+    `, [
+      email.vendor_id,
+      amount,
+      email.received_at.split('T')[0],
+      description
+    ]);
+
+    if (billResult.rows.length > 0) {
+      // Link the email to the new bill
+      await pool.query(`
+        INSERT INTO payment_email_links (payment_type, payment_id, email_id, link_type, confidence, auto_matched)
+        VALUES ('bill', $1, $2, 'confirmation', 1.0, true)
+        ON CONFLICT (payment_type, payment_id, email_id) DO NOTHING
+      `, [billResult.rows[0].id, email.id]);
+
+      console.log(`   ✓ Created bill: ${description} ($${amount})`);
+      billsCreated++;
+    }
+  }
+
+  console.log(`   Created ${billsCreated} bills from emails`);
+  return billsCreated;
+}
+
 // Auto-match confirmation emails to auto-pay bills
 async function autoMatchEmailsToPayments(daysBack = 14) {
   console.log('\n📎 Matching confirmation emails to auto-pay bills...');
@@ -552,7 +645,15 @@ async function syncEmails() {
 
     await updateSyncState();
 
-    // Auto-match confirmation emails to auto-pay bills
+    // Create bills from confirmation emails (auto-pay processing)
+    let billsFromEmails = 0;
+    try {
+      billsFromEmails = await createBillsFromConfirmationEmails(14);
+    } catch (billError) {
+      console.error('   Error creating bills from emails:', billError.message);
+    }
+
+    // Auto-match confirmation emails to existing bills
     let emailLinks = 0;
     try {
       emailLinks = await autoMatchEmailsToPayments(14);
@@ -562,7 +663,8 @@ async function syncEmails() {
 
     console.log(`\n${'─'.repeat(60)}`);
     console.log(`  SYNC COMPLETE`);
-    console.log(`  Stored: ${stored} | Matched: ${matched} | Urgent: ${urgent} | Links: ${emailLinks}`);
+    console.log(`  Stored: ${stored} | Matched: ${matched} | Urgent: ${urgent}`);
+    console.log(`  Bills from emails: ${billsFromEmails} | Links: ${emailLinks}`);
     console.log(`${'─'.repeat(60)}\n`);
 
     return { success: true, emailsStored: stored, emailsMatched: matched, urgentEmails: urgent, emailLinks };

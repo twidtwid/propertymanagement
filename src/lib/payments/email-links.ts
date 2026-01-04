@@ -7,7 +7,7 @@ const CONFIRMATION_KEYWORDS = [
   'payment received', 'payment confirmed', 'payment successful',
   'payment processed', 'thank you for your payment', 'payment complete',
   'auto-pay processed', 'automatic payment', 'has been paid',
-  'transaction complete', 'payment notification'
+  'transaction complete', 'payment notification', 'autopay payment confirmation'
 ]
 
 // Keywords indicating invoices/statements
@@ -186,6 +186,106 @@ export async function autoMatchEmailsToPayments(
   }
 
   return linksCreated
+}
+
+/**
+ * Create bills from confirmation emails for known vendors.
+ * This handles auto-pay confirmations where the vendor sends a "payment received" email.
+ */
+export async function createBillsFromConfirmationEmails(
+  daysBack: number = 14
+): Promise<number> {
+  // Get confirmation emails from known vendors that aren't already linked
+  const emails = await query<{
+    id: string
+    vendor_id: string
+    vendor_name: string
+    subject: string | null
+    body_snippet: string | null
+    received_at: string
+  }>(`
+    SELECT
+      vc.id, vc.vendor_id, v.name as vendor_name,
+      vc.subject, vc.body_snippet, vc.received_at
+    FROM vendor_communications vc
+    JOIN vendors v ON vc.vendor_id = v.id
+    WHERE vc.direction = 'inbound'
+      AND vc.vendor_id IS NOT NULL
+      AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
+      AND NOT EXISTS (
+        SELECT 1 FROM payment_email_links pel WHERE pel.email_id = vc.id
+      )
+    ORDER BY vc.received_at DESC
+    LIMIT 100
+  `, [daysBack])
+
+  let billsCreated = 0
+
+  for (const email of emails) {
+    // Only process confirmation emails
+    if (!isConfirmationEmail(email.subject, email.body_snippet)) {
+      continue
+    }
+
+    // Extract amount from email
+    const text = [email.subject, email.body_snippet].filter(Boolean).join(' ')
+    const amount = extractAmount(text)
+
+    if (!amount) {
+      continue // Can't create bill without amount
+    }
+
+    // Generate description from subject
+    let description = email.subject || `Payment to ${email.vendor_name}`
+    // Clean up common prefixes
+    description = description
+      .replace(/^(Payment\s*[-–]\s*)/i, '')
+      .replace(/^(Your payment has been received)\s*[-–]?\s*/i, '')
+      .replace(/^(Payment confirmation:?\s*)/i, '')
+      .trim()
+
+    // If description is generic, use vendor name
+    if (description.toLowerCase() === 'your payment has been received' ||
+        description.toLowerCase().includes('autopay payment confirmation')) {
+      description = `${email.vendor_name} - Auto Pay`
+    }
+
+    // Create the bill
+    const billResult = await query<{ id: string }>(`
+      INSERT INTO bills (
+        vendor_id,
+        amount,
+        due_date,
+        payment_date,
+        confirmation_date,
+        description,
+        status,
+        payment_method,
+        bill_type
+      ) VALUES (
+        $1, $2, $3::date, $3::date, $3::date, $4, 'confirmed', 'auto_pay', 'other'
+      )
+      RETURNING id
+    `, [
+      email.vendor_id,
+      amount,
+      email.received_at.split('T')[0], // Use email date as due/payment date
+      description
+    ])
+
+    if (billResult.length > 0) {
+      // Link the email to the new bill
+      await query(`
+        INSERT INTO payment_email_links (payment_type, payment_id, email_id, link_type, confidence, auto_matched)
+        VALUES ('bill', $1, $2, 'confirmation', 1.0, true)
+        ON CONFLICT (payment_type, payment_id, email_id) DO NOTHING
+      `, [billResult[0].id, email.id])
+
+      billsCreated++
+    }
+  }
+
+  return billsCreated
 }
 
 /**
