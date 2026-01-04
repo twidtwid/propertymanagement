@@ -256,14 +256,14 @@ export function EmailSuggestionsInbox({
               <div className="space-y-2">
                 <Label htmlFor="property">Property</Label>
                 <Select
-                  value={importForm.property_id}
-                  onValueChange={(value) => setImportForm({ ...importForm, property_id: value })}
+                  value={importForm.property_id || "_none"}
+                  onValueChange={(value) => setImportForm({ ...importForm, property_id: value === "_none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select property" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="_none">None</SelectItem>
                     {properties.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
