@@ -1,6 +1,8 @@
 "use client"
 
 import Link from "next/link"
+import { useCallback } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Table,
   TableBody,
@@ -19,6 +21,9 @@ import {
   Clock,
   AlertTriangle,
   Zap,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react"
 import type { UnifiedPayment } from "@/types/database"
 import { BILL_TYPE_LABELS, PAYMENT_STATUS_LABELS } from "@/types/database"
@@ -37,6 +42,8 @@ interface PaymentTableProps {
   userNotesMap?: Record<string, PinNote>
   onNoteSaved?: (payment: UnifiedPayment) => void
   notesMap?: Record<string, PinNote[]>
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }
 
 function getStatusVariant(status: string, isOverdue: boolean, daysWaiting: number | null): "default" | "secondary" | "destructive" | "outline" | "success" | "warning" {
@@ -71,7 +78,54 @@ function getCategoryIcon(category: string) {
   }
 }
 
-export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, onNoteSaved, notesMap }: PaymentTableProps) {
+function SortableHeader({
+  column,
+  label,
+  currentSort,
+  currentOrder,
+  className,
+}: {
+  column: string
+  label: string
+  currentSort?: string
+  currentOrder?: 'asc' | 'desc'
+  className?: string
+}) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const handleSort = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (currentSort === column) {
+      params.set('sortOrder', currentOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      params.set('sortBy', column)
+      params.set('sortOrder', 'desc')
+    }
+    router.push(`/payments?${params.toString()}`)
+  }, [column, currentSort, currentOrder, router, searchParams])
+
+  const isActive = currentSort === column
+  const Icon = isActive
+    ? currentOrder === 'asc'
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown
+
+  return (
+    <TableHead className={className}>
+      <button
+        onClick={handleSort}
+        className="flex items-center gap-1 hover:text-foreground transition-colors group"
+      >
+        {label}
+        <Icon className={`h-4 w-4 ${isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`} />
+      </button>
+    </TableHead>
+  )
+}
+
+export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, onNoteSaved, notesMap, sortBy, sortOrder }: PaymentTableProps) {
 
   if (payments.length === 0) {
     return (
@@ -87,11 +141,11 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, o
         <TableRow>
           <TableHead className="w-10"></TableHead>
           <TableHead className="w-10"></TableHead>
-          <TableHead className="w-[300px]">Description</TableHead>
-          <TableHead>Property / Vehicle</TableHead>
-          <TableHead>Due Date</TableHead>
-          <TableHead className="text-right">Amount</TableHead>
-          <TableHead>Status</TableHead>
+          <SortableHeader column="description" label="Description" currentSort={sortBy} currentOrder={sortOrder} className="w-[300px]" />
+          <SortableHeader column="property_name" label="Property / Vehicle" currentSort={sortBy} currentOrder={sortOrder} />
+          <SortableHeader column="due_date" label="Due Date" currentSort={sortBy} currentOrder={sortOrder} />
+          <SortableHeader column="amount" label="Amount" currentSort={sortBy} currentOrder={sortOrder} className="text-right" />
+          <SortableHeader column="status" label="Status" currentSort={sortBy} currentOrder={sortOrder} />
           <TableHead className="w-[100px]"></TableHead>
         </TableRow>
       </TableHeader>

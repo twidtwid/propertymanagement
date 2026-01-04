@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,11 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Shield, AlertTriangle, FileText, Building2, Car } from "lucide-react"
+import { Plus, Shield, AlertTriangle, FileText, Building2, Car, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { PinButton } from "@/components/ui/pin-button"
 import { PinNoteButton } from "@/components/ui/pin-note-button"
 import { PinNotes } from "@/components/ui/pin-notes"
 import { PinnedSection } from "@/components/ui/pinned-section"
+import { InsuranceFilters } from "./insurance-filters"
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils"
 import type { InsurancePolicy, PinNote } from "@/types/database"
 
@@ -41,6 +43,56 @@ interface InsuranceWithPinsProps {
   initialUserPins: string[]
   initialNotesMap: Record<string, PinNote[]>
   initialUserNotesMap: Record<string, PinNote>
+  carriers: string[]
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+function SortableHeader({
+  column,
+  label,
+  currentSort,
+  currentOrder,
+  className,
+}: {
+  column: string
+  label: string
+  currentSort?: string
+  currentOrder?: 'asc' | 'desc'
+  className?: string
+}) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const handleSort = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (currentSort === column) {
+      params.set('sortOrder', currentOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      params.set('sortBy', column)
+      params.set('sortOrder', 'asc')
+    }
+    router.push(`/insurance?${params.toString()}`)
+  }, [column, currentSort, currentOrder, router, searchParams])
+
+  const isActive = currentSort === column
+  const Icon = isActive
+    ? currentOrder === 'asc'
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown
+
+  return (
+    <TableHead className={className}>
+      <button
+        onClick={handleSort}
+        className="flex items-center gap-1 hover:text-foreground transition-colors group"
+      >
+        {label}
+        <Icon className={`h-4 w-4 ${isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`} />
+      </button>
+    </TableHead>
+  )
 }
 
 export function InsuranceWithPins({
@@ -50,6 +102,9 @@ export function InsuranceWithPins({
   initialUserPins,
   initialNotesMap,
   initialUserNotesMap,
+  carriers,
+  sortBy,
+  sortOrder,
 }: InsuranceWithPinsProps) {
   // Initialize state from server data
   const [smartPins, setSmartPins] = useState<Set<string>>(new Set(initialSmartPins))
@@ -224,6 +279,11 @@ export function InsuranceWithPins({
           </Link>
         </Button>
       </div>
+
+      {/* Filters */}
+      <Card className="p-4">
+        <InsuranceFilters carriers={carriers} />
+      </Card>
 
       {/* Smart Pins Section */}
       {smartPinPolicies.length > 0 && (
@@ -539,11 +599,11 @@ export function InsuranceWithPins({
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10"></TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Carrier</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Premium</TableHead>
-                    <TableHead>Expiration</TableHead>
+                    <SortableHeader column="asset_name" label="Property" currentSort={sortBy} currentOrder={sortOrder} />
+                    <SortableHeader column="carrier_name" label="Carrier" currentSort={sortBy} currentOrder={sortOrder} />
+                    <SortableHeader column="policy_type" label="Type" currentSort={sortBy} currentOrder={sortOrder} />
+                    <SortableHeader column="premium_amount" label="Premium" currentSort={sortBy} currentOrder={sortOrder} />
+                    <SortableHeader column="expiration_date" label="Expiration" currentSort={sortBy} currentOrder={sortOrder} />
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -562,10 +622,10 @@ export function InsuranceWithPins({
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10"></TableHead>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead>Carrier</TableHead>
-                    <TableHead>Premium</TableHead>
-                    <TableHead>Expiration</TableHead>
+                    <SortableHeader column="asset_name" label="Vehicle" currentSort={sortBy} currentOrder={sortOrder} />
+                    <SortableHeader column="carrier_name" label="Carrier" currentSort={sortBy} currentOrder={sortOrder} />
+                    <SortableHeader column="premium_amount" label="Premium" currentSort={sortBy} currentOrder={sortOrder} />
+                    <SortableHeader column="expiration_date" label="Expiration" currentSort={sortBy} currentOrder={sortOrder} />
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -587,10 +647,10 @@ export function InsuranceWithPins({
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-10"></TableHead>
-                      <TableHead>Carrier</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Premium</TableHead>
-                      <TableHead>Expiration</TableHead>
+                      <SortableHeader column="carrier_name" label="Carrier" currentSort={sortBy} currentOrder={sortOrder} />
+                      <SortableHeader column="policy_type" label="Type" currentSort={sortBy} currentOrder={sortOrder} />
+                      <SortableHeader column="premium_amount" label="Premium" currentSort={sortBy} currentOrder={sortOrder} />
+                      <SortableHeader column="expiration_date" label="Expiration" currentSort={sortBy} currentOrder={sortOrder} />
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>

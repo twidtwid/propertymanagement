@@ -1557,9 +1557,98 @@ export async function getPropertyTaxes(): Promise<PropertyTax[]> {
      FROM property_taxes pt
      JOIN properties p ON pt.property_id = p.id
      WHERE pt.property_id = ANY($1::uuid[])
-     ORDER BY pt.due_date`,
+     ORDER BY pt.tax_year DESC, pt.due_date DESC`,
     [ctx.visiblePropertyIds]
   )
+}
+
+interface TaxFilters {
+  propertyId?: string
+  jurisdiction?: string
+  year?: string
+  status?: string
+  search?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+export async function getPropertyTaxesFiltered(filters: TaxFilters = {}): Promise<(PropertyTax & { property_name: string })[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
+
+  let sql = `
+    SELECT pt.*, row_to_json(p.*) as property, p.name as property_name
+    FROM property_taxes pt
+    JOIN properties p ON pt.property_id = p.id
+    WHERE pt.property_id = ANY($1::uuid[])
+  `
+  const params: any[] = [ctx.visiblePropertyIds]
+  let paramIndex = 2
+
+  if (filters.propertyId && filters.propertyId !== 'all') {
+    sql += ` AND pt.property_id = $${paramIndex}`
+    params.push(filters.propertyId)
+    paramIndex++
+  }
+
+  if (filters.jurisdiction && filters.jurisdiction !== 'all') {
+    sql += ` AND pt.jurisdiction = $${paramIndex}`
+    params.push(filters.jurisdiction)
+    paramIndex++
+  }
+
+  if (filters.year && filters.year !== 'all') {
+    sql += ` AND pt.tax_year = $${paramIndex}::INTEGER`
+    params.push(filters.year)
+    paramIndex++
+  }
+
+  if (filters.status && filters.status !== 'all') {
+    sql += ` AND pt.status = $${paramIndex}`
+    params.push(filters.status)
+    paramIndex++
+  }
+
+  if (filters.search) {
+    sql += ` AND (
+      p.name ILIKE $${paramIndex} OR
+      pt.jurisdiction ILIKE $${paramIndex} OR
+      pt.notes ILIKE $${paramIndex}
+    )`
+    params.push(`%${filters.search}%`)
+    paramIndex++
+  }
+
+  // Sorting
+  const sortColumn = filters.sortBy || 'tax_year'
+  const sortOrder = filters.sortOrder || 'desc'
+  const validColumns = ['property_name', 'jurisdiction', 'tax_year', 'due_date', 'amount', 'status']
+  const column = validColumns.includes(sortColumn) ? sortColumn : 'tax_year'
+
+  if (column === 'property_name') {
+    sql += ` ORDER BY p.name ${sortOrder === 'asc' ? 'ASC' : 'DESC'}, pt.due_date DESC`
+  } else {
+    sql += ` ORDER BY pt.${column} ${sortOrder === 'asc' ? 'ASC' : 'DESC'}`
+    if (column === 'tax_year') {
+      sql += `, pt.due_date DESC`
+    }
+  }
+
+  return query<PropertyTax & { property_name: string }>(sql, params)
+}
+
+export async function getTaxJurisdictions(): Promise<string[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
+
+  const result = await query<{ jurisdiction: string }>(
+    `SELECT DISTINCT jurisdiction
+     FROM property_taxes
+     WHERE property_id = ANY($1::uuid[])
+     ORDER BY jurisdiction`,
+    [ctx.visiblePropertyIds]
+  )
+  return result.map(r => r.jurisdiction)
 }
 
 export async function getUpcomingPropertyTaxes(days: number = 90): Promise<PropertyTax[]> {
@@ -1588,6 +1677,22 @@ export async function getPropertyTaxHistory(propertyId: string): Promise<Propert
      ORDER BY tax_year DESC, installment`,
     [propertyId]
   )
+}
+
+export async function getPropertyTax(id: string): Promise<(PropertyTax & { property_name: string }) | null> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return null
+
+  const result = await query<PropertyTax & { property_name: string }>(
+    `SELECT pt.*, p.name as property_name
+     FROM property_taxes pt
+     JOIN properties p ON pt.property_id = p.id
+     WHERE pt.id = $1
+       AND pt.property_id = ANY($2::uuid[])`,
+    [id, ctx.visiblePropertyIds]
+  )
+
+  return result[0] || null
 }
 
 // Insurance
@@ -1673,6 +1778,100 @@ export async function getInsurancePoliciesForVehicle(vehicleId: string): Promise
   )
 }
 
+interface InsuranceFilters {
+  type?: string
+  carrier?: string
+  status?: string
+  search?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+export async function getInsurancePoliciesFiltered(filters: InsuranceFilters = {}): Promise<InsurancePolicy[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
+  let sql = `
+    SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle,
+           COALESCE(p.name, CONCAT(v.year, ' ', v.make, ' ', v.model)) as asset_name
+    FROM insurance_policies ip
+    LEFT JOIN properties p ON ip.property_id = p.id
+    LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+    WHERE (
+      (ip.property_id IS NULL AND ip.vehicle_id IS NULL) OR
+      (ip.property_id IS NOT NULL AND ip.property_id = ANY($1::uuid[])) OR
+      (ip.vehicle_id IS NOT NULL AND ip.vehicle_id = ANY($2::uuid[]))
+    )
+  `
+  const params: any[] = [ctx.visiblePropertyIds, visibleVehicleIds]
+  let paramIndex = 3
+
+  if (filters.type && filters.type !== 'all') {
+    sql += ` AND ip.policy_type = $${paramIndex}`
+    params.push(filters.type)
+    paramIndex++
+  }
+
+  if (filters.carrier && filters.carrier !== 'all') {
+    sql += ` AND ip.carrier_name = $${paramIndex}`
+    params.push(filters.carrier)
+    paramIndex++
+  }
+
+  if (filters.status && filters.status !== 'all') {
+    if (filters.status === 'active') {
+      sql += ` AND ip.expiration_date >= CURRENT_DATE`
+    } else if (filters.status === 'expiring') {
+      sql += ` AND ip.expiration_date >= CURRENT_DATE AND ip.expiration_date <= CURRENT_DATE + 60`
+    } else if (filters.status === 'expired') {
+      sql += ` AND ip.expiration_date < CURRENT_DATE`
+    }
+  }
+
+  if (filters.search) {
+    sql += ` AND (
+      ip.carrier_name ILIKE $${paramIndex} OR
+      ip.policy_number ILIKE $${paramIndex} OR
+      p.name ILIKE $${paramIndex} OR
+      CONCAT(v.year, ' ', v.make, ' ', v.model) ILIKE $${paramIndex}
+    )`
+    params.push(`%${filters.search}%`)
+    paramIndex++
+  }
+
+  // Sorting
+  const sortColumn = filters.sortBy || 'expiration_date'
+  const sortOrder = filters.sortOrder || 'asc'
+  const validColumns = ['carrier_name', 'policy_type', 'premium_amount', 'expiration_date', 'asset_name']
+  const column = validColumns.includes(sortColumn) ? sortColumn : 'expiration_date'
+
+  sql += ` ORDER BY ${column} ${sortOrder === 'desc' ? 'DESC' : 'ASC'} NULLS LAST`
+
+  return query<InsurancePolicy>(sql, params)
+}
+
+export async function getInsuranceCarriers(): Promise<string[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
+  const result = await query<{ carrier_name: string }>(
+    `SELECT DISTINCT carrier_name
+     FROM insurance_policies ip
+     WHERE (
+       (ip.property_id IS NULL AND ip.vehicle_id IS NULL) OR
+       (ip.property_id IS NOT NULL AND ip.property_id = ANY($1::uuid[])) OR
+       (ip.vehicle_id IS NOT NULL AND ip.vehicle_id = ANY($2::uuid[]))
+     )
+     ORDER BY carrier_name`,
+    [ctx.visiblePropertyIds, visibleVehicleIds]
+  )
+  return result.map(r => r.carrier_name)
+}
+
 // Unified Payments - combines bills, property taxes, and insurance premiums
 export interface UnifiedPaymentFilters {
   category?: string
@@ -1681,6 +1880,8 @@ export interface UnifiedPaymentFilters {
   dateFrom?: string
   dateTo?: string
   search?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }
 
 export async function getAllPayments(filters?: UnifiedPaymentFilters): Promise<UnifiedPayment[]> {
@@ -1830,10 +2031,22 @@ export async function getAllPayments(filters?: UnifiedPaymentFilters): Promise<U
     SELECT * FROM unified
     ${whereClause}
     ${searchClause ? (whereClause ? ' AND ' + searchClause.replace('WHERE ', '') : searchClause) : ''}
-    ORDER BY due_date DESC
+    ORDER BY ${getSortColumn(filters?.sortBy)} ${filters?.sortOrder === 'asc' ? 'ASC' : 'DESC'}
   `
 
   return query<UnifiedPayment>(sql, params)
+}
+
+function getSortColumn(sortBy?: string): string {
+  const validColumns: Record<string, string> = {
+    description: 'description',
+    property_name: 'property_name',
+    due_date: 'due_date',
+    amount: 'amount',
+    status: 'status',
+    category: 'category',
+  }
+  return validColumns[sortBy || 'due_date'] || 'due_date'
 }
 
 // Get payments needing attention (overdue, unconfirmed checks)
@@ -3383,7 +3596,7 @@ export async function getCalendarEvents(
       vendorName: null,
       isOverdue,
       isUrgent: isOverdue,
-      href: `/payments/taxes`,
+      href: `/payments/taxes/${tax.id}`,
     })
   }
 

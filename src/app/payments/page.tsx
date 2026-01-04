@@ -25,6 +25,8 @@ interface PaymentsPageProps {
     propertyId?: string
     search?: string
     dateRange?: string
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
   }>
 }
 
@@ -37,6 +39,8 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
       status: params.status,
       propertyId: params.propertyId,
       search: params.search,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
     }),
     getPaymentsNeedingAttention(),
     getPaymentsAwaitingConfirmation(),
@@ -148,6 +152,8 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
         initialUserPins={Array.from(pins.userPins)}
         initialNotesMap={Object.fromEntries(notesMap)}
         initialUserNotesMap={Object.fromEntries(userNotesMap)}
+        sortBy={params.sortBy}
+        sortOrder={params.sortOrder}
       />
     </div>
   )

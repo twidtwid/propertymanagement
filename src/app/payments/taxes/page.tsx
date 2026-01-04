@@ -1,14 +1,37 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Building2 } from "lucide-react"
-import { getPropertyTaxes, getActiveProperties } from "@/lib/actions"
+import { getPropertyTaxesFiltered, getActiveProperties, getTaxJurisdictions } from "@/lib/actions"
 import { TaxTable } from "@/components/payments/tax-table"
+import { TaxFilters } from "@/components/payments/tax-filters"
 import { AddTaxButton } from "@/components/payments/add-tax-button"
 
-export default async function TaxesPage() {
-  const [taxes, properties] = await Promise.all([
-    getPropertyTaxes(),
+interface TaxesPageProps {
+  searchParams: Promise<{
+    status?: string
+    propertyId?: string
+    jurisdiction?: string
+    year?: string
+    search?: string
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+  }>
+}
+
+export default async function TaxesPage({ searchParams }: TaxesPageProps) {
+  const params = await searchParams
+  const [taxes, properties, jurisdictions] = await Promise.all([
+    getPropertyTaxesFiltered({
+      status: params.status,
+      propertyId: params.propertyId,
+      jurisdiction: params.jurisdiction,
+      year: params.year,
+      search: params.search,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+    }),
     getActiveProperties(),
+    getTaxJurisdictions(),
   ])
 
   // Calculate stats
@@ -91,15 +114,22 @@ export default async function TaxesPage() {
         </Card>
       </div>
 
+      {/* Filters */}
+      <Card className="p-4">
+        <TaxFilters properties={properties} jurisdictions={jurisdictions} />
+      </Card>
+
       {/* Tax Table */}
       <Card>
         <CardContent className="pt-6">
           <TaxTable
             taxes={taxes.map(t => ({
               ...t,
-              property_name: (t.property as any)?.name,
+              property_name: t.property_name || (t.property as any)?.name,
             }))}
             properties={properties}
+            sortBy={params.sortBy}
+            sortOrder={params.sortOrder}
           />
         </CardContent>
       </Card>

@@ -15,6 +15,8 @@ interface PaymentsWithPinsProps {
   initialUserPins: string[]
   initialNotesMap: Record<string, PinNote[]>
   initialUserNotesMap: Record<string, PinNote>
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }
 
 export function PaymentsWithPins({
@@ -24,6 +26,8 @@ export function PaymentsWithPins({
   initialUserPins,
   initialNotesMap,
   initialUserNotesMap,
+  sortBy,
+  sortOrder,
 }: PaymentsWithPinsProps) {
   const [smartPins, setSmartPins] = useState<Set<string>>(new Set(initialSmartPins))
   const [userPins, setUserPins] = useState<Set<string>>(new Set(initialUserPins))
@@ -108,6 +112,8 @@ export function PaymentsWithPins({
             userNotesMap={userNotesMap}
             onNoteSaved={refreshNotes}
             notesMap={notesMap}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
           />
         </CardContent>
       </Card>

@@ -1,15 +1,35 @@
 export const dynamic = 'force-dynamic'
 
-import { getInsurancePolicies, getExpiringPolicies, getSmartAndUserPins, getPinNotesByEntities, getUserPinNote } from "@/lib/actions"
+import { getInsurancePoliciesFiltered, getExpiringPolicies, getSmartAndUserPins, getPinNotesByEntities, getUserPinNote, getInsuranceCarriers } from "@/lib/actions"
 import { getUser } from "@/lib/auth"
 import { InsuranceWithPins } from "@/components/insurance/insurance-with-pins"
 
-export default async function InsurancePage() {
-  const [policies, expiring, pins, user] = await Promise.all([
-    getInsurancePolicies(),
+interface InsurancePageProps {
+  searchParams: Promise<{
+    type?: string
+    carrier?: string
+    status?: string
+    search?: string
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+  }>
+}
+
+export default async function InsurancePage({ searchParams }: InsurancePageProps) {
+  const params = await searchParams
+  const [policies, expiring, pins, user, carriers] = await Promise.all([
+    getInsurancePoliciesFiltered({
+      type: params.type,
+      carrier: params.carrier,
+      status: params.status,
+      search: params.search,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+    }),
     getExpiringPolicies(60),
     getSmartAndUserPins('insurance_policy'),
     getUser(),
+    getInsuranceCarriers(),
   ])
 
   // Get all pinned policy IDs
@@ -37,6 +57,9 @@ export default async function InsurancePage() {
       initialUserPins={Array.from(pins.userPins)}
       initialNotesMap={Object.fromEntries(notesMap)}
       initialUserNotesMap={Object.fromEntries(userNotesMap)}
+      carriers={carriers}
+      sortBy={params.sortBy}
+      sortOrder={params.sortOrder}
     />
   )
 }
