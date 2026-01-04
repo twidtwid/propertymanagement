@@ -11,6 +11,15 @@ interface RecentVendorEmailsProps {
   communications: VendorCommunication[]
 }
 
+// Sanitize email HTML to prevent style bleeding
+function sanitizeEmailHtml(html: string): string {
+  // Remove <style> tags and their content
+  let sanitized = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+  // Remove <link> tags (stylesheets, fonts, etc.)
+  sanitized = sanitized.replace(/<link[^>]*>/gi, '')
+  return sanitized
+}
+
 export function RecentVendorEmails({ communications }: RecentVendorEmailsProps) {
   const [mounted, setMounted] = useState(false)
 
@@ -78,7 +87,7 @@ export function RecentVendorEmails({ communications }: RecentVendorEmailsProps) 
                 {mounted && email.body_html ? (
                   <div
                     className="text-sm text-muted-foreground prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: email.body_html }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(email.body_html) }}
                   />
                 ) : email.body_snippet ? (
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">

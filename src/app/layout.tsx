@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={inter.className}>
         <TooltipProvider>
           <AppShell>{children}</AppShell>
           <Toaster />
