@@ -662,7 +662,7 @@ export interface DashboardPinnedItem {
   daysUntilOrOverdue: number | null
   status: DashboardPinStatus
   href: string
-  icon: 'bill' | 'tax' | 'insurance' | 'ticket' | 'vendor' | 'document' | 'building'
+  icon: 'bill' | 'tax' | 'insurance' | 'ticket' | 'vendor' | 'document' | 'building' | 'buildinglink'
   notes: PinNote[]
   metadata: Record<string, any> | null
 }
