@@ -96,6 +96,131 @@ function extractRootDomain(domain) {
   return domain;
 }
 
+// Keywords indicating payment confirmation emails
+const CONFIRMATION_KEYWORDS = [
+  'payment received', 'payment confirmed', 'payment successful',
+  'payment processed', 'thank you for your payment', 'payment complete',
+  'auto-pay processed', 'automatic payment', 'has been paid',
+  'transaction complete', 'payment notification', 'autopay payment confirmation'
+];
+
+function isConfirmationEmailText(subject, body) {
+  const text = [subject, body].filter(Boolean).join(' ').toLowerCase();
+  return CONFIRMATION_KEYWORDS.some(keyword => text.includes(keyword));
+}
+
+function extractAmountFromText(text) {
+  if (!text) return null;
+  const patterns = [
+    /\$\s*([\d,]+\.?\d{0,2})/g,
+    /(?:amount|total|payment)[:\s]*\$?([\d,]+\.?\d{0,2})/gi,
+  ];
+
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const parsed = parseFloat(match[1].replace(/,/g, ''));
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 100000) {
+        return parsed;
+      }
+    }
+  }
+  return null;
+}
+
+// Auto-match confirmation emails to auto-pay bills
+async function autoMatchEmailsToPayments(daysBack = 14) {
+  console.log('\n📎 Matching confirmation emails to auto-pay bills...');
+
+  // Get recent vendor emails that aren't already linked
+  const emailResult = await pool.query(`
+    SELECT
+      vc.id, vc.vendor_id, v.name as vendor_name,
+      vc.subject, vc.body_snippet, vc.received_at
+    FROM vendor_communications vc
+    LEFT JOIN vendors v ON vc.vendor_id = v.id
+    WHERE vc.direction = 'inbound'
+      AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
+      AND NOT EXISTS (
+        SELECT 1 FROM payment_email_links pel WHERE pel.email_id = vc.id
+      )
+    ORDER BY vc.received_at DESC
+    LIMIT 200
+  `, [daysBack]);
+
+  const emails = emailResult.rows;
+
+  // Get auto-pay bills that could be matched
+  const billResult = await pool.query(`
+    SELECT id, vendor_id, amount, due_date, description
+    FROM bills
+    WHERE due_date >= CURRENT_DATE - ($1::INTEGER)
+      AND payment_method = 'auto_pay'
+      AND status IN ('confirmed', 'sent', 'pending')
+  `, [daysBack + 30]);
+
+  const bills = billResult.rows;
+
+  let linksCreated = 0;
+
+  for (const email of emails) {
+    if (!isConfirmationEmailText(email.subject, email.body_snippet)) {
+      continue;
+    }
+
+    // Find best matching bill
+    let bestMatch = null;
+
+    for (const bill of bills) {
+      let score = 0;
+
+      // Vendor match (high weight)
+      if (email.vendor_id && email.vendor_id === bill.vendor_id) {
+        score += 0.4;
+      }
+
+      // Amount match
+      const emailAmount = extractAmountFromText([email.subject, email.body_snippet].filter(Boolean).join(' '));
+      if (emailAmount && Math.abs(emailAmount - parseFloat(bill.amount)) < 0.01) {
+        score += 0.4;
+      } else if (emailAmount && Math.abs(emailAmount - parseFloat(bill.amount)) < 1.00) {
+        score += 0.2;
+      }
+
+      // Date proximity
+      const emailDate = new Date(email.received_at);
+      const billDate = new Date(bill.due_date);
+      const daysDiff = Math.abs((emailDate.getTime() - billDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff <= 3) {
+        score += 0.2;
+      } else if (daysDiff <= 7) {
+        score += 0.1;
+      }
+
+      if (score >= 0.7) {
+        if (!bestMatch || score > bestMatch.score) {
+          bestMatch = { bill, score };
+        }
+      }
+    }
+
+    if (bestMatch) {
+      await pool.query(`
+        INSERT INTO payment_email_links (payment_type, payment_id, email_id, link_type, confidence, auto_matched)
+        VALUES ('bill', $1, $2, 'confirmation', $3, true)
+        ON CONFLICT (payment_type, payment_id, email_id) DO NOTHING
+      `, [bestMatch.bill.id, email.id, bestMatch.score]);
+
+      console.log(`   ✓ Linked: "${email.subject?.substring(0, 40)}..." → ${bestMatch.bill.description}`);
+      linksCreated++;
+    }
+  }
+
+  console.log(`   Created ${linksCreated} email links`);
+  return linksCreated;
+}
+
 // Match email to vendor
 async function matchEmailToVendor(senderEmail, senderName, vendors) {
   const senderEmailLower = senderEmail.toLowerCase();
@@ -427,12 +552,20 @@ async function syncEmails() {
 
     await updateSyncState();
 
+    // Auto-match confirmation emails to auto-pay bills
+    let emailLinks = 0;
+    try {
+      emailLinks = await autoMatchEmailsToPayments(14);
+    } catch (linkError) {
+      console.error('   Error matching email links:', linkError.message);
+    }
+
     console.log(`\n${'─'.repeat(60)}`);
     console.log(`  SYNC COMPLETE`);
-    console.log(`  Stored: ${stored} | Matched: ${matched} | Urgent: ${urgent}`);
+    console.log(`  Stored: ${stored} | Matched: ${matched} | Urgent: ${urgent} | Links: ${emailLinks}`);
     console.log(`${'─'.repeat(60)}\n`);
 
-    return { success: true, emailsStored: stored, emailsMatched: matched, urgentEmails: urgent };
+    return { success: true, emailsStored: stored, emailsMatched: matched, urgentEmails: urgent, emailLinks };
 
   } catch (error) {
     const errMsg = error.message || error.toString() || 'Unknown error';

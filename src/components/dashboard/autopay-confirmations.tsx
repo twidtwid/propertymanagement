@@ -32,10 +32,6 @@ interface AutoPayConfirmationsProps {
 export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProps) {
   const [isOpen, setIsOpen] = useState(true) // Default to open
 
-  if (confirmations.length === 0) {
-    return null
-  }
-
   const totalAmount = confirmations.reduce((sum, c) => sum + Number(c.amount), 0)
 
   return (
@@ -60,26 +56,32 @@ export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProp
         </Link>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Summary */}
-        <div className="flex items-center justify-between p-2 rounded bg-green-100 text-green-800">
-          <span className="text-sm font-medium">
-            {confirmations.length} payment{confirmations.length > 1 ? "s" : ""} confirmed this week
-          </span>
-          <span className="text-sm font-semibold">
-            {formatCurrency(totalAmount)}
-          </span>
-        </div>
+        {confirmations.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-2">
+            No auto-pay confirmations this week
+          </div>
+        ) : (
+          <>
+            {/* Summary */}
+            <div className="flex items-center justify-between p-2 rounded bg-green-100 text-green-800">
+              <span className="text-sm font-medium">
+                {confirmations.length} payment{confirmations.length > 1 ? "s" : ""} confirmed this week
+              </span>
+              <span className="text-sm font-semibold">
+                {formatCurrency(totalAmount)}
+              </span>
+            </div>
 
-        {/* Expandable details */}
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-1 text-sm text-green-700 hover:text-green-900">
-              <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-              {isOpen ? 'Hide' : 'Show'} details
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-2 pt-2">
-            {confirmations.map((confirmation) => (
+            {/* Expandable details */}
+            <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+              <CollapsibleTrigger asChild>
+                <button className="flex items-center gap-1 text-sm text-green-700 hover:text-green-900">
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  {isOpen ? 'Hide' : 'Show'} details
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 pt-2">
+                {confirmations.map((confirmation) => (
               <div
                 key={confirmation.payment_id}
                 className="p-3 rounded-lg bg-white border border-green-100"
@@ -124,8 +126,10 @@ export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProp
                 </div>
               </div>
             ))}
-          </CollapsibleContent>
-        </Collapsible>
+              </CollapsibleContent>
+            </Collapsible>
+          </>
+        )}
       </CardContent>
     </Card>
   )
