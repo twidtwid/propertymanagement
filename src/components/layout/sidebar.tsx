@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -42,6 +43,18 @@ const secondaryNavigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
+
+  // Wait for client-side hydration to complete
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Helper to check if path is active
+  const isActive = (href: string) => {
+    if (!mounted) return false
+    return pathname === href || (href !== "/" && pathname.startsWith(href + "/"))
+  }
 
   return (
     <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
@@ -60,53 +73,59 @@ export function Sidebar() {
             <ul className="flex flex-1 flex-col gap-y-7 list-none">
               <li>
                 <ul className="-mx-2 space-y-1 list-none">
-                  {navigation.map((item) => (
-                    <li key={item.name}>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          pathname === item.href || pathname.startsWith(item.href + "/")
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                          "group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6 transition-colors"
-                        )}
-                      >
-                        <item.icon
+                  {navigation.map((item) => {
+                    const active = isActive(item.href)
+                    return (
+                      <li key={item.name}>
+                        <Link
+                          href={item.href}
                           className={cn(
-                            pathname === item.href || pathname.startsWith(item.href + "/")
-                              ? "text-primary"
-                              : "text-muted-foreground group-hover:text-foreground",
-                            "h-6 w-6 shrink-0"
+                            active
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                            "group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6 transition-colors"
                           )}
-                          aria-hidden="true"
-                        />
-                        {item.name}
-                      </Link>
-                    </li>
-                  ))}
+                        >
+                          <item.icon
+                            className={cn(
+                              active
+                                ? "text-primary"
+                                : "text-muted-foreground group-hover:text-foreground",
+                              "h-6 w-6 shrink-0"
+                            )}
+                            aria-hidden="true"
+                          />
+                          {item.name}
+                        </Link>
+                      </li>
+                    )
+                  })}
                 </ul>
               </li>
               <li className="mt-auto">
                 <ul className="-mx-2 space-y-1 list-none">
-                  {secondaryNavigation.map((item) => (
-                    <li key={item.name}>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          pathname === item.href
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                          "group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6 transition-colors"
-                        )}
-                      >
-                        <item.icon
-                          className="h-6 w-6 shrink-0"
-                          aria-hidden="true"
-                        />
-                        {item.name}
-                      </Link>
-                    </li>
-                  ))}
+                  {secondaryNavigation.map((item) => {
+                    const active = isActive(item.href)
+                    return (
+                      <li key={item.name}>
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            active
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                            "group flex gap-x-3 rounded-xl p-3 text-base font-medium leading-6 transition-colors"
+                          )}
+                        >
+                          <item.icon
+                            className="h-6 w-6 shrink-0"
+                            aria-hidden="true"
+                          />
+                          {item.name}
+                        </Link>
+                      </li>
+                    )
+                  })}
                 </ul>
               </li>
             </ul>
