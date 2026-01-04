@@ -790,11 +790,77 @@ export async function syncSmartPinsBuildingLink(): Promise<void> {
     return daysAgo <= 7
   })
 
-  // Pin critical/important messages
-  for (const msg of recentMessages) {
-    const { category } = categorizeBuildingLinkMessage(msg.subject, msg.body_snippet)
+  // Categorize all messages to find outages and restorations
+  const categorizedMessages = recentMessages.map(m => ({
+    ...m,
+    ...categorizeBuildingLinkMessage(m.subject, m.body_snippet)
+  }))
 
-    if (category === 'critical' || category === 'important') {
+  // Group service messages by equipment/service to find latest status
+  const serviceMessages = categorizedMessages.filter(m =>
+    m.subcategory === 'service_outage' || m.subcategory === 'service_restored'
+  )
+
+  // Extract service identifier (e.g., "elevator 2" from subject)
+  // Normalize inconsistent naming (e.g., "North Tower Elevator" vs "Elevator 2 - North Tower")
+  const getServiceKey = (subject: string): string => {
+    let normalized = subject
+      .toLowerCase()
+      .replace(/out of service|back in service|resolved|reopened|now open|emergency|inspection/gi, '')
+      .replace(/[-–—]/g, ' ') // Replace dashes with spaces
+      .trim()
+      .replace(/\s+/g, ' ')
+
+    // Extract elevator number if present (e.g., "elevator 2", "elevator a")
+    const elevatorMatch = normalized.match(/elevator\s+(\d+|[a-z])/i)
+    if (elevatorMatch) {
+      return `elevator ${elevatorMatch[1]}`
+    }
+
+    // Extract tower + elevator if no number (e.g., "north tower elevator")
+    const towerMatch = normalized.match(/(north|south|east|west)\s+tower\s+elevator/i)
+    if (towerMatch) {
+      return `${towerMatch[1]} tower elevator`
+    }
+
+    // Fallback: return normalized string
+    return normalized
+  }
+
+  // Group by service and find most recent message for each
+  const serviceGroups = new Map<string, typeof categorizedMessages[0]>()
+  for (const msg of serviceMessages) {
+    const key = getServiceKey(msg.subject)
+    const existing = serviceGroups.get(key)
+    if (!existing || new Date(msg.received_at) > new Date(existing.received_at)) {
+      serviceGroups.set(key, msg)
+    }
+  }
+
+  // Collect IDs of outages that have been resolved (latest message is restoration)
+  const resolvedOutageKeys = new Set<string>()
+  for (const [key, latestMsg] of serviceGroups.entries()) {
+    if (latestMsg.subcategory === 'service_restored') {
+      resolvedOutageKeys.add(key)
+    }
+  }
+
+  // Pin critical/important messages (but exclude resolved outages and packages)
+  for (const msg of categorizedMessages) {
+    // Skip packages (handled separately in Uncollected Packages section)
+    if (msg.category === 'package') continue
+
+    // Skip service restorations (they shouldn't be pinned)
+    if (msg.subcategory === 'service_restored') continue
+
+    // For service outages, check if latest status is resolved
+    if (msg.subcategory === 'service_outage') {
+      const serviceKey = getServiceKey(msg.subject)
+      if (resolvedOutageKeys.has(serviceKey)) continue
+    }
+
+    // Pin if critical or important
+    if (msg.category === 'critical' || msg.category === 'important') {
       const unit = extractUnit(msg.subject, msg.body_snippet)
       await upsertSmartPin({
         entityType: 'buildinglink_message',
@@ -1108,6 +1174,17 @@ export async function getDashboardPinnedItems(): Promise<{
   for (const msg of blMessages) {
     const key = `buildinglink_message:${msg.id}`
     const pinType = pinTypeMap.get(key) || 'user'
+
+    // Categorize message to check subcategory
+    const { subcategory } = categorizeBuildingLinkMessage(msg.subject || '', msg.body_snippet)
+
+    // Skip resolved/status messages (they don't need dashboard attention)
+    if (subcategory === 'service_restored' ||
+        subcategory === 'package_pickup' ||
+        subcategory === 'package_arrival') {
+      continue
+    }
+
     // BuildingLink important messages are urgent
     const status: DashboardPinStatus = msg.is_important ? 'urgent' : 'normal'
     if (status === 'urgent') urgentCount++
@@ -1126,7 +1203,7 @@ export async function getDashboardPinnedItems(): Promise<{
       daysUntilOrOverdue: null,
       status,
       href: `/buildinglink`,
-      icon: 'building',
+      icon: 'buildinglink',
       notes: notesMap.get(msg.id) || [],
       metadata: metadataMap.get(key) ?? null,
     })
@@ -3388,9 +3465,17 @@ export async function getBuildingLinkNeedsAttention(): Promise<NeedsAttentionIte
   })
 
   // User-pinned messages (important messages user manually pinned)
+  // Exclude resolved items (service_restored, package_pickup, package_arrival, service_outage)
   const allPinnedIds = await getPinnedIds('buildinglink_message')
   const flaggedMessages = messages
-    .filter(m => allPinnedIds.has(m.id) && !dismissedIds.has(m.id) && m.subcategory !== 'package_arrival' && m.subcategory !== 'service_outage')
+    .filter(m =>
+      allPinnedIds.has(m.id) &&
+      !dismissedIds.has(m.id) &&
+      m.subcategory !== 'package_arrival' &&
+      m.subcategory !== 'package_pickup' &&
+      m.subcategory !== 'service_outage' &&
+      m.subcategory !== 'service_restored'
+    )
     .map(m => ({ ...m, is_flagged: true }))
 
   return {

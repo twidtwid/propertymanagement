@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Pin,
-  Zap,
   Star,
   CreditCard,
   Building2,
@@ -17,11 +16,12 @@ import {
   FileText,
   Building,
   ArrowRight,
-  X,
+  MessageSquare,
 } from "lucide-react"
 import { cn, formatCurrency, formatDate } from "@/lib/utils"
-import type { DashboardPinnedItem, DashboardPinStatus } from "@/types/database"
+import type { DashboardPinnedItem, DashboardPinStatus, PinNote } from "@/types/database"
 import { useToast } from "@/hooks/use-toast"
+import { PinNoteButton } from "@/components/ui/pin-note-button"
 
 interface UnifiedPinnedItemsProps {
   items: DashboardPinnedItem[]
@@ -35,6 +35,7 @@ const iconMap = {
   vendor: User,
   document: FileText,
   building: Building,
+  buildinglink: MessageSquare,
 }
 
 const statusStyles: Record<DashboardPinStatus, { border: string; badge: string; badgeVariant: "destructive" | "warning" | "secondary" | "default" }> = {
@@ -47,10 +48,36 @@ const statusStyles: Record<DashboardPinStatus, { border: string; badge: string; 
 export function UnifiedPinnedItems({ items: initialItems }: UnifiedPinnedItemsProps) {
   const [items, setItems] = useState(initialItems)
   const [dismissing, setDismissing] = useState<string | null>(null)
+  const [userNotesMap, setUserNotesMap] = useState<Record<string, PinNote>>({})
   const { toast } = useToast()
 
   if (items.length === 0) {
     return null
+  }
+
+  // Refresh notes for a specific item
+  const refreshNotes = async (entityType: string, entityId: string) => {
+    try {
+      const response = await fetch(`/api/pin-notes?entityType=${entityType}&entityId=${entityId}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Update the item's notes in the items array
+        setItems((prev) =>
+          prev.map((item) =>
+            item.entityType === entityType && item.entityId === entityId
+              ? { ...item, notes: data.notes || [] }
+              : item
+          )
+        )
+        // Update user note
+        setUserNotesMap((prev) => ({
+          ...prev,
+          [`${entityType}:${entityId}`]: data.userNote || null,
+        }))
+      }
+    } catch (error) {
+      console.error("Failed to refresh notes:", error)
+    }
   }
 
   const handleDismiss = async (item: DashboardPinnedItem) => {
@@ -162,13 +189,28 @@ export function UnifiedPinnedItems({ items: initialItems }: UnifiedPinnedItemsPr
                 style.border
               )}
             >
-              {/* Pin Type Indicator */}
-              <div className="flex-shrink-0 mt-0.5">
-                {item.pinType === "smart" ? (
-                  <Zap className="h-4 w-4 text-orange-500" />
-                ) : (
+              {/* Pin and Note buttons */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Pin indicator - clickable to dismiss/unpin */}
+                <button
+                  onClick={() => handleDismiss(item)}
+                  disabled={dismissing === item.id}
+                  className="hover:opacity-70 transition-opacity"
+                  title={item.pinType === "smart" ? "Dismiss smart pin" : "Unpin"}
+                >
                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                )}
+                </button>
+
+                {/* Note button */}
+                <PinNoteButton
+                  entityType={item.entityType}
+                  entityId={item.entityId}
+                  existingNote={userNotesMap[`${item.entityType}:${item.entityId}`]}
+                  onNoteSaved={() => refreshNotes(item.entityType, item.entityId)}
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                />
               </div>
 
               {/* Icon */}
@@ -219,18 +261,6 @@ export function UnifiedPinnedItems({ items: initialItems }: UnifiedPinnedItemsPr
                   </Badge>
                 )}
               </div>
-
-              {/* Dismiss Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 flex-shrink-0"
-                onClick={() => handleDismiss(item)}
-                disabled={dismissing === item.id}
-                title={item.pinType === "smart" ? "Dismiss" : "Unpin"}
-              >
-                <X className="h-3 w-3" />
-              </Button>
             </div>
           )
         })}

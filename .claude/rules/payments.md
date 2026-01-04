@@ -35,23 +35,43 @@ pending → sent → confirmed
 
 ## Property Tax Schedules
 
-| Jurisdiction | Schedule | Installments | Typical Due Dates |
-|--------------|----------|--------------|-------------------|
+| Jurisdiction | Schedule | Installments | Due Dates (2025-2026) |
+|--------------|----------|--------------|----------------------|
 | NYC (Brooklyn) | Quarterly | 4 | Jul 1, Oct 1, Jan 1, Apr 1 |
 | Providence, RI | Quarterly | 4 | Jul 24, Oct 24, Jan 24, Apr 24 |
-| Vermont (Dummerston) | Semi-annual | 2 | Aug 15, Feb 15 |
-| Vermont (Brattleboro) | Semi-annual | 2 | Aug 15, Feb 15 |
+| Dummerston, VT | Semi-annual | 2 | Aug 20, Feb 20 |
+| Brattleboro, VT | Quarterly | 4 | Aug 15, Nov 17, Feb 17, May 15 |
 | Santa Clara, CA | Semi-annual | 2 | Dec 10, Apr 10 |
+
+**Note:** Vermont tax years run Jul-Jun (e.g., "Tax Year 2025" covers Jul 2025 - Jun 2026).
 
 ## Tax Lookup Methods
 
-| Jurisdiction | Method | Status | Script/API |
-|--------------|--------|--------|------------|
+| Jurisdiction | Method | Status | Source |
+|--------------|--------|--------|--------|
 | NYC | NYC Open Data API | ✅ Working | `src/lib/taxes/providers/nyc-open-data.ts` |
 | Santa Clara CA | Playwright | ✅ Working | `scripts/lookup_scc_tax.py` |
 | Providence RI | City Hall Systems | ✅ Working | `scripts/lookup_providence_tax.py` |
-| Vermont (Dummerston) | NEMRC | ✅ Working | `scripts/lookup_vermont_tax.py` |
-| Vermont (Brattleboro) | AxisGIS | ❌ Manual | `axisgis.com/BrattleboroVT/` |
+| Dummerston, VT | NEMRC | ✅ Working | `scripts/lookup_vermont_tax.py` |
+| Brattleboro, VT | AxisGIS | ❌ Manual | axisgis.com/BrattleboroVT/ |
+
+### Tax Assessment Data Sources
+
+| Jurisdiction | Source | URL | Data Available |
+|--------------|--------|-----|----------------|
+| Dummerston, VT | NEMRC Property Database | nemrc.com | Parcel info, SPAN, building details, sales history |
+| Brattleboro, VT | AxisGIS | axisgis.com/BrattleboroVT/ | Parcel maps, SPAN lookup |
+| Providence, RI | Catalis Tax & CAMA | providenceri.gov | Full property cards, assessment history, building details |
+| NYC | NYC Open Data / ACRIS | data.cityofnewyork.us | Tax bills (note: 421-a abatements not in API) |
+| Santa Clara, CA | County Tax Portal | dtac.sccgov.org | Tax bills, assessment details |
+
+### Vermont Tax Bill Components
+
+Vermont tax bills combine Municipal and Education taxes:
+- **Municipal Tax**: Town services (roads, fire, etc.)
+- **Education Tax**: School funding (Homestead vs Non-Homestead rates)
+- **Grand List Value**: Assessed value ÷ 100 (used in tax calculations)
+- **SCL Code**: School code (e.g., 059 for Dummerston, 025 for Brattleboro)
 
 ### Automated Tax Sync System
 

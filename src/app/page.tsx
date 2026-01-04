@@ -6,6 +6,7 @@ import { UnifiedPinnedItems } from "@/components/dashboard/unified-pinned-items"
 import { UpcomingWeek } from "@/components/dashboard/upcoming-week"
 import { QuickActionsBar } from "@/components/dashboard/quick-actions-bar"
 import { BuildingLinkSummary } from "@/components/dashboard/buildinglink-summary"
+import { RecentVendorEmails } from "@/components/dashboard/recent-vendor-emails"
 import {
   getNewDashboardStats,
   getDashboardPinnedItems,
@@ -15,6 +16,7 @@ import {
   getPinnedIds,
   getVendorsFiltered,
 } from "@/lib/actions"
+import { query } from "@/lib/db"
 
 export default async function Dashboard() {
   const [
@@ -24,6 +26,7 @@ export default async function Dashboard() {
     properties,
     buildingLink,
     pinnedVendorIds,
+    recentEmailsRaw,
   ] = await Promise.all([
     getNewDashboardStats(),
     getDashboardPinnedItems(),
@@ -31,7 +34,35 @@ export default async function Dashboard() {
     getActiveProperties(),
     getBuildingLinkNeedsAttention(),
     getPinnedIds('vendor'),
+    query<{
+      vendor_name: string | null
+      subject: string
+      received_at: string
+      is_important: boolean
+      body_snippet: string | null
+      body_html: string | null
+    }>(`
+      SELECT v.name as vendor_name, vc.subject, vc.received_at, vc.is_important, vc.body_snippet, vc.body_html
+      FROM vendor_communications vc
+      INNER JOIN vendors v ON vc.vendor_id = v.id
+      WHERE vc.received_at >= CURRENT_DATE - 7
+        AND vc.direction = 'inbound'
+        AND v.specialty != 'other'
+        AND v.name != 'BuildingLink'
+        AND NOT (vc.labels && ARRAY['CATEGORY_PROMOTIONS', 'SPAM']::text[])
+      ORDER BY vc.received_at DESC
+      LIMIT 10
+    `),
   ])
+
+  const recentEmails = recentEmailsRaw.map((e) => ({
+    vendorName: e.vendor_name,
+    subject: e.subject || "(No subject)",
+    receivedAt: e.received_at,
+    isUrgent: e.is_important,
+    snippet: e.body_snippet || undefined,
+    bodyHtml: e.body_html || undefined,
+  }))
 
   // Get pinned vendors for quick actions
   const pinnedVendors = pinnedVendorIds.size > 0
@@ -100,8 +131,8 @@ export default async function Dashboard() {
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          {/* Unified Pinned Items */}
-          <UnifiedPinnedItems items={pinnedData.items} />
+          {/* Unified Pinned Items - exclude vendors (they're already in quick actions) */}
+          <UnifiedPinnedItems items={pinnedData.items.filter(item => item.entityType !== 'vendor')} />
 
           {/* Coming Up (7 days) */}
           <UpcomingWeek items={upcomingWeek} />
@@ -120,6 +151,9 @@ export default async function Dashboard() {
           />
         </div>
       </div>
+
+      {/* Recent Vendor Emails (bottom of page) */}
+      <RecentVendorEmails emails={recentEmails} />
     </div>
   )
 }

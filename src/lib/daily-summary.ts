@@ -41,6 +41,8 @@ export interface EmailSummary {
   subject: string
   receivedAt: string
   isUrgent: boolean
+  snippet?: string
+  bodyHtml?: string
 }
 
 export interface SummaryStats {
@@ -67,8 +69,9 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
   ])
 
   // Split pinned items by status - same logic as dashboard
-  const overdueItems = pinnedData.items.filter(item => item.status === 'overdue')
-  const urgentItems = pinnedData.items.filter(item => item.status === 'urgent')
+  // Exclude vendors from needs attention (they don't have due dates and are shown elsewhere)
+  const overdueItems = pinnedData.items.filter(item => item.status === 'overdue' && item.entityType !== 'vendor')
+  const urgentItems = pinnedData.items.filter(item => item.status === 'urgent' && item.entityType !== 'vendor')
 
   // Get recent emails - only vendor-matched emails, not personal/marketing
   const recentEmails = await query<{
@@ -76,8 +79,10 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
     subject: string
     received_at: string
     is_important: boolean
+    body_snippet: string | null
+    body_html: string | null
   }>(`
-    SELECT v.name as vendor_name, vc.subject, vc.received_at, vc.is_important
+    SELECT v.name as vendor_name, vc.subject, vc.received_at, vc.is_important, vc.body_snippet, vc.body_html
     FROM vendor_communications vc
     INNER JOIN vendors v ON vc.vendor_id = v.id
     WHERE vc.received_at >= CURRENT_DATE - 1
@@ -219,6 +224,8 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
       subject: e.subject || "(No subject)",
       receivedAt: e.received_at,
       isUrgent: e.is_important,
+      snippet: e.body_snippet || undefined,
+      bodyHtml: e.body_html || undefined,
     })),
     buildingLinkItems,
     stats: {
@@ -302,6 +309,10 @@ export async function formatSummaryAsText(summary: DailySummaryData): Promise<st
     for (const email of summary.recentEmails.slice(0, 5)) {
       const urgentMark = email.isUrgent ? " [URGENT]" : ""
       lines.push(`  - ${email.vendorName || "Unknown"}: ${email.subject}${urgentMark}`)
+      if (email.snippet) {
+        lines.push(`    ${email.snippet.substring(0, 100)}${email.snippet.length > 100 ? '...' : ''}`)
+      }
+      lines.push(`    Received: ${formatDate(email.receivedAt)}`)
     }
     lines.push("")
   }
@@ -514,10 +525,16 @@ export async function formatSummaryAsHtml(summary: DailySummaryData): Promise<st
     for (const email of summary.recentEmails.slice(0, 5)) {
       const urgentBadge = email.isUrgent ? '<span style="display: inline-block; background: #ef4444; color: white; font-size: 11px; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">URGENT</span>' : ''
       html += `
-        <div style="background: #f9fafb; padding: 12px 16px; margin: 8px 0; border-radius: 4px; border: 1px solid #e5e7eb;">
-          <strong style="color: #1f2937;">${email.vendorName || "Unknown"}</strong>${urgentBadge}<br>
-          <span style="color: #6b7280; font-size: 13px;">${email.subject}</span>
-        </div>
+        <details style="background: #f9fafb; padding: 12px 16px; margin: 8px 0; border-radius: 4px; border: 1px solid #e5e7eb;">
+          <summary style="cursor: pointer; list-style: none; user-select: none;">
+            <strong style="color: #1f2937;">${email.vendorName || "Unknown"}</strong>${urgentBadge}<br>
+            <span style="color: #6b7280; font-size: 13px;">${email.subject}</span>
+          </summary>
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+            ${email.snippet ? `<p style="color: #4b5563; font-size: 13px; line-height: 1.5; margin: 0 0 8px 0;">${email.snippet}</p>` : ''}
+            <p style="color: #9ca3af; font-size: 12px; margin: 0;">Received: ${formatDate(email.receivedAt)}</p>
+          </div>
+        </details>
       `
     }
     if (summary.recentEmails.length > 5) {

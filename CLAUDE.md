@@ -235,6 +235,7 @@ SELECT b.*, p.name FROM bills b LEFT JOIN properties p ON b.property_id = p.id
 | 014-015 | Berkley auto insurance, vendor data merge |
 | 016 | Data reconciliation |
 | 019-023 | **Unified pinning system** (smart + user pins, dismissals, performance) |
+| 024-025 | Pin notes with due dates |
 
 ---
 
@@ -278,13 +279,27 @@ runDropboxSync({ verbose, forceRegenerate })
 
 ### Tax Lookup System
 
-**Providers:**
+**Automated Providers:**
 | Jurisdiction | Method | Script |
 |--------------|--------|--------|
 | NYC | Open Data API | `src/lib/taxes/providers/nyc-open-data.ts` |
 | Santa Clara CA | Playwright | `scripts/lookup_scc_tax.py` |
 | Providence RI | Playwright | `scripts/lookup_providence_tax.py` |
-| Vermont | Playwright | `scripts/lookup_vermont_tax.py` |
+| Dummerston, VT | Playwright/NEMRC | `scripts/lookup_vermont_tax.py` |
+
+**Manual Entry (from PDF tax bills):**
+| Jurisdiction | Source | Notes |
+|--------------|--------|-------|
+| Brattleboro, VT | Town mailed bills | Quarterly (Aug/Nov/Feb/May). Enter SPAN, Parcel ID, SCL code. |
+| Dummerston, VT | Town mailed bills | Semi-annual (Aug/Feb). NEMRC for property details. |
+| Providence, RI | City mailed bills | Quarterly (Jul/Oct/Jan/Apr). Catalis for property cards. |
+
+**Workflow for PDF Tax Bills:**
+1. Read PDF with Claude (extracts amounts, due dates, parcel IDs)
+2. Update property record with parcel_id, span_number if missing
+3. Insert property_taxes records with jurisdiction, installments, amounts
+4. Mark paid installments as 'confirmed' with payment_date, confirmation_date
+5. Sync to production: Export local table, truncate prod, import
 
 **Note:** Brooklyn condos have 421-a tax abatement (~$110-120/year actual vs API estimates). Manually update from NYC Finance bills.
 
@@ -587,16 +602,26 @@ Enforced via middleware restricting bookkeeper to: `/`, `/payments/**`, `/settin
 
 ## Property Tax Identifiers
 
-| Property | Jurisdiction | ID Type | Value |
-|----------|--------------|---------|-------|
-| Vermont Main House | Dummerston, VT | SPAN | 186-059-10695 |
-| Booth House | Dummerston, VT | SPAN | 186-059-10098 |
-| Guest House | Dummerston, VT | SPAN | 186-059-10693 |
-| Vermont Land | Brattleboro, VT | SPAN | 081-025-11151 |
-| Brooklyn PH2E | NYC | Block/Lot | 02324/1305 |
-| Brooklyn PH2F | NYC | Block/Lot | 02324/1306 |
-| Rhode Island House | Providence, RI | Parcel | 016-0200-0000 |
-| 125 Dana Avenue | Santa Clara, CA | APN | 274-15-034 |
+| Property | Jurisdiction | SPAN / Parcel | Other IDs | Assessed Value |
+|----------|--------------|---------------|-----------|----------------|
+| Vermont Main House | Dummerston, VT | 186-059-10695 / 000453 | SCL: 059 | $870,300 |
+| Booth House | Dummerston, VT | 186-059-10098 / 000446 | SCL: 059 | $521,700 |
+| Vermont Guest House | Dummerston, VT | 186-059-10693 / 000454 | SCL: 059 | $413,000 |
+| 22 Kelly Rd | Brattleboro, VT | 081-025-11151 / 00010009.000 | SCL: 025 | $211,130 |
+| Brooklyn PH2E | NYC | Block 02324 / Lot 1305 | | ~$110/yr (421-a) |
+| Brooklyn PH2F | NYC | Block 02324 / Lot 1306 | | ~$120/yr (421-a) |
+| Rhode Island House | Providence, RI | 016-0200-0000 | Acct: 10845, Map/Lot: 16-200 | $1,197,700 |
+| 125 Dana Avenue | Santa Clara, CA | APN 274-15-034 | | |
+
+### Tax Data Sources
+
+| Jurisdiction | Source | URL | Notes |
+|--------------|--------|-----|-------|
+| Dummerston, VT | NEMRC | nemrc.com | Property database with building details |
+| Brattleboro, VT | AxisGIS | axisgis.com/BrattleboroVT/ | Manual lookup required |
+| Providence, RI | Catalis Tax & CAMA | providenceri.gov | Full property cards with history |
+| NYC | NYC Open Data | data.cityofnewyork.us | API access, but 421-a not reflected |
+| Santa Clara, CA | County Tax Portal | dtac.sccgov.org | |
 
 ---
 

@@ -53,8 +53,10 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
     filteredMessages = messages.filter((m) => m.category === "security")
   } else if (currentTab === "packages") {
     filteredMessages = messages.filter((m) => m.category === "package")
+  } else if (currentTab === "elevator") {
+    filteredMessages = messages.filter((m) => m.subject.toLowerCase().includes("elevator"))
   }
-  // "activity" tab shows all (already filtered by includeSocial)
+  // "activity" and "journal" tabs show all messages (already filtered by includeSocial)
 
   // Get all pinned message IDs
   const allPinnedIds = [...Array.from(pins.smartPins), ...Array.from(pins.userPins)]
@@ -97,6 +99,7 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
       {/* Client-side interactive content */}
       <BuildingLinkClient
         messages={filteredMessages}
+        allMessages={messages}
         smartPins={Array.from(pins.smartPins)}
         userPins={Array.from(pins.userPins)}
         uncollectedPackages={needsAttention.uncollectedPackages}

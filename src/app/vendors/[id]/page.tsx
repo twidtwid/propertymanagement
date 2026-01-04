@@ -32,6 +32,7 @@ import { VENDOR_SPECIALTY_LABELS } from "@/types/database"
 import { VendorJournal } from "@/components/vendors/vendor-journal"
 import { VendorContactsList } from "@/components/vendors/vendor-contacts-list"
 import { DeleteVendorButton } from "@/components/vendors/delete-vendor-button"
+import { RecentVendorEmails } from "@/components/vendors/recent-vendor-emails"
 
 export default async function VendorDetailPage({
   params,
@@ -274,6 +275,9 @@ export default async function VendorDetailPage({
               </Card>
             </Collapsible>
           )}
+
+          {/* Recent Vendor Emails (Last 7 Days) */}
+          <RecentVendorEmails communications={communications} />
         </TabsContent>
 
         <TabsContent value="journal">

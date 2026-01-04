@@ -11,7 +11,6 @@ import {
   ChevronUp,
   Clock,
   CheckCircle2,
-  Circle,
 } from "lucide-react"
 import { TASK_PRIORITY_LABELS, TICKET_STATUS_LABELS, PinNote } from "@/types/database"
 import type { TicketWithDetails } from "@/lib/actions"
@@ -46,7 +45,7 @@ function getStatusIcon(status: string) {
     case "cancelled":
       return <CheckCircle2 className="h-4 w-4 text-green-500" />
     default:
-      return <Circle className="h-4 w-4 text-gray-400" />
+      return null
   }
 }
 
@@ -84,17 +83,15 @@ export function TicketRowSimple({ ticket, pinnedIds, onTogglePin, userNote, onNo
             status: ticket.status,
           }}
         />
-        {isPinned && (
-          <PinNoteButton
-            entityType="ticket"
-            entityId={ticket.id}
-            existingNote={userNote}
-            onNoteSaved={onNoteSaved}
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0"
-          />
-        )}
+        <PinNoteButton
+          entityType="ticket"
+          entityId={ticket.id}
+          existingNote={userNote}
+          onNoteSaved={onNoteSaved}
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0"
+        />
       </div>
       <Link href={`/tickets/${ticket.id}`} className="flex items-start gap-3 flex-1 min-w-0">
         {getStatusIcon(ticket.status)}
@@ -217,7 +214,7 @@ export function TicketList({ tickets, pinnedIds, onTogglePin }: TicketListProps)
       <TicketSection
         title="Open"
         tickets={openTickets}
-        icon={<Circle className="h-4 w-4" />}
+        icon={null}
         variant="open"
         pinnedIds={pinnedIds}
         onTogglePin={onTogglePin || (() => {})}

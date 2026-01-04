@@ -17,10 +17,13 @@ import {
   Activity,
   Key,
   Package,
+  ArrowUpDown,
+  MessageSquare,
 } from "lucide-react"
 
 interface BuildingLinkClientProps {
   messages: BuildingLinkMessage[]
+  allMessages: BuildingLinkMessage[]
   smartPins: string[]
   userPins: string[]
   uncollectedPackages: BuildingLinkMessage[]
@@ -34,10 +37,13 @@ const TABS = [
   { id: "activity", label: "Activity", icon: Activity },
   { id: "security", label: "Security", icon: Key },
   { id: "packages", label: "Packages", icon: Package },
+  { id: "elevator", label: "Elevator", icon: ArrowUpDown },
+  { id: "journal", label: "Journal", icon: MessageSquare },
 ]
 
 export function BuildingLinkClient({
   messages,
+  allMessages,
   smartPins: initialSmartPins,
   userPins: initialUserPins,
   uncollectedPackages,
@@ -126,9 +132,20 @@ export function BuildingLinkClient({
     }
   }
 
+  // Calculate tab counts from all messages (for badges)
+  const packageCount = allMessages.filter(m => m.category === 'package').length
+  const securityCount = allMessages.filter(m => m.category === 'security').length
+  const elevatorCount = allMessages.filter(m => m.subject.toLowerCase().includes('elevator')).length
+  const journalCount = allMessages.length
+
   // Separate messages into smart pins, user pins, and unpinned
-  // Exclude packages from smart pins (they show in the dedicated Uncollected Packages section)
-  const smartPinMessages = messages.filter(m => smartPins.has(m.id) && m.subcategory !== 'package_arrival')
+  // Exclude packages and restored services from smart pins (resolved issues don't need attention)
+  const smartPinMessages = messages.filter(m =>
+    smartPins.has(m.id) &&
+    m.subcategory !== 'package_arrival' &&
+    m.subcategory !== 'service_restored' &&
+    m.subcategory !== 'package_pickup'
+  )
   const userPinMessages = messages.filter(m => !smartPins.has(m.id) && userPins.has(m.id))
   const unpinnedMessages = messages.filter(m => !allPinnedIds.has(m.id))
 
@@ -223,6 +240,13 @@ export function BuildingLinkClient({
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = currentTab === tab.id
+            // Get count for this tab
+            let count: number | undefined
+            if (tab.id === 'packages') count = packageCount
+            if (tab.id === 'security') count = securityCount
+            if (tab.id === 'elevator') count = elevatorCount
+            if (tab.id === 'journal') count = journalCount
+
             return (
               <button
                 key={tab.id}
@@ -236,6 +260,7 @@ export function BuildingLinkClient({
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}
+                {count !== undefined && ` (${count})`}
               </button>
             )
           })}

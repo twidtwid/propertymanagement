@@ -18,10 +18,18 @@ Quick reference for the PostgreSQL database schema.
 ### Core Entities
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| properties | Real estate | name, address, property_type, status, span_number, block_number, lot_number |
+| properties | Real estate | name, address, property_type, status, span_number, parcel_id, block_number, lot_number, square_feet, current_value |
 | vehicles | Cars/trucks | name, make, model, year, vin, property_id |
 | vendors | Service providers | name, specialty, phone, email, website, is_active |
 | vendor_contacts | Multiple contacts per vendor | vendor_id, name, title, email, phone, is_primary |
+
+### Property Tax Identifiers by Jurisdiction
+| Jurisdiction | ID Fields Used |
+|--------------|----------------|
+| Vermont (Dummerston/Brattleboro) | span_number (e.g., 186-059-10695), parcel_id (e.g., 000453) |
+| NYC | block_number, lot_number |
+| Providence, RI | parcel_id (Plat-Lot-Unit format: 016-0200-0000) |
+| Santa Clara, CA | parcel_id (APN format: 274-15-034) |
 
 ### Financial
 | Table | Purpose | Key Columns |
@@ -129,9 +137,26 @@ FROM dropbox_folder_mappings
 WHERE entity_type = $1 AND entity_id = $2 AND is_active = true
 ```
 
+### Get property taxes with property name
+```sql
+SELECT pt.*, p.name as property_name, p.span_number, p.parcel_id
+FROM property_taxes pt
+JOIN properties p ON pt.property_id = p.id
+WHERE pt.tax_year = $1
+ORDER BY pt.jurisdiction, p.name, pt.installment
+```
+
+### Get all property identifiers
+```sql
+SELECT name, city, state, span_number, parcel_id, block_number, lot_number, current_value
+FROM properties
+WHERE status = 'active'
+ORDER BY state, city
+```
+
 ## Schema File Locations
 - Full schema: `scripts/init.sql`
-- Migrations: `scripts/migrations/*.sql` (002-016)
+- Migrations: `scripts/migrations/*.sql` (002-025)
 - Types: `src/types/database.ts`
 - Zod schemas: `src/lib/schemas/index.ts`
 

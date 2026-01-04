@@ -48,18 +48,18 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent side="left" className="w-full max-w-xs p-0 sm:max-w-sm">
+      <SheetContent side="left" className="w-full max-w-xs p-0 sm:max-w-sm flex flex-col h-full">
         <div className="flex h-16 shrink-0 items-center px-6 border-b">
           <Link href="/" className="flex items-center gap-2" onClick={onClose}>
             <Building2 className="h-8 w-8 text-primary" />
             <span className="text-xl font-semibold">PropManager</span>
           </Link>
         </div>
-        <div className="px-6 pt-4">
+        <div className="px-6 pt-4 shrink-0">
           <GlobalSearch />
         </div>
-        <nav className="flex flex-1 flex-col px-6 pb-4 pt-4 overflow-y-auto">
-          <ul role="list" className="flex flex-1 flex-col gap-y-7">
+        <nav className="flex-1 overflow-y-auto px-6 pb-4 pt-4">
+          <ul role="list" className="flex flex-col gap-y-7 min-h-full">
             <li>
               <ul role="list" className="-mx-2 space-y-1">
                 {navigation.map((item) => (

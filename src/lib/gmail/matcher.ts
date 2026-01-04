@@ -16,7 +16,7 @@ export interface VendorInfo {
 export interface MatchResult {
   vendorId: string | null
   vendorName: string | null
-  matchType: "exact" | "domain" | "name" | null
+  matchType: "exact" | "domain" | null
   confidence: number // 0-1
 }
 
@@ -107,40 +107,7 @@ export async function matchEmailToVendor(
     }
   }
 
-  // Priority 3: Name match (sender name contains vendor/company name)
-  if (senderName) {
-    const senderNameLower = senderName.toLowerCase()
-    for (const vendor of vendors) {
-      const vendorNameLower = vendor.name.toLowerCase()
-      const companyLower = vendor.company?.toLowerCase() || ""
-
-      // Check if sender name contains vendor name or company name
-      if (
-        vendorNameLower.length > 3 &&
-        senderNameLower.includes(vendorNameLower)
-      ) {
-        return {
-          vendorId: vendor.id,
-          vendorName: vendor.name,
-          matchType: "name",
-          confidence: 0.6,
-        }
-      }
-      if (
-        companyLower.length > 3 &&
-        senderNameLower.includes(companyLower)
-      ) {
-        return {
-          vendorId: vendor.id,
-          vendorName: vendor.name,
-          matchType: "name",
-          confidence: 0.6,
-        }
-      }
-    }
-  }
-
-  // No match found
+  // No match found (name matching disabled to prevent false positives)
   return {
     vendorId: null,
     vendorName: null,
@@ -221,36 +188,7 @@ export async function matchEmailsToVendors(
       }
     }
 
-    // Try name match
-    if (senderName) {
-      const senderNameLower = senderName.toLowerCase()
-      let nameMatch: VendorInfo | null = null
-
-      for (const vendor of vendors) {
-        const vendorNameLower = vendor.name.toLowerCase()
-        const companyLower = vendor.company?.toLowerCase() || ""
-
-        if (
-          (vendorNameLower.length > 3 && senderNameLower.includes(vendorNameLower)) ||
-          (companyLower.length > 3 && senderNameLower.includes(companyLower))
-        ) {
-          nameMatch = vendor
-          break
-        }
-      }
-
-      if (nameMatch) {
-        results.set(email.messageId, {
-          vendorId: nameMatch.id,
-          vendorName: nameMatch.name,
-          matchType: "name",
-          confidence: 0.6,
-        })
-        continue
-      }
-    }
-
-    // No match
+    // No match (name matching disabled to prevent false positives)
     results.set(email.messageId, {
       vendorId: null,
       vendorName: null,
