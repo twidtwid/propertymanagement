@@ -78,16 +78,26 @@ export async function matchEmailToVendor(
     }
   }
 
-  // Priority 2: Domain match (excluding common domains)
+  // Priority 2: Domain match (excluding common/public email providers)
   const commonDomains = new Set([
-    "gmail.com",
-    "yahoo.com",
-    "hotmail.com",
-    "outlook.com",
-    "icloud.com",
-    "aol.com",
-    "comcast.net",
-    "verizon.net",
+    // Major providers
+    "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "yahoo.ca",
+    "hotmail.com", "hotmail.co.uk", "outlook.com", "outlook.co.uk", "live.com", "msn.com",
+    "icloud.com", "me.com", "mac.com", "aol.com", "aol.co.uk",
+    // ISP providers
+    "comcast.net", "xfinity.com", "verizon.net", "att.net", "sbcglobal.net",
+    "cox.net", "charter.net", "spectrum.net", "frontier.com", "centurylink.net",
+    "earthlink.net", "windstream.net", "optimum.net", "optonline.net",
+    // Other common providers
+    "protonmail.com", "proton.me", "tutanota.com", "zoho.com",
+    "ymail.com", "rocketmail.com", "mail.com", "email.com",
+    "usa.com", "post.com", "inbox.com", "gmx.com", "gmx.net",
+    // International
+    "mail.ru", "yandex.com", "qq.com", "163.com", "126.com",
+    "web.de", "freenet.de", "t-online.de", "orange.fr", "wanadoo.fr",
+    "libero.it", "virgilio.it", "btinternet.com", "sky.com", "talktalk.net",
+    // Educational (often personal accounts)
+    "edu", "ac.uk",
   ])
 
   if (senderDomain && !commonDomains.has(senderDomain)) {
@@ -146,14 +156,24 @@ export async function matchEmailsToVendors(
   }
 
   const commonDomains = new Set([
-    "gmail.com",
-    "yahoo.com",
-    "hotmail.com",
-    "outlook.com",
-    "icloud.com",
-    "aol.com",
-    "comcast.net",
-    "verizon.net",
+    // Major providers
+    "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "yahoo.ca",
+    "hotmail.com", "hotmail.co.uk", "outlook.com", "outlook.co.uk", "live.com", "msn.com",
+    "icloud.com", "me.com", "mac.com", "aol.com", "aol.co.uk",
+    // ISP providers
+    "comcast.net", "xfinity.com", "verizon.net", "att.net", "sbcglobal.net",
+    "cox.net", "charter.net", "spectrum.net", "frontier.com", "centurylink.net",
+    "earthlink.net", "windstream.net", "optimum.net", "optonline.net",
+    // Other common providers
+    "protonmail.com", "proton.me", "tutanota.com", "zoho.com",
+    "ymail.com", "rocketmail.com", "mail.com", "email.com",
+    "usa.com", "post.com", "inbox.com", "gmx.com", "gmx.net",
+    // International
+    "mail.ru", "yandex.com", "qq.com", "163.com", "126.com",
+    "web.de", "freenet.de", "t-online.de", "orange.fr", "wanadoo.fr",
+    "libero.it", "virgilio.it", "btinternet.com", "sky.com", "talktalk.net",
+    // Educational (often personal accounts)
+    "edu", "ac.uk",
   ])
 
   for (const email of emails) {

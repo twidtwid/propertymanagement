@@ -101,9 +101,26 @@ async function matchEmailToVendor(senderEmail, senderName, vendors) {
   const senderEmailLower = senderEmail.toLowerCase();
   const senderDomain = extractDomain(senderEmailLower);
 
+  // Common/public email providers - emails from these domains should not match vendors by domain
   const commonDomains = new Set([
-    'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
-    'icloud.com', 'aol.com', 'comcast.net', 'verizon.net'
+    // Major providers
+    'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.uk', 'yahoo.ca',
+    'hotmail.com', 'hotmail.co.uk', 'outlook.com', 'outlook.co.uk', 'live.com', 'msn.com',
+    'icloud.com', 'me.com', 'mac.com', 'aol.com', 'aol.co.uk',
+    // ISP providers
+    'comcast.net', 'xfinity.com', 'verizon.net', 'att.net', 'sbcglobal.net',
+    'cox.net', 'charter.net', 'spectrum.net', 'frontier.com', 'centurylink.net',
+    'earthlink.net', 'windstream.net', 'optimum.net', 'optonline.net',
+    // Other common providers
+    'protonmail.com', 'proton.me', 'tutanota.com', 'zoho.com',
+    'ymail.com', 'rocketmail.com', 'mail.com', 'email.com',
+    'usa.com', 'post.com', 'inbox.com', 'gmx.com', 'gmx.net',
+    // International
+    'mail.ru', 'yandex.com', 'qq.com', '163.com', '126.com',
+    'web.de', 'freenet.de', 't-online.de', 'orange.fr', 'wanadoo.fr',
+    'libero.it', 'virgilio.it', 'btinternet.com', 'sky.com', 'talktalk.net',
+    // Educational (often personal accounts)
+    'edu', 'ac.uk',
   ]);
 
   // Exact match
@@ -130,19 +147,8 @@ async function matchEmailToVendor(senderEmail, senderName, vendors) {
     }
   }
 
-  // Name match
-  if (senderName) {
-    const senderNameLower = senderName.toLowerCase();
-    for (const vendor of vendors) {
-      const vendorNameLower = vendor.name.toLowerCase();
-      const companyLower = (vendor.company || '').toLowerCase();
-      if ((vendorNameLower.length > 3 && senderNameLower.includes(vendorNameLower)) ||
-          (companyLower.length > 3 && senderNameLower.includes(companyLower))) {
-        return { vendorId: vendor.id, vendorName: vendor.name, matchType: 'name' };
-      }
-    }
-  }
-
+  // No match - only exact email and domain matches are allowed
+  // Name matching disabled to prevent false positives (e.g., "Matt" in sender name matching FlueTech)
   return { vendorId: null, vendorName: null, matchType: null };
 }
 
