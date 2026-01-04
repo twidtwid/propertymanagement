@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Mail } from "lucide-react"
@@ -17,6 +18,12 @@ interface RecentVendorEmailsProps {
 }
 
 export function RecentVendorEmails({ emails }: RecentVendorEmailsProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   if (emails.length === 0) {
     return null
   }
@@ -55,27 +62,25 @@ export function RecentVendorEmails({ emails }: RecentVendorEmailsProps) {
                   <p className="text-sm text-muted-foreground mt-1">
                     {email.subject}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDateTime(email.receivedAt)}
+                  <p className="text-xs text-muted-foreground mt-1" suppressHydrationWarning>
+                    {mounted ? formatDateTime(email.receivedAt) : ""}
                   </p>
                 </div>
               </div>
             </summary>
             <div className="px-3 pb-3 border-t pt-3 mt-3">
-              {email.bodyHtml && (
+              {mounted && email.bodyHtml ? (
                 <div
                   className="text-sm text-muted-foreground prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{ __html: email.bodyHtml }}
                 />
-              )}
-              {!email.bodyHtml && email.snippet && (
+              ) : email.snippet ? (
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                   {email.snippet}
                 </p>
-              )}
-              {!email.bodyHtml && !email.snippet && (
+              ) : (
                 <p className="text-sm text-muted-foreground italic">
-                  No content available
+                  {mounted ? "No content available" : "Loading..."}
                 </p>
               )}
             </div>

@@ -651,6 +651,7 @@ See modular rules for deep dives:
 - **Date arithmetic errors** → Cast to INTEGER: `$1::INTEGER`
 - **Empty Dropbox folders** → Check `namespace_id` is set in `dropbox_oauth_tokens`
 - **Insurance docs not showing** → Check `getInsuranceFolderPaths` returns correct paths
+- **Hydration errors with dates** → Docker server runs UTC, client uses local timezone. Use `mounted` state pattern: render dates only after `useEffect(() => setMounted(true), [])` and add `suppressHydrationWarning` to the element
 
 ### UI Components
 - shadcn/ui components in `src/components/ui/`

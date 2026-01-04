@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Mail } from "lucide-react"
@@ -11,14 +12,22 @@ interface RecentVendorEmailsProps {
 }
 
 export function RecentVendorEmails({ communications }: RecentVendorEmailsProps) {
-  // Filter to last 7 days only
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  const [mounted, setMounted] = useState(false)
 
-  const recentEmails = communications.filter((email) => {
-    const receivedAt = new Date(email.received_at)
-    return receivedAt >= sevenDaysAgo
-  })
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Filter to last 7 days only - use useMemo with mounted to avoid hydration mismatch
+  const recentEmails = useMemo(() => {
+    if (!mounted) return communications.slice(0, 10) // Show all on server, filter on client
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    return communications.filter((email) => {
+      const receivedAt = new Date(email.received_at)
+      return receivedAt >= sevenDaysAgo
+    })
+  }, [communications, mounted])
 
   if (recentEmails.length === 0) {
     return null
@@ -59,27 +68,25 @@ export function RecentVendorEmails({ communications }: RecentVendorEmailsProps) 
                         {email.direction === "inbound" ? "Received" : "Sent"}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(email.received_at)}
+                    <p className="text-sm text-muted-foreground" suppressHydrationWarning>
+                      {mounted ? formatDate(email.received_at) : ""}
                     </p>
                   </div>
                 </div>
               </summary>
               <div className="px-3 pb-3 border-t pt-3 mt-3">
-                {email.body_html && (
+                {mounted && email.body_html ? (
                   <div
                     className="text-sm text-muted-foreground prose prose-sm max-w-none"
                     dangerouslySetInnerHTML={{ __html: email.body_html }}
                   />
-                )}
-                {!email.body_html && email.body_snippet && (
+                ) : email.body_snippet ? (
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                     {email.body_snippet}
                   </p>
-                )}
-                {!email.body_html && !email.body_snippet && (
+                ) : (
                   <p className="text-sm text-muted-foreground italic">
-                    No content available
+                    {mounted ? "No content available" : "Loading..."}
                   </p>
                 )}
               </div>
