@@ -59,9 +59,9 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           <GlobalSearch />
         </div>
         <nav className="flex-1 overflow-y-auto px-6 pb-4 pt-4">
-          <ul role="list" className="flex flex-col gap-y-7 min-h-full">
+          <ul role="list" className="flex flex-col gap-y-7 min-h-full list-none">
             <li>
-              <ul role="list" className="-mx-2 space-y-1">
+              <ul role="list" className="-mx-2 space-y-1 list-none">
                 {navigation.map((item) => (
                   <li key={item.name}>
                     <Link
@@ -90,7 +90,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
               </ul>
             </li>
             <li className="mt-auto">
-              <ul role="list" className="-mx-2 space-y-1">
+              <ul role="list" className="-mx-2 space-y-1 list-none">
                 {secondaryNavigation.map((item) => (
                   <li key={item.name}>
                     <Link

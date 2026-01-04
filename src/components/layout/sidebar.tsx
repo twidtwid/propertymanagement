@@ -57,9 +57,9 @@ export function Sidebar() {
 
         <ScrollArea className="flex-1">
           <nav className="flex flex-1 flex-col">
-            <ul role="list" className="flex flex-1 flex-col gap-y-7">
+            <ul role="list" className="flex flex-1 flex-col gap-y-7 list-none">
               <li>
-                <ul role="list" className="-mx-2 space-y-1">
+                <ul role="list" className="-mx-2 space-y-1 list-none">
                   {navigation.map((item) => (
                     <li key={item.name}>
                       <Link
@@ -87,7 +87,7 @@ export function Sidebar() {
                 </ul>
               </li>
               <li className="mt-auto">
-                <ul role="list" className="-mx-2 space-y-1">
+                <ul role="list" className="-mx-2 space-y-1 list-none">
                   {secondaryNavigation.map((item) => (
                     <li key={item.name}>
                       <Link
