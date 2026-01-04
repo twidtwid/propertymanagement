@@ -61,9 +61,9 @@ export default async function InsuranceCoveragePage() {
     type: INSURANCE_TYPE_LABELS[policy.policy_type] || policy.policy_type,
     property:
       (policy as { property?: { name: string } }).property?.name ||
-      (policy as { vehicle?: { year: number; make: string; model: string } }).vehicle
-        ? `${(policy as { vehicle: { year: number; make: string; model: string } }).vehicle.year} ${(policy as { vehicle: { year: number; make: string; model: string } }).vehicle.make} ${(policy as { vehicle: { year: number; make: string; model: string } }).vehicle.model}`
-        : "General",
+      ((policy as { vehicle?: { year: number; make: string; model: string } }).vehicle
+        ? `${(policy as { vehicle?: { year: number; make: string; model: string } }).vehicle?.year} ${(policy as { vehicle?: { year: number; make: string; model: string } }).vehicle?.make} ${(policy as { vehicle?: { year: number; make: string; model: string } }).vehicle?.model}`
+        : "General"),
     premium: policy.premium_amount || "",
     frequency: policy.premium_frequency || "",
     coverage: policy.coverage_amount || "",
