@@ -249,6 +249,7 @@ export async function getPendingPaymentSuggestions(): Promise<PaymentSuggestion[
     LEFT JOIN properties p ON ps.property_id = p.id
     WHERE ps.status = 'pending_review'
       AND ps.confidence IN ('high', 'medium')
+      AND ps.vendor_id IS NOT NULL
     ORDER BY
       CASE ps.confidence
         WHEN 'high' THEN 1
@@ -269,6 +270,7 @@ export async function getPaymentSuggestionCounts(): Promise<{ high: number; medi
     FROM payment_suggestions
     WHERE status = 'pending_review'
       AND confidence IN ('high', 'medium')
+      AND vendor_id IS NOT NULL
     GROUP BY confidence
   `)
 
