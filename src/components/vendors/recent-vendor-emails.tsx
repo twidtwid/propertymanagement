@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Mail } from "lucide-react"
 import { formatDate } from "@/lib/utils"
-import type { VendorCommunication } from "@/types/database"
+import type { VendorCommunication } from "@/lib/actions"
 
 interface RecentVendorEmailsProps {
   communications: VendorCommunication[]
