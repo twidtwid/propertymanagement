@@ -839,7 +839,7 @@ export async function syncSmartPinsBuildingLink(): Promise<void> {
 
   // Collect IDs of outages that have been resolved (latest message is restoration)
   const resolvedOutageKeys = new Set<string>()
-  for (const [key, latestMsg] of serviceGroups.entries()) {
+  for (const [key, latestMsg] of Array.from(serviceGroups.entries())) {
     if (latestMsg.subcategory === 'service_restored') {
       resolvedOutageKeys.add(key)
     }
