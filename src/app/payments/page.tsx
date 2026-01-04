@@ -10,6 +10,8 @@ import {
   getSmartAndUserPins,
   getPinNotesByEntities,
   getUserPinNote,
+  getPendingPaymentSuggestions,
+  getPaymentEmailLinks,
 } from "@/lib/actions"
 import { getUser } from "@/lib/auth"
 import { PaymentsWithPins } from "@/components/payments/payments-with-pins"
@@ -17,6 +19,7 @@ import { QuickActions } from "@/components/payments/quick-actions"
 import { AwaitingConfirmation } from "@/components/payments/awaiting-confirmation"
 import { AddBillButton } from "@/components/payments/add-bill-button"
 import { BankImportDialog } from "@/components/payments/bank-import-dialog"
+import { EmailSuggestionsInbox } from "@/components/payments/email-suggestions-inbox"
 
 interface PaymentsPageProps {
   searchParams: Promise<{
@@ -33,7 +36,7 @@ interface PaymentsPageProps {
 async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
   const params = await searchParams
 
-  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles, billPins, taxPins, insurancePins, user] = await Promise.all([
+  const [payments, attentionPayments, awaitingConfirmation, properties, vehicles, billPins, taxPins, insurancePins, paymentSuggestions, user] = await Promise.all([
     getAllPayments({
       category: params.category,
       status: params.status,
@@ -49,6 +52,7 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
     getSmartAndUserPins('bill'),
     getSmartAndUserPins('property_tax'),
     getSmartAndUserPins('insurance_premium'),
+    getPendingPaymentSuggestions(),
     getUser(),
   ])
 
@@ -96,6 +100,14 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
     }
   }
 
+  // Fetch email links for all bill payments
+  const billPayments = payments.filter(p => p.source === 'bill')
+  const emailLinksMapRaw = await getPaymentEmailLinks(
+    'bill',
+    billPayments.map(p => p.source_id)
+  )
+  const emailLinksMap = Object.fromEntries(emailLinksMapRaw)
+
   // Also load notes for payments needing attention (smart pins shown in QuickActions)
   const attentionNotesMap = new Map()
   const attentionUserNotesMap = new Map()
@@ -135,6 +147,13 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
         </div>
       </div>
 
+      {/* Email Suggestions - review payment-related emails */}
+      <EmailSuggestionsInbox
+        suggestions={paymentSuggestions}
+        properties={properties}
+        vehicles={vehicles}
+      />
+
       {/* Smart Pins - auto-generated based on urgency */}
       <QuickActions
         paymentsNeedingAttention={attentionPayments}
@@ -152,6 +171,7 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
         initialUserPins={Array.from(pins.userPins)}
         initialNotesMap={Object.fromEntries(notesMap)}
         initialUserNotesMap={Object.fromEntries(userNotesMap)}
+        emailLinksMap={emailLinksMap}
         sortBy={params.sortBy}
         sortOrder={params.sortOrder}
       />

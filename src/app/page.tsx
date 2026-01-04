@@ -3,10 +3,12 @@ export const dynamic = 'force-dynamic'
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { StatusBanner } from "@/components/dashboard/status-banner"
 import { UnifiedPinnedItems } from "@/components/dashboard/unified-pinned-items"
+import { NeedsReview } from "@/components/dashboard/needs-review"
 import { UpcomingWeek } from "@/components/dashboard/upcoming-week"
 import { QuickActionsBar } from "@/components/dashboard/quick-actions-bar"
 import { BuildingLinkSummary } from "@/components/dashboard/buildinglink-summary"
-import { RecentVendorEmails } from "@/components/dashboard/recent-vendor-emails"
+import { EmailInboxSummary } from "@/components/dashboard/email-inbox-summary"
+import { AutoPayConfirmations } from "@/components/dashboard/autopay-confirmations"
 import {
   getNewDashboardStats,
   getDashboardPinnedItems,
@@ -15,6 +17,8 @@ import {
   getBuildingLinkNeedsAttention,
   getPinnedIds,
   getVendorsFiltered,
+  getPendingPaymentSuggestions,
+  getRecentAutoPayConfirmations,
 } from "@/lib/actions"
 import { query } from "@/lib/db"
 
@@ -26,6 +30,8 @@ export default async function Dashboard() {
     properties,
     buildingLink,
     pinnedVendorIds,
+    paymentSuggestions,
+    autoPayConfirmations,
     recentEmailsRaw,
   ] = await Promise.all([
     getNewDashboardStats(),
@@ -34,7 +40,10 @@ export default async function Dashboard() {
     getActiveProperties(),
     getBuildingLinkNeedsAttention(),
     getPinnedIds('vendor'),
+    getPendingPaymentSuggestions(),
+    getRecentAutoPayConfirmations(7, 10),
     query<{
+      id: string
       vendor_name: string | null
       subject: string
       received_at: string
@@ -42,7 +51,7 @@ export default async function Dashboard() {
       body_snippet: string | null
       body_html: string | null
     }>(`
-      SELECT v.name as vendor_name, vc.subject, vc.received_at, vc.is_important, vc.body_snippet, vc.body_html
+      SELECT vc.id, v.name as vendor_name, vc.subject, vc.received_at, vc.is_important, vc.body_snippet, vc.body_html
       FROM vendor_communications vc
       INNER JOIN vendors v ON vc.vendor_id = v.id
       WHERE vc.received_at >= CURRENT_DATE - 7
@@ -51,18 +60,28 @@ export default async function Dashboard() {
         AND v.name != 'BuildingLink'
         AND NOT (vc.labels && ARRAY['CATEGORY_PROMOTIONS', 'SPAM']::text[])
       ORDER BY vc.received_at DESC
-      LIMIT 10
+      LIMIT 15
     `),
   ])
 
-  const recentEmails = recentEmailsRaw.map((e) => ({
-    vendorName: e.vendor_name,
-    subject: e.subject || "(No subject)",
-    receivedAt: e.received_at,
-    isUrgent: e.is_important,
-    snippet: e.body_snippet || undefined,
-    bodyHtml: e.body_html || undefined,
-  }))
+  // Get email IDs that are already in payment suggestions
+  const suggestionEmailIds = new Set(
+    paymentSuggestions
+      .filter(s => s.email_id)
+      .map(s => s.email_id)
+  )
+
+  // Filter out emails that are already suggestions, those go in the "Needs Review" section
+  const otherEmails = recentEmailsRaw
+    .filter(e => !suggestionEmailIds.has(e.id))
+    .map((e) => ({
+      vendorName: e.vendor_name,
+      subject: e.subject || "(No subject)",
+      receivedAt: e.received_at,
+      isUrgent: e.is_important,
+      snippet: e.body_snippet || undefined,
+      bodyHtml: e.body_html || undefined,
+    }))
 
   // Get pinned vendors for quick actions
   const pinnedVendors = pinnedVendorIds.size > 0
@@ -134,11 +153,20 @@ export default async function Dashboard() {
           {/* Unified Pinned Items - exclude vendors (they're already in quick actions) */}
           <UnifiedPinnedItems items={pinnedData.items.filter(item => item.entityType !== 'vendor')} />
 
+          {/* Needs Review - emails that may need payment tracking */}
+          <NeedsReview suggestions={paymentSuggestions} />
+
           {/* Coming Up (7 days) */}
           <UpcomingWeek items={upcomingWeek} />
+
+          {/* Other Vendor Emails */}
+          <EmailInboxSummary suggestions={[]} otherEmails={otherEmails} />
         </div>
 
         <div className="space-y-6">
+          {/* Auto-Pay Confirmations */}
+          <AutoPayConfirmations confirmations={autoPayConfirmations} />
+
           {/* BuildingLink Summary */}
           {buildingLinkItems.length > 0 && (
             <BuildingLinkSummary items={buildingLinkItems} />
@@ -151,9 +179,6 @@ export default async function Dashboard() {
           />
         </div>
       </div>
-
-      {/* Recent Vendor Emails (bottom of page) */}
-      <RecentVendorEmails emails={recentEmails} />
     </div>
   )
 }

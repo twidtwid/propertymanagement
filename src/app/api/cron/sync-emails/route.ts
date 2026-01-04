@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { syncEmails } from "@/lib/gmail/sync"
+import { scanEmailsForPaymentSuggestions } from "@/lib/payments/suggestions"
 
 /**
  * GET /api/cron/sync-emails
- * Syncs new emails from Gmail.
+ * Syncs new emails from Gmail and scans for payment suggestions.
  * Should be called every 10 minutes by Vercel Cron.
  */
 export async function GET(request: NextRequest) {
@@ -27,14 +28,25 @@ export async function GET(request: NextRequest) {
       maxResults: 100,
     })
 
-    console.log("[Cron] Sync complete:", result)
+    console.log("[Cron] Email sync complete:", result)
+
+    // Scan newly synced emails for payment suggestions
+    let suggestionsCreated = 0
+    try {
+      suggestionsCreated = await scanEmailsForPaymentSuggestions(14, true)
+      console.log("[Cron] Payment suggestions created:", suggestionsCreated)
+    } catch (scanError) {
+      console.error("[Cron] Payment suggestion scan error:", scanError)
+      // Don't fail the whole sync if suggestion scanning fails
+    }
 
     const message = result.success
-      ? `Synced ${result.emailsStored} emails (${result.emailsMatched} matched to vendors)`
+      ? `Synced ${result.emailsStored} emails (${result.emailsMatched} matched to vendors), ${suggestionsCreated} payment suggestions`
       : "Sync failed"
 
     return NextResponse.json({
       ...result,
+      suggestionsCreated,
       message,
     })
   } catch (error) {

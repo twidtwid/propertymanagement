@@ -147,7 +147,11 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   }
 
-  const getSeverityIcon = (severity: string) => {
+  const getSeverityIcon = (severity: string, alertType?: string) => {
+    // Special case for positive notifications
+    if (alertType === "autopay_confirmed") {
+      return <Check className="h-4 w-4 text-green-500" />
+    }
     switch (severity) {
       case "critical":
         return <AlertCircle className="h-4 w-4 text-red-500" />
@@ -182,7 +186,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   }
 
   const handleAlertClick = (alert: Alert) => {
-    const link = getAlertLink(alert)
+    const link = alert.action_url || getAlertLink(alert)
     if (link) {
       setNotificationsOpen(false)
       router.push(link)
@@ -255,20 +259,23 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <div className="max-h-96 overflow-y-auto">
                   {alerts.map((alert) => {
                     const hasAction = alert.action_url || getAlertLink(alert)
+                    const isAutoPay = alert.alert_type === "autopay_confirmed"
                     const severityStyles = {
                       critical: "border-l-4 border-l-red-500 bg-red-50/50",
                       warning: "border-l-4 border-l-yellow-500 bg-yellow-50/30",
                       info: "border-l-4 border-l-blue-500",
                     }
+                    const autoPayStyle = isAutoPay ? "border-l-4 border-l-green-500 bg-green-50/30" : ""
                     return (
                       <div
                         key={alert.id}
-                        className={`px-3 py-3 hover:bg-gray-50 border-b last:border-0 ${
-                          severityStyles[alert.severity] || ""
+                        className={`px-3 py-3 hover:bg-gray-50 border-b last:border-0 cursor-pointer ${
+                          isAutoPay ? autoPayStyle : (severityStyles[alert.severity] || "")
                         } ${!alert.is_read ? "bg-blue-50/30" : ""}`}
+                        onClick={() => hasAction && handleAlertClick(alert)}
                       >
                         <div className="flex items-start gap-2">
-                          {getSeverityIcon(alert.severity)}
+                          {getSeverityIcon(alert.severity, alert.alert_type)}
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-medium ${alert.severity === "critical" ? "text-red-900" : ""}`}>
                               {alert.title}

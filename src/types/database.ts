@@ -1,5 +1,7 @@
 // Database types for Property Management System
 
+import type { VendorCommunication } from './gmail'
+
 export type UserRole = 'owner' | 'bookkeeper'
 export type PropertyType = 'house' | 'condo' | 'land' | 'other'
 export type PropertyStatus = 'active' | 'inactive' | 'sold'
@@ -22,6 +24,8 @@ export type VendorSpecialty =
 export type Season = 'winter' | 'spring' | 'summer' | 'fall' | 'annual'
 export type AlertSeverity = 'info' | 'warning' | 'critical'
 export type PinnedEntityType = 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message' | 'property_tax' | 'insurance_premium' | 'document'
+export type PaymentSuggestionStatus = 'pending_review' | 'imported' | 'dismissed'
+export type PaymentSuggestionConfidence = 'high' | 'medium' | 'low'
 
 export interface Profile {
   id: string
@@ -683,4 +687,48 @@ export interface DashboardStats {
   properties: number
   vehicles: number
   due30Days: number  // Total amount due in 30 days
+}
+
+// Payment email link types
+export type PaymentEmailLinkType = 'invoice' | 'confirmation' | 'reminder'
+export type PaymentSourceType = 'bill' | 'property_tax' | 'insurance_premium'
+
+// Link between payments and emails
+export interface PaymentEmailLink {
+  id: string
+  payment_type: PaymentSourceType
+  payment_id: string
+  email_id: string
+  link_type: PaymentEmailLinkType
+  confidence: number
+  auto_matched: boolean
+  created_at: string
+  created_by: string | null
+  // Joined fields
+  email?: VendorCommunication
+}
+
+// Payment suggestion from email analysis
+export interface PaymentSuggestion {
+  id: string
+  email_id: string | null
+  gmail_message_id: string | null
+  vendor_id: string | null
+  vendor_name_extracted: string | null
+  amount_extracted: number | null
+  due_date_extracted: string | null
+  property_id: string | null
+  confidence: PaymentSuggestionConfidence
+  signals: string[]
+  email_subject: string | null
+  email_snippet: string | null
+  email_received_at: string | null
+  status: PaymentSuggestionStatus
+  created_at: string
+  reviewed_at: string | null
+  reviewed_by: string | null
+  imported_bill_id: string | null
+  // Joined fields
+  vendor?: Vendor
+  property?: Property
 }

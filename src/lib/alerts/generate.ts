@@ -499,6 +499,51 @@ export async function generateAlerts(): Promise<{
       })
     }
 
+    // 12. Auto-Pay Confirmations (info - good news notifications)
+    const autoPayConfirmations = await query<{
+      id: string
+      description: string
+      property_name: string | null
+      vendor_name: string | null
+      amount: number
+      confirmation_date: Date
+      email_subject: string
+    }>(`
+      SELECT
+        b.id,
+        b.description,
+        p.name as property_name,
+        v.name as vendor_name,
+        b.amount,
+        vc.received_at as confirmation_date,
+        vc.subject as email_subject
+      FROM payment_email_links pel
+      JOIN bills b ON pel.payment_id = b.id AND pel.payment_type = 'bill'
+      JOIN vendor_communications vc ON pel.email_id = vc.id
+      LEFT JOIN properties p ON b.property_id = p.id
+      LEFT JOIN vendors v ON b.vendor_id = v.id
+      WHERE pel.link_type = 'confirmation'
+        AND vc.received_at >= CURRENT_DATE - 3
+        AND b.payment_method = 'auto_pay'
+        ${hasVisibilityRestrictions ? "AND (b.property_id IS NULL OR b.property_id = ANY($1::uuid[]))" : ""}
+    `, hasVisibilityRestrictions ? [visiblePropertyIds] : [])
+
+    for (const confirmation of autoPayConfirmations) {
+      const location = confirmation.property_name || confirmation.vendor_name || ""
+      alertConfigs.push({
+        alertType: "autopay_confirmed",
+        title: `Auto-Pay Confirmed${location ? ` - ${location}` : ""}`,
+        message: `${confirmation.description} (${formatCurrency(confirmation.amount)}) was automatically paid`,
+        severity: "info",
+        relatedTable: "bills",
+        relatedId: confirmation.id,
+        entityKey: `autopay_confirmed:${confirmation.id}`,
+        sourceAmount: confirmation.amount,
+        actionUrl: "/payments?status=confirmed",
+        actionLabel: "View",
+      })
+    }
+
     // Insert all alerts (upsert to handle deduplication)
     for (const config of alertConfigs) {
       try {

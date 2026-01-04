@@ -2048,3 +2048,94 @@ export async function deletePinNote(noteId: string): Promise<ActionResult> {
     return { success: false, error: "Failed to delete note" }
   }
 }
+
+// ==================== Payment Suggestions ====================
+
+/**
+ * Dismiss a payment suggestion
+ */
+export async function dismissPaymentSuggestion(suggestionId: string): Promise<ActionResult> {
+  const log = getLogger("mutations.payment-suggestion")
+  const user = await getUser()
+
+  try {
+    await query(`
+      UPDATE payment_suggestions
+      SET status = 'dismissed', reviewed_at = NOW(), reviewed_by = $2
+      WHERE id = $1
+    `, [suggestionId, user?.id])
+
+    log.info("Payment suggestion dismissed", { suggestionId })
+    revalidatePath('/payments')
+    revalidatePath('/')
+    return { success: true, data: undefined }
+  } catch (error) {
+    log.error("Failed to dismiss payment suggestion", {
+      suggestionId,
+      error: error instanceof Error ? error.message : "Unknown"
+    })
+    return { success: false, error: "Failed to dismiss suggestion" }
+  }
+}
+
+/**
+ * Import a payment suggestion as a new bill
+ */
+export async function importPaymentSuggestion(
+  suggestionId: string,
+  billData: {
+    vendor_id?: string
+    property_id?: string
+    vehicle_id?: string
+    amount: number
+    due_date: string
+    description: string
+    bill_type: string
+    payment_method?: string
+  }
+): Promise<ActionResult<string>> {
+  const log = getLogger("mutations.payment-suggestion")
+  const user = await getUser()
+
+  try {
+    // Create the bill
+    const bill = await queryOne<{ id: string }>(`
+      INSERT INTO bills (
+        vendor_id, property_id, vehicle_id, amount, due_date,
+        description, bill_type, payment_method, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+      RETURNING id
+    `, [
+      billData.vendor_id || null,
+      billData.property_id || null,
+      billData.vehicle_id || null,
+      billData.amount,
+      billData.due_date,
+      billData.description,
+      billData.bill_type || 'other',
+      billData.payment_method || 'other'
+    ])
+
+    if (!bill) {
+      return { success: false, error: "Failed to create bill" }
+    }
+
+    // Mark suggestion as imported
+    await query(`
+      UPDATE payment_suggestions
+      SET status = 'imported', imported_bill_id = $2, reviewed_at = NOW(), reviewed_by = $3
+      WHERE id = $1
+    `, [suggestionId, bill.id, user?.id])
+
+    log.info("Payment suggestion imported as bill", { suggestionId, billId: bill.id })
+    revalidatePath('/payments')
+    revalidatePath('/')
+    return { success: true, data: bill.id }
+  } catch (error) {
+    log.error("Failed to import payment suggestion", {
+      suggestionId,
+      error: error instanceof Error ? error.message : "Unknown"
+    })
+    return { success: false, error: "Failed to import suggestion" }
+  }
+}

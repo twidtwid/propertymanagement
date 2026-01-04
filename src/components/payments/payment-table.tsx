@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback } from "react"
+import { Fragment, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Table,
@@ -33,7 +33,19 @@ import { MarkPaidButton } from "./mark-paid-button"
 import { PinButton } from "@/components/ui/pin-button"
 import { PinNoteButton } from "@/components/ui/pin-note-button"
 import { PinNotes } from "@/components/ui/pin-notes"
+import { PaymentEmailSection } from "./payment-email-section"
+import { Mail } from "lucide-react"
 import type { PinNote } from "@/types/database"
+
+interface LinkedEmail {
+  id: string
+  link_type: 'invoice' | 'confirmation' | 'reminder'
+  email_id: string
+  email_subject: string | null
+  email_snippet: string | null
+  email_received_at: string
+  vendor_name: string | null
+}
 
 interface PaymentTableProps {
   payments: UnifiedPayment[]
@@ -42,6 +54,7 @@ interface PaymentTableProps {
   userNotesMap?: Record<string, PinNote>
   onNoteSaved?: (payment: UnifiedPayment) => void
   notesMap?: Record<string, PinNote[]>
+  emailLinksMap?: Record<string, LinkedEmail[]>
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
 }
@@ -125,7 +138,7 @@ function SortableHeader({
   )
 }
 
-export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, onNoteSaved, notesMap, sortBy, sortOrder }: PaymentTableProps) {
+export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, onNoteSaved, notesMap, emailLinksMap, sortBy, sortOrder }: PaymentTableProps) {
 
   if (payments.length === 0) {
     return (
@@ -146,6 +159,7 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, o
           <SortableHeader column="due_date" label="Due Date" currentSort={sortBy} currentOrder={sortOrder} />
           <SortableHeader column="amount" label="Amount" currentSort={sortBy} currentOrder={sortOrder} className="text-right" />
           <SortableHeader column="status" label="Status" currentSort={sortBy} currentOrder={sortOrder} />
+          <TableHead className="w-[50px]"></TableHead>
           <TableHead className="w-[100px]"></TableHead>
         </TableRow>
       </TableHeader>
@@ -164,11 +178,11 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, o
             payment.source === 'property_tax' ? 'property_tax' :
             'insurance_premium'
           const paymentNotes = notesMap?.[payment.source_id] || []
+          const linkedEmails = emailLinksMap?.[payment.source_id] || []
 
           return (
-            <>
+            <Fragment key={`${payment.source}-${payment.source_id}`}>
             <TableRow
-              key={`${payment.source}-${payment.source_id}`}
               className={payment.is_overdue ? "bg-red-50/50" : undefined}
             >
               <TableCell className="w-10">
@@ -302,6 +316,14 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, o
                 </div>
               </TableCell>
               <TableCell>
+                {linkedEmails.length > 0 && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Mail className="h-4 w-4" />
+                    <span className="text-xs">{linkedEmails.length}</span>
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
                 <div className="flex justify-end gap-2">
                   {payment.status === "pending" && payment.source === "bill" && (
                     <MarkPaidButton billId={payment.source_id} source={payment.source} />
@@ -316,8 +338,8 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, o
               </TableCell>
             </TableRow>
             {paymentNotes.length > 0 && (
-              <TableRow key={`${payment.source}-${payment.source_id}-notes`}>
-                <TableCell colSpan={8} className="py-0 pb-3">
+              <TableRow>
+                <TableCell colSpan={9} className="py-0 pb-3">
                   <PinNotes
                     notes={paymentNotes}
                     onNoteDeleted={() => onNoteSaved?.(payment)}
@@ -325,7 +347,14 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, o
                 </TableCell>
               </TableRow>
             )}
-            </>
+            {linkedEmails.length > 0 && (
+              <TableRow>
+                <TableCell colSpan={9} className="py-0 pb-3">
+                  <PaymentEmailSection emails={linkedEmails} />
+                </TableCell>
+              </TableRow>
+            )}
+            </Fragment>
           )
         })}
       </TableBody>
