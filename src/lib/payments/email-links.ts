@@ -1,13 +1,89 @@
 import { query } from "@/lib/db"
 import type { PaymentEmailLink, PaymentSourceType, PaymentEmailLinkType } from "@/types/database"
 import type { VendorCommunication } from "@/types/gmail"
+import Anthropic from "@anthropic-ai/sdk"
 
-// Keywords indicating payment confirmation emails
+const anthropic = new Anthropic()
+
+interface ConfirmationAnalysis {
+  isConfirmation: boolean
+  vendorName: string | null
+  amount: number | null
+  description: string | null
+  confidence: 'high' | 'medium' | 'low'
+}
+
+/**
+ * Use AI to analyze if an email is a payment confirmation and extract details.
+ * More robust than keyword matching.
+ */
+async function analyzeEmailWithAI(
+  subject: string | null,
+  bodySnippet: string | null,
+  bodyHtml: string | null
+): Promise<ConfirmationAnalysis> {
+  try {
+    // Strip HTML tags for cleaner analysis, but keep more content
+    const cleanBody = bodyHtml
+      ? bodyHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove style blocks
+          .replace(/<[^>]+>/g, ' ') // Remove HTML tags
+          .replace(/\s+/g, ' ') // Collapse whitespace
+          .slice(0, 4000) // Allow more content
+      : bodySnippet || ''
+
+    const response = await anthropic.messages.create({
+      model: "claude-3-5-haiku-latest",
+      max_tokens: 200,
+      system: `You are analyzing emails to identify payment confirmation receipts. These are emails confirming a payment WAS MADE successfully (not invoices requesting payment, not upcoming payment reminders). Signs of a confirmation include: "payment received", "payment date", "thank you for your payment", "confirmation", "receipt", amounts with dates in the past. Output JSON only.`,
+      messages: [{
+        role: "user",
+        content: `Analyze this email:
+Subject: ${subject || '(no subject)'}
+Body: ${cleanBody}
+
+Is this a CONFIRMATION that a payment was successfully processed/received (not an invoice, not a reminder about an upcoming payment)?
+If yes, extract the vendor/company name and payment amount.
+
+Output ONLY valid JSON:
+{"isConfirmation": boolean, "vendorName": "string or null", "amount": number or null, "description": "brief description or null", "confidence": "high/medium/low"}`
+      }]
+    })
+
+    const text = response.content[0]
+    if (text.type === "text") {
+      // Parse JSON response
+      const jsonMatch = text.text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0])
+        return {
+          isConfirmation: result.isConfirmation === true,
+          vendorName: result.vendorName || null,
+          amount: typeof result.amount === 'number' ? result.amount : null,
+          description: result.description || null,
+          confidence: result.confidence || 'low'
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error("AI analysis error:", error.message)
+  }
+
+  return {
+    isConfirmation: false,
+    vendorName: null,
+    amount: null,
+    description: null,
+    confidence: 'low'
+  }
+}
+
+// Fallback keywords for when AI is unavailable
 const CONFIRMATION_KEYWORDS = [
   'payment received', 'payment confirmed', 'payment successful',
   'payment processed', 'thank you for your payment', 'payment complete',
   'auto-pay processed', 'automatic payment', 'has been paid',
-  'transaction complete', 'payment notification', 'autopay payment confirmation'
+  'has been received', 'transaction complete', 'payment notification',
+  'autopay payment confirmation', 'payment date:'
 ]
 
 // Keywords indicating invoices/statements
@@ -37,9 +113,10 @@ interface PaymentForMatching {
 
 /**
  * Detect if an email is a confirmation email
+ * Checks subject, body_snippet, and optionally body_html
  */
-function isConfirmationEmail(subject: string | null, body: string | null): boolean {
-  const text = [subject, body].filter(Boolean).join(' ').toLowerCase()
+function isConfirmationEmail(subject: string | null, bodySnippet: string | null, bodyHtml?: string | null): boolean {
+  const text = [subject, bodySnippet, bodyHtml].filter(Boolean).join(' ').toLowerCase()
   return CONFIRMATION_KEYWORDS.some(keyword => text.includes(keyword))
 }
 
@@ -125,7 +202,7 @@ export async function autoMatchEmailsToPayments(
     FROM vendor_communications vc
     LEFT JOIN vendors v ON vc.vendor_id = v.id
     WHERE vc.direction = 'inbound'
-      AND vc.received_at >= CURRENT_DATE - $1
+      AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
       AND NOT EXISTS (
         SELECT 1 FROM payment_email_links pel WHERE pel.email_id = vc.id
       )
@@ -137,13 +214,13 @@ export async function autoMatchEmailsToPayments(
   const payments = await query<PaymentForMatching>(`
     SELECT id, 'bill' as payment_type, vendor_id, amount, due_date, description
     FROM bills
-    WHERE due_date >= CURRENT_DATE - $1
+    WHERE due_date >= CURRENT_DATE - ($1::INTEGER)
       AND status IN ('confirmed', 'sent', 'pending')
     UNION ALL
     SELECT id, 'property_tax' as payment_type, NULL as vendor_id, amount, due_date,
            jurisdiction || ' ' || tax_year || ' Q' || installment as description
     FROM property_taxes
-    WHERE due_date >= CURRENT_DATE - $1
+    WHERE due_date >= CURRENT_DATE - ($1::INTEGER)
   `, [daysBack + 30])
 
   let linksCreated = 0
@@ -189,54 +266,140 @@ export async function autoMatchEmailsToPayments(
 }
 
 /**
+ * Try to find a vendor ID by matching vendor names in the email subject.
+ * Used for emails from payment processors (e.g., speedpay.com) that don't directly match a vendor.
+ */
+async function findVendorFromSubject(subject: string | null): Promise<{ id: string, name: string } | null> {
+  if (!subject) return null
+
+  // Get all vendor names
+  const vendors = await query<{ id: string, name: string }>(`
+    SELECT id, name FROM vendors WHERE name IS NOT NULL
+  `)
+
+  const subjectLower = subject.toLowerCase()
+
+  // Find the best match - longest vendor name that appears in the subject
+  let bestMatch: { id: string, name: string } | null = null
+
+  for (const vendor of vendors) {
+    const vendorNameLower = vendor.name.toLowerCase()
+    if (subjectLower.includes(vendorNameLower)) {
+      if (!bestMatch || vendor.name.length > bestMatch.name.length) {
+        bestMatch = vendor
+      }
+    }
+  }
+
+  return bestMatch
+}
+
+/**
  * Create bills from confirmation emails for known vendors.
  * This handles auto-pay confirmations where the vendor sends a "payment received" email.
+ * Also handles emails from payment processors (e.g., speedpay.com) by matching vendor names in subject.
  */
 export async function createBillsFromConfirmationEmails(
   daysBack: number = 14
 ): Promise<number> {
-  // Get confirmation emails from known vendors that aren't already linked
+  // Get confirmation emails that aren't already linked (include emails with OR without vendor_id)
+  // Pre-filter in SQL to only get emails that contain confirmation-like keywords
   const emails = await query<{
     id: string
-    vendor_id: string
-    vendor_name: string
+    vendor_id: string | null
+    vendor_name: string | null
     subject: string | null
     body_snippet: string | null
+    body_html: string | null
     received_at: string
   }>(`
     SELECT
       vc.id, vc.vendor_id, v.name as vendor_name,
-      vc.subject, vc.body_snippet, vc.received_at
+      vc.subject, vc.body_snippet, vc.body_html, vc.received_at
     FROM vendor_communications vc
-    JOIN vendors v ON vc.vendor_id = v.id
+    LEFT JOIN vendors v ON vc.vendor_id = v.id
     WHERE vc.direction = 'inbound'
-      AND vc.vendor_id IS NOT NULL
       AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
       AND NOT EXISTS (
         SELECT 1 FROM payment_email_links pel WHERE pel.email_id = vc.id
+      )
+      AND (
+        LOWER(COALESCE(vc.subject, '') || ' ' || COALESCE(vc.body_snippet, '')) ~
+          'payment received|payment confirmed|payment successful|payment processed|thank you for your payment|payment complete|auto.?pay|automatic payment|has been paid|has been received|transaction complete|payment notification|payment date'
+        OR LOWER(COALESCE(vc.body_html, '')) ~
+          'payment date'
       )
     ORDER BY vc.received_at DESC
     LIMIT 100
   `, [daysBack])
 
   let billsCreated = 0
+  let emailsWithHints = 0
+
+  console.log(`[createBillsFromConfirmationEmails] Checking ${emails.length} potential confirmation emails...`)
 
   for (const email of emails) {
-    // Only process confirmation emails
-    if (!isConfirmationEmail(email.subject, email.body_snippet)) {
+    // Pre-filter: check if email has any confirmation-like keywords before expensive AI call
+    const prefilterText = [email.subject, email.body_snippet].filter(Boolean).join(' ').toLowerCase()
+    const hasConfirmationHint = CONFIRMATION_KEYWORDS.some(kw => prefilterText.includes(kw)) ||
+      (email.body_html && CONFIRMATION_KEYWORDS.some(kw => email.body_html!.toLowerCase().includes(kw)))
+
+    if (!hasConfirmationHint) {
+      continue // Skip emails that don't have any confirmation keywords
+    }
+
+    emailsWithHints++
+
+    // Use AI to analyze if this is a payment confirmation
+    const analysis = await analyzeEmailWithAI(email.subject, email.body_snippet, email.body_html)
+
+    if (!analysis.isConfirmation || analysis.confidence === 'low') {
       continue
     }
 
-    // Extract amount from email
-    const text = [email.subject, email.body_snippet].filter(Boolean).join(' ')
-    const amount = extractAmount(text)
+    // Get amount from AI analysis, or fallback to regex extraction
+    let amount = analysis.amount
+    if (!amount) {
+      const text = [email.subject, email.body_snippet].filter(Boolean).join(' ')
+      amount = extractAmount(text)
+      if (!amount && email.body_html) {
+        amount = extractAmount(email.body_html)
+      }
+    }
 
     if (!amount) {
       continue // Can't create bill without amount
     }
 
-    // Generate description from subject
-    let description = email.subject || `Payment to ${email.vendor_name}`
+    // Determine vendor - use existing vendor_id, AI-detected name, or subject match
+    let vendorId = email.vendor_id
+    let vendorName = email.vendor_name
+
+    if (!vendorId) {
+      // Try AI-detected vendor name first
+      if (analysis.vendorName) {
+        const matchedVendor = await findVendorFromSubject(analysis.vendorName)
+        if (matchedVendor) {
+          vendorId = matchedVendor.id
+          vendorName = matchedVendor.name
+        }
+      }
+      // Fallback to subject line matching
+      if (!vendorId) {
+        const matchedVendor = await findVendorFromSubject(email.subject)
+        if (matchedVendor) {
+          vendorId = matchedVendor.id
+          vendorName = matchedVendor.name
+        }
+      }
+      if (!vendorId) {
+        console.log(`  Skipping email (no vendor match): ${email.subject?.substring(0, 50)}`)
+        continue // Can't create bill without identifying vendor
+      }
+    }
+
+    // Use AI-generated description or clean up from subject
+    let description = analysis.description || email.subject || `Payment to ${vendorName}`
     // Clean up common prefixes
     description = description
       .replace(/^(Payment\s*[-–]\s*)/i, '')
@@ -247,7 +410,7 @@ export async function createBillsFromConfirmationEmails(
     // If description is generic, use vendor name
     if (description.toLowerCase() === 'your payment has been received' ||
         description.toLowerCase().includes('autopay payment confirmation')) {
-      description = `${email.vendor_name} - Auto Pay`
+      description = `${vendorName} - Auto Pay`
     }
 
     // Create the bill
@@ -267,9 +430,9 @@ export async function createBillsFromConfirmationEmails(
       )
       RETURNING id
     `, [
-      email.vendor_id,
+      vendorId,
       amount,
-      email.received_at.split('T')[0], // Use email date as due/payment date
+      new Date(email.received_at).toISOString().split('T')[0], // Use email date as due/payment date
       description
     ])
 
@@ -281,10 +444,12 @@ export async function createBillsFromConfirmationEmails(
         ON CONFLICT (payment_type, payment_id, email_id) DO NOTHING
       `, [billResult[0].id, email.id])
 
+      console.log(`  ✓ Created auto-pay bill: ${vendorName} - $${amount} (${description})`)
       billsCreated++
     }
   }
 
+  console.log(`[createBillsFromConfirmationEmails] Found ${emailsWithHints} emails with hints, created ${billsCreated} bills from ${emails.length} total emails`)
   return billsCreated
 }
 

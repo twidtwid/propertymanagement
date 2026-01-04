@@ -35,7 +35,7 @@ interface EmailForAnalysis {
   vendor_name: string | null
   subject: string | null
   body_snippet: string | null
-  body_text: string | null
+  body_html: string | null
   received_at: string
 }
 
@@ -162,12 +162,12 @@ export async function scanEmailsForPaymentSuggestions(
       v.name as vendor_name,
       vc.subject,
       vc.body_snippet,
-      vc.body_text,
+      vc.body_html,
       vc.received_at
     FROM vendor_communications vc
     LEFT JOIN vendors v ON vc.vendor_id = v.id
     WHERE vc.direction = 'inbound'
-      AND vc.received_at >= CURRENT_DATE - $1
+      AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
       AND NOT EXISTS (
         SELECT 1 FROM payment_suggestions ps
         WHERE ps.email_id = vc.id OR ps.gmail_message_id = vc.gmail_message_id
@@ -180,9 +180,13 @@ export async function scanEmailsForPaymentSuggestions(
   let suggestionsCreated = 0
 
   for (const email of emails) {
+    // Use body_snippet, or strip HTML tags from body_html as fallback
+    const bodyText = email.body_snippet ||
+      (email.body_html ? email.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 500) : null)
+
     const { amount, due_date, signals, is_receipt } = extractPaymentInfo(
       email.subject,
-      email.body_snippet || email.body_text
+      bodyText
     )
 
     // Skip receipts (payment already made)

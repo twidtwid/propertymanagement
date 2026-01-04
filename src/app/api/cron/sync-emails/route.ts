@@ -60,12 +60,13 @@ export async function GET(request: NextRequest) {
     }
 
     const message = result.success
-      ? `Synced ${result.emailsStored} emails (${result.emailsMatched} matched to vendors), ${suggestionsCreated} suggestions, ${emailLinksCreated} email links`
+      ? `Synced ${result.emailsStored} emails (${result.emailsMatched} matched to vendors), ${suggestionsCreated} suggestions, ${billsFromEmails} bills, ${emailLinksCreated} email links`
       : "Sync failed"
 
     return NextResponse.json({
       ...result,
       suggestionsCreated,
+      billsFromEmails,
       emailLinksCreated,
       message,
     })

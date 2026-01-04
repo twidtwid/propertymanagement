@@ -101,11 +101,13 @@ const CONFIRMATION_KEYWORDS = [
   'payment received', 'payment confirmed', 'payment successful',
   'payment processed', 'thank you for your payment', 'payment complete',
   'auto-pay processed', 'automatic payment', 'has been paid',
-  'transaction complete', 'payment notification', 'autopay payment confirmation'
+  'has been received',  // Dead River: "Your payment has been received"
+  'transaction complete', 'payment notification', 'autopay payment confirmation',
+  'payment date:'  // Used by Public Parking receipts
 ];
 
-function isConfirmationEmailText(subject, body) {
-  const text = [subject, body].filter(Boolean).join(' ').toLowerCase();
+function isConfirmationEmailText(subject, bodySnippet, bodyHtml) {
+  const text = [subject, bodySnippet, bodyHtml].filter(Boolean).join(' ').toLowerCase();
   return CONFIRMATION_KEYWORDS.some(keyword => text.includes(keyword));
 }
 
@@ -129,19 +131,47 @@ function extractAmountFromText(text) {
   return null;
 }
 
+// Try to find a vendor ID by matching vendor names in the email subject
+// Used for emails from payment processors (e.g., speedpay.com) that don't directly match a vendor
+async function findVendorFromSubject(subject) {
+  if (!subject) return null;
+
+  // Get all vendor names
+  const result = await pool.query(`
+    SELECT id, name FROM vendors WHERE name IS NOT NULL
+  `);
+  const vendors = result.rows;
+
+  const subjectLower = subject.toLowerCase();
+
+  // Find the best match - longest vendor name that appears in the subject
+  let bestMatch = null;
+
+  for (const vendor of vendors) {
+    const vendorNameLower = vendor.name.toLowerCase();
+    if (subjectLower.includes(vendorNameLower)) {
+      if (!bestMatch || vendor.name.length > bestMatch.name.length) {
+        bestMatch = vendor;
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
 // Create bills from confirmation emails (auto-pay processing)
+// Handles both direct vendor emails and payment processor emails (e.g., speedpay.com)
 async function createBillsFromConfirmationEmails(daysBack = 14) {
   console.log('\n💳 Creating bills from confirmation emails...');
 
-  // Get confirmation emails from known vendors that aren't already linked
+  // Get confirmation emails that aren't already linked (include emails with OR without vendor_id)
   const emailResult = await pool.query(`
     SELECT
       vc.id, vc.vendor_id, v.name as vendor_name,
-      vc.subject, vc.body_snippet, vc.received_at
+      vc.subject, vc.body_snippet, vc.body_html, vc.received_at
     FROM vendor_communications vc
-    JOIN vendors v ON vc.vendor_id = v.id
+    LEFT JOIN vendors v ON vc.vendor_id = v.id
     WHERE vc.direction = 'inbound'
-      AND vc.vendor_id IS NOT NULL
       AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
       AND NOT EXISTS (
         SELECT 1 FROM payment_email_links pel WHERE pel.email_id = vc.id
@@ -154,21 +184,42 @@ async function createBillsFromConfirmationEmails(daysBack = 14) {
   let billsCreated = 0;
 
   for (const email of emails) {
-    // Only process confirmation emails
-    if (!isConfirmationEmailText(email.subject, email.body_snippet)) {
+    // Only process confirmation emails (check subject, snippet, AND html body)
+    if (!isConfirmationEmailText(email.subject, email.body_snippet, email.body_html)) {
       continue;
     }
 
-    // Extract amount from email
+    // Extract amount from email (check snippet first, then HTML body)
     const text = [email.subject, email.body_snippet].filter(Boolean).join(' ');
-    const amount = extractAmountFromText(text);
+    let amount = extractAmountFromText(text);
+
+    // If no amount found in snippet, try HTML body
+    if (!amount && email.body_html) {
+      amount = extractAmountFromText(email.body_html);
+    }
 
     if (!amount) {
       continue; // Can't create bill without amount
     }
 
+    // Determine vendor - use existing vendor_id or try to find from subject
+    let vendorId = email.vendor_id;
+    let vendorName = email.vendor_name;
+
+    if (!vendorId) {
+      // Try to find vendor from subject line (for payment processor emails)
+      const matchedVendor = await findVendorFromSubject(email.subject);
+      if (matchedVendor) {
+        vendorId = matchedVendor.id;
+        vendorName = matchedVendor.name;
+        console.log(`   📧 Found vendor "${vendorName}" from subject: ${email.subject?.substring(0, 50)}...`);
+      } else {
+        continue; // Can't create bill without identifying vendor
+      }
+    }
+
     // Generate description from subject
-    let description = email.subject || `Payment to ${email.vendor_name}`;
+    let description = email.subject || `Payment to ${vendorName}`;
     // Clean up common prefixes
     description = description
       .replace(/^(Payment\s*[-–]\s*)/i, '')
@@ -179,7 +230,7 @@ async function createBillsFromConfirmationEmails(daysBack = 14) {
     // If description is generic, use vendor name
     if (description.toLowerCase() === 'your payment has been received' ||
         description.toLowerCase().includes('autopay payment confirmation')) {
-      description = `${email.vendor_name} - Auto Pay`;
+      description = `${vendorName} - Auto Pay`;
     }
 
     // Create the bill
@@ -199,7 +250,7 @@ async function createBillsFromConfirmationEmails(daysBack = 14) {
       )
       RETURNING id
     `, [
-      email.vendor_id,
+      vendorId,
       amount,
       email.received_at.split('T')[0],
       description
