@@ -21,16 +21,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Inbox, AlertCircle, Check, X, ChevronRight, Loader2, Mail } from "lucide-react"
+import { Inbox, AlertCircle, Check, X, Loader2, Mail, ChevronDown } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { dismissPaymentSuggestion, importPaymentSuggestion } from "@/lib/mutations"
+import { getEmailById } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
 import type { PaymentSuggestion, Property, Vehicle } from "@/types/database"
+import type { VendorCommunication } from "@/lib/actions"
 
 interface EmailSuggestionsInboxProps {
   suggestions: PaymentSuggestion[]
   properties: Property[]
   vehicles: Vehicle[]
+}
+
+// Prepare email HTML for iframe display (per CLAUDE.md - use iframe to isolate styles)
+function prepareEmailHtml(html: string): string {
+  // Remove scripts for security, but keep styles for proper rendering
+  let prepared = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+  // Add base styles for better readability
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; margin: 0; padding: 8px; }
+        img { max-width: 100%; height: auto; }
+        table { max-width: 100%; }
+      </style>
+    </head>
+    <body>${prepared}</body>
+    </html>
+  `
 }
 
 export function EmailSuggestionsInbox({
@@ -51,12 +73,16 @@ export function EmailSuggestionsInbox({
     vehicle_id: "",
     bill_type: "other",
   })
+  // State for expanded email content
+  const [loadedEmails, setLoadedEmails] = useState<Record<string, VendorCommunication | null>>({})
+  const [loadingEmailId, setLoadingEmailId] = useState<string | null>(null)
 
   if (suggestions.length === 0) {
     return null
   }
 
-  const handleDismiss = (suggestionId: string) => {
+  const handleDismiss = (suggestionId: string, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent details toggle
     setDismissingId(suggestionId)
     startTransition(async () => {
       const result = await dismissPaymentSuggestion(suggestionId)
@@ -69,11 +95,16 @@ export function EmailSuggestionsInbox({
     })
   }
 
-  const openImportDialog = (suggestion: PaymentSuggestion) => {
+  const openImportDialog = (suggestion: PaymentSuggestion, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent details toggle
     setSelectedSuggestion(suggestion)
+    // Extract YYYY-MM-DD from date string for date input
+    const dueDate = suggestion.due_date_extracted
+      ? suggestion.due_date_extracted.split('T')[0]
+      : ""
     setImportForm({
       amount: suggestion.amount_extracted?.toString() || "",
-      due_date: suggestion.due_date_extracted || "",
+      due_date: dueDate,
       description: suggestion.email_subject || "",
       property_id: suggestion.property_id || "",
       vehicle_id: "",
@@ -110,6 +141,21 @@ export function EmailSuggestionsInbox({
     })
   }
 
+  const loadEmailContent = async (emailId: string | null) => {
+    if (!emailId || loadedEmails[emailId] !== undefined) return
+
+    setLoadingEmailId(emailId)
+    try {
+      const email = await getEmailById(emailId)
+      setLoadedEmails(prev => ({ ...prev, [emailId]: email }))
+    } catch (error) {
+      console.error('Failed to load email:', error)
+      setLoadedEmails(prev => ({ ...prev, [emailId]: null }))
+    } finally {
+      setLoadingEmailId(null)
+    }
+  }
+
   return (
     <>
       <Card className="border-orange-200 bg-orange-50/30">
@@ -124,75 +170,123 @@ export function EmailSuggestionsInbox({
             </CardTitle>
           </div>
           <p className="text-sm text-muted-foreground">
-            Emails that may need payment tracking
+            Emails that may need payment tracking. Click to view full email.
           </p>
         </CardHeader>
         <CardContent className="space-y-2">
           {suggestions.map((suggestion) => (
-            <div
+            <details
               key={suggestion.id}
-              className="flex items-start gap-3 p-3 rounded-lg bg-white border border-orange-100"
+              className="group rounded-lg bg-white border border-orange-100 overflow-hidden"
+              onToggle={(e) => {
+                if ((e.target as HTMLDetailsElement).open && suggestion.email_id) {
+                  loadEmailContent(suggestion.email_id)
+                }
+              }}
             >
-              <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="font-medium">
-                    {suggestion.vendor_name_extracted || "Unknown Vendor"}
-                  </span>
-                  {suggestion.confidence === "high" && (
-                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                      High
-                    </Badge>
-                  )}
-                  {suggestion.confidence === "medium" && (
-                    <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
-                      Medium
-                    </Badge>
-                  )}
+              <summary className="cursor-pointer list-none p-3 hover:bg-orange-50/50 transition-colors">
+                <div className="flex items-start gap-3">
+                  <ChevronDown className="h-4 w-4 text-orange-500 mt-1 flex-shrink-0 transition-transform group-open:rotate-180" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-medium">
+                        {suggestion.vendor_name_extracted || "Unknown Vendor"}
+                      </span>
+                      {suggestion.confidence === "high" && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                          High
+                        </Badge>
+                      )}
+                      {suggestion.confidence === "medium" && (
+                        <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                          Medium
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate mb-1">
+                      {suggestion.email_subject || "(No subject)"}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      {suggestion.amount_extracted && (
+                        <span className="font-medium text-foreground">
+                          ${suggestion.amount_extracted.toLocaleString()}
+                        </span>
+                      )}
+                      {suggestion.due_date_extracted && (
+                        <span suppressHydrationWarning>Due: {formatDate(suggestion.due_date_extracted)}</span>
+                      )}
+                      {suggestion.email_received_at && (
+                        <span suppressHydrationWarning>{formatDate(suggestion.email_received_at)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-green-700 border-green-200 hover:bg-green-50"
+                      onClick={(e) => openImportDialog(suggestion, e)}
+                      disabled={isPending}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => handleDismiss(suggestion.id, e)}
+                      disabled={isPending || dismissingId === suggestion.id}
+                    >
+                      {dismissingId === suggestion.id ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4 mr-1" />
+                      )}
+                      Ignore
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground truncate mb-1">
-                  {suggestion.email_subject || "(No subject)"}
-                </p>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  {suggestion.amount_extracted && (
-                    <span className="font-medium text-foreground">
-                      ${suggestion.amount_extracted.toLocaleString()}
-                    </span>
-                  )}
-                  {suggestion.due_date_extracted && (
-                    <span>Due: {formatDate(suggestion.due_date_extracted)}</span>
-                  )}
-                  {suggestion.email_received_at && (
-                    <span>{formatDate(suggestion.email_received_at)}</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-green-700 border-green-200 hover:bg-green-50"
-                  onClick={() => openImportDialog(suggestion)}
-                  disabled={isPending}
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Add
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => handleDismiss(suggestion.id)}
-                  disabled={isPending || dismissingId === suggestion.id}
-                >
-                  {dismissingId === suggestion.id ? (
+              </summary>
+
+              {/* Expanded email content */}
+              <div className="px-3 pb-3 border-t border-orange-100 pt-3 bg-white">
+                {loadingEmailId === suggestion.email_id ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <X className="h-4 w-4" />
-                  )}
-                </Button>
+                    Loading email...
+                  </div>
+                ) : suggestion.email_id && loadedEmails[suggestion.email_id] ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Mail className="h-3 w-3" />
+                      <span>From: {loadedEmails[suggestion.email_id]!.from_email}</span>
+                    </div>
+                    {loadedEmails[suggestion.email_id]!.body_html ? (
+                      <iframe
+                        srcDoc={prepareEmailHtml(loadedEmails[suggestion.email_id]!.body_html!)}
+                        className="w-full bg-white rounded border"
+                        style={{ minHeight: '300px', maxHeight: '500px' }}
+                        sandbox="allow-same-origin"
+                        title="Email content"
+                      />
+                    ) : loadedEmails[suggestion.email_id]!.body_snippet ? (
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-gray-50 rounded p-3">
+                        {loadedEmails[suggestion.email_id]!.body_snippet}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">No content available</p>
+                    )}
+                  </div>
+                ) : suggestion.email_snippet ? (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-gray-50 rounded p-3">
+                    {suggestion.email_snippet}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No email content available</p>
+                )}
               </div>
-            </div>
+            </details>
           ))}
         </CardContent>
       </Card>

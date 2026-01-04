@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { StatsCards } from "@/components/dashboard/stats-cards"
 import { StatusBanner } from "@/components/dashboard/status-banner"
 import { UnifiedPinnedItems } from "@/components/dashboard/unified-pinned-items"
 import { NeedsReview } from "@/components/dashboard/needs-review"
@@ -10,7 +9,6 @@ import { BuildingLinkSummary } from "@/components/dashboard/buildinglink-summary
 import { EmailInboxSummary } from "@/components/dashboard/email-inbox-summary"
 import { AutoPayConfirmations } from "@/components/dashboard/autopay-confirmations"
 import {
-  getNewDashboardStats,
   getDashboardPinnedItems,
   getUpcomingWeek,
   getActiveProperties,
@@ -24,7 +22,6 @@ import { query } from "@/lib/db"
 
 export default async function Dashboard() {
   const [
-    stats,
     pinnedData,
     upcomingWeek,
     properties,
@@ -34,7 +31,6 @@ export default async function Dashboard() {
     autoPayConfirmations,
     recentEmailsRaw,
   ] = await Promise.all([
-    getNewDashboardStats(),
     getDashboardPinnedItems(),
     getUpcomingWeek(),
     getActiveProperties(),
@@ -144,8 +140,20 @@ export default async function Dashboard() {
         nextDueDescription={nextDue?.title}
       />
 
-      {/* Compact Stats Row */}
-      <StatsCards stats={stats} />
+      {/* Quick Actions & BuildingLink - top priority, Quick Actions first on mobile */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Quick Actions - first on mobile */}
+        <QuickActionsBar
+          properties={properties}
+          pinnedVendors={pinnedVendors}
+        />
+
+        {/* BuildingLink Summary - second on mobile */}
+        {buildingLinkItems.length > 0 && (
+          <BuildingLinkSummary items={buildingLinkItems} />
+        )}
+      </div>
+
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -166,17 +174,6 @@ export default async function Dashboard() {
         <div className="space-y-6">
           {/* Auto-Pay Confirmations */}
           <AutoPayConfirmations confirmations={autoPayConfirmations} />
-
-          {/* BuildingLink Summary */}
-          {buildingLinkItems.length > 0 && (
-            <BuildingLinkSummary items={buildingLinkItems} />
-          )}
-
-          {/* Quick Actions */}
-          <QuickActionsBar
-            properties={properties}
-            pinnedVendors={pinnedVendors}
-          />
         </div>
       </div>
     </div>

@@ -267,6 +267,14 @@ export async function getVendorCommunications(vendorId: string): Promise<VendorC
   )
 }
 
+export async function getEmailById(emailId: string): Promise<VendorCommunication | null> {
+  const results = await query<VendorCommunication>(
+    `SELECT * FROM vendor_communications WHERE id = $1`,
+    [emailId]
+  )
+  return results[0] || null
+}
+
 // Get user's starred vendor IDs
 export async function getStarredVendorIds(userId: string): Promise<Set<string>> {
   const stars = await query<{ vendor_id: string }>(

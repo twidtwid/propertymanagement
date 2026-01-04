@@ -6,6 +6,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+      - TZ=America/New_York
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-propertymanagement}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - NODE_ENV=${NODE_ENV:-development}
@@ -44,6 +45,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     environment:
+      - TZ=America/New_York
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-propertymanagement}
     env_file:
       - .env.local
@@ -63,6 +65,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     environment:
+      - TZ=America/New_York
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-propertymanagement}
       - APP_HOST=app
       - APP_PORT=3000
@@ -83,6 +86,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     environment:
+      - TZ=America/New_York
       - APP_HOST=app
       - APP_PORT=3000
     env_file:
