@@ -826,10 +826,10 @@ async function getConfirmedVendorIds(
  * - Batch vendor lookup at start (fixes N+1)
  * - Batch confirmation checks (fixes N+1)
  * - Deduplication by vendor+amount within 5 days
- * - Default 3-day lookback (most vendors notify 1-3 days before)
+ * - Default 7-day lookback (covers vendors that notify early)
  */
 export async function getUpcomingAutopays(
-  daysBack: number = 3,  // Reduced from 7 to 3 - most vendors notify 1-3 days before
+  daysBack: number = 7,  // 7 days to catch early notifications without false positives
   limit: number = 10
 ): Promise<UpcomingAutopay[]> {
   // Batch load all active vendors upfront (fixes N+1 query)
