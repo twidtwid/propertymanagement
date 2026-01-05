@@ -62,7 +62,7 @@ function decryptToken(encryptedBase64) {
 // Get active vendors for matching
 async function getActiveVendors() {
   const result = await pool.query(`
-    SELECT id, name, email, company, specialty
+    SELECT id, name, email, company, specialties
     FROM vendors
     WHERE is_active = TRUE AND email IS NOT NULL AND email != ''
   `);
