@@ -33,6 +33,27 @@ pool.on("error", (err) => {
   console.error("Unexpected database pool error:", err)
 })
 
+// Register parsers for custom enum array types (their OIDs are dynamically generated)
+let enumArrayParsersRegistered = false
+async function registerEnumArrayParsers(client: PoolClient): Promise<void> {
+  if (enumArrayParsersRegistered) return
+  try {
+    // Query all enum array type OIDs
+    const result = await client.query(`
+      SELECT t.typarray as oid
+      FROM pg_type t
+      JOIN pg_namespace n ON t.typnamespace = n.oid
+      WHERE t.typtype = 'e' AND t.typarray != 0 AND n.nspname = 'public'
+    `)
+    for (const row of result.rows) {
+      types.setTypeParser(row.oid as number, parseArray)
+    }
+    enumArrayParsersRegistered = true
+  } catch {
+    // Silently fail - will retry on next query
+  }
+}
+
 export class DatabaseError extends Error {
   constructor(
     message: string,
@@ -51,6 +72,8 @@ export async function query<T = unknown>(
   let client: PoolClient | null = null
   try {
     client = await pool.connect()
+    // Register enum array parsers on first query (finds all enum[] types dynamically)
+    await registerEnumArrayParsers(client)
     const result = await client.query(text, params)
     return result.rows as T[]
   } catch (error) {

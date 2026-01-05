@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import React, { useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -246,7 +246,7 @@ export function InsuranceWithPins({
           )}
         </TableCell>
 
-        <TableCell>
+        <TableCell suppressHydrationWarning>
           {policy.expiration_date ? formatDate(policy.expiration_date) : "-"}
         </TableCell>
 
@@ -307,8 +307,8 @@ export function InsuranceWithPins({
                 const policyNotes = notesMap[policy.id] || []
                 const userNote = userNotesMap[policy.id]
                 return (
-                  <>
-                    <TableRow key={policy.id}>
+                  <React.Fragment key={policy.id}>
+                    <TableRow>
                       <TableCell className="w-10">
                         <PinButton
                           entityType="insurance_policy"
@@ -369,7 +369,7 @@ export function InsuranceWithPins({
                           "-"
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell suppressHydrationWarning>
                         {policy.expiration_date ? formatDate(policy.expiration_date) : "-"}
                       </TableCell>
                       <TableCell>
@@ -392,7 +392,7 @@ export function InsuranceWithPins({
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </React.Fragment>
                 )
               })}
             </TableBody>
@@ -422,8 +422,8 @@ export function InsuranceWithPins({
                 const policyNotes = notesMap[policy.id] || []
                 const userNote = userNotesMap[policy.id]
                 return (
-                  <>
-                    <TableRow key={policy.id}>
+                  <React.Fragment key={policy.id}>
+                    <TableRow>
                       <TableCell className="w-10">
                         <PinButton
                           entityType="insurance_policy"
@@ -484,7 +484,7 @@ export function InsuranceWithPins({
                           "-"
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell suppressHydrationWarning>
                         {policy.expiration_date ? formatDate(policy.expiration_date) : "-"}
                       </TableCell>
                       <TableCell>
@@ -507,7 +507,7 @@ export function InsuranceWithPins({
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </React.Fragment>
                 )
               })}
             </TableBody>
