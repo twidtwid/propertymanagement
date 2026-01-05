@@ -217,6 +217,7 @@ CREATE TABLE property_taxes (
   payment_url TEXT,
   status payment_status DEFAULT 'pending',
   payment_date DATE,
+  payment_method payment_method,
   confirmation_date DATE,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
