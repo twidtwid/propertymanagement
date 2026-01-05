@@ -7,6 +7,10 @@ Personal property management: 10 properties (VT, NYC, RI, CA, Paris, Martinique)
 1. **DEPLOY via `/deploy` only** - Never run docker/ssh commands manually
 2. **Cast integers in date arithmetic** - `CURRENT_DATE + ($1::INTEGER)` not `+ $1`
 3. **Sync enums** - Update both PostgreSQL (`scripts/init.sql` or migration) AND Zod (`src/lib/schemas/index.ts`)
+4. **Use latest Claude models** - Always use dated versions for stability:
+   - Fast/cheap: `claude-haiku-4-5-20251001` (email analysis, document summaries)
+   - Balanced: `claude-sonnet-4-5-20250929` (complex reasoning)
+   - Best: `claude-opus-4-5-20251101` (critical tasks)
 
 ## Tech Stack
 

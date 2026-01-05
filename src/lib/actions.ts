@@ -32,6 +32,16 @@ import type {
   DashboardStats,
 } from "@/types/database"
 
+// Re-export from payments
+import { getUpcomingAutopays as _getUpcomingAutopays, type UpcomingAutopay } from "@/lib/payments/email-links"
+
+export async function getUpcomingAutopays(
+  daysBack: number = 7,
+  limit: number = 10
+): Promise<UpcomingAutopay[]> {
+  return _getUpcomingAutopays(daysBack, limit)
+}
+
 // Properties
 export async function getProperties(): Promise<Property[]> {
   const ctx = await getVisibilityContext()

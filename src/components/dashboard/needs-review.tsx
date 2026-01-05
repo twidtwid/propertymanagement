@@ -40,9 +40,10 @@ export function NeedsReview({ suggestions }: NeedsReviewProps) {
       </CardHeader>
       <CardContent className="space-y-2 pt-0">
         {suggestions.slice(0, 3).map((suggestion) => (
-          <div
+          <Link
             key={suggestion.id}
-            className="flex items-start gap-3 p-2 rounded-md bg-white/60 border border-orange-100"
+            href="/payments"
+            className="flex items-start gap-3 p-2 rounded-md bg-white/60 border border-orange-100 hover:bg-white hover:border-orange-200 transition-colors cursor-pointer"
           >
             <AlertCircle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
@@ -65,7 +66,7 @@ export function NeedsReview({ suggestions }: NeedsReviewProps) {
                 {suggestion.email_subject || "(No subject)"}
               </p>
             </div>
-          </div>
+          </Link>
         ))}
         {suggestions.length > 3 && (
           <Link href="/payments" className="block">

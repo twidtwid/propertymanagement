@@ -8,6 +8,7 @@ import { QuickActionsBar } from "@/components/dashboard/quick-actions-bar"
 import { BuildingLinkSummary } from "@/components/dashboard/buildinglink-summary"
 import { EmailInboxSummary } from "@/components/dashboard/email-inbox-summary"
 import { AutoPayConfirmations } from "@/components/dashboard/autopay-confirmations"
+import { UpcomingAutopays } from "@/components/dashboard/upcoming-autopays"
 import {
   getDashboardPinnedItems,
   getUpcomingWeek,
@@ -17,6 +18,7 @@ import {
   getVendorsFiltered,
   getPendingPaymentSuggestions,
   getRecentAutoPayConfirmations,
+  getUpcomingAutopays,
 } from "@/lib/actions"
 import { query } from "@/lib/db"
 
@@ -29,6 +31,7 @@ export default async function Dashboard() {
     pinnedVendorIds,
     paymentSuggestions,
     autoPayConfirmations,
+    upcomingAutopays,
     recentEmailsRaw,
   ] = await Promise.all([
     getDashboardPinnedItems(),
@@ -38,6 +41,7 @@ export default async function Dashboard() {
     getPinnedIds('vendor'),
     getPendingPaymentSuggestions(),
     getRecentAutoPayConfirmations(7, 10),
+    getUpcomingAutopays(7, 10),
     query<{
       id: string
       vendor_name: string | null
@@ -172,6 +176,9 @@ export default async function Dashboard() {
         </div>
 
         <div className="space-y-6">
+          {/* Upcoming Autopays - heads up about payments coming soon */}
+          <UpcomingAutopays autopays={upcomingAutopays} />
+
           {/* Auto-Pay Confirmations */}
           <AutoPayConfirmations confirmations={autoPayConfirmations} />
         </div>
