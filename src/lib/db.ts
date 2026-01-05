@@ -1,4 +1,20 @@
-import { Pool, PoolClient } from "pg"
+import { Pool, PoolClient, types } from "pg"
+
+// Parse PostgreSQL arrays properly (they come as strings like "{value1,value2}")
+// This handles enum arrays and text arrays
+const parseArray = (value: string): string[] => {
+  if (!value || value === '{}') return []
+  // Remove braces and split, handling quoted values
+  const inner = value.slice(1, -1)
+  if (!inner) return []
+  // Simple split for unquoted enum values
+  return inner.split(',').map(s => s.replace(/^"|"$/g, ''))
+}
+
+// Register parser for common array types
+// 1009 = text[], 1015 = varchar[], and custom enum arrays typically use the same format
+types.setTypeParser(1009 as number, parseArray)  // text[]
+types.setTypeParser(1015 as number, parseArray)  // varchar[]
 
 // Validate required environment variables
 if (!process.env.DATABASE_URL) {
