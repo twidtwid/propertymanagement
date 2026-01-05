@@ -22,7 +22,7 @@ season: winter | spring | summer | fall | annual
 alert_severity: info | warning | critical
 ```
 
-### Vendor Specialties (31 values)
+### Vendor Specialties (36 values)
 
 When adding vendors, choose the most specific category:
 ```
@@ -30,7 +30,8 @@ hvac, plumbing, electrical, roofing, general_contractor, landscaping, cleaning,
 pest_control, pool_spa, appliance, locksmith, alarm_security, snow_removal,
 fuel_oil, property_management, architect, movers, trash, internet, phone,
 water, septic, forester, fireplace, insurance, auto, elevator, flooring,
-parking, masonry, audiovisual, other
+parking, masonry, audiovisual, shoveling, plowing, mowing, attorney,
+window_washing, other
 ```
 
 ## Key Tables

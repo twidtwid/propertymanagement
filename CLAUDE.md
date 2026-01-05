@@ -1,105 +1,121 @@
 # Property Management System
 
-Personal property management app: 10 properties (VT, NYC, RI, CA, Paris, Martinique), 7 vehicles, 70+ vendors.
+Personal property management: 10 properties (VT, NYC, RI, CA, Paris, Martinique), 7 vehicles, 70+ vendors.
 
 ## Critical Rules
 
-**DEPLOYMENT: Use `/deploy` skill ONLY.** Never run docker/ssh deployment commands manually.
+1. **DEPLOY via `/deploy` only** - Never run docker/ssh commands manually
+2. **Cast integers in date arithmetic** - `CURRENT_DATE + ($1::INTEGER)` not `+ $1`
+3. **Sync enums** - Update both PostgreSQL (`scripts/init.sql` or migration) AND Zod (`src/lib/schemas/index.ts`)
 
-**DATABASE: Cast integers in date arithmetic.**
-```sql
-WHERE due_date <= CURRENT_DATE + ($1::INTEGER)  -- correct
-WHERE due_date <= CURRENT_DATE + $1              -- fails
+## Tech Stack
+
+```
+Next.js 14 (App Router) | TypeScript | Tailwind + shadcn/ui | PostgreSQL
+Production: spmsystem.com (143.110.229.185)
 ```
 
-**ENUMS: Update BOTH PostgreSQL AND Zod** when adding enum values.
-- PostgreSQL: `scripts/init.sql` or migration
-- Zod: `src/lib/schemas/index.ts`
+## File Map
 
-## Stack
+| Category | Path | Purpose |
+|----------|------|---------|
+| Schema | `scripts/init.sql` | Database schema |
+| Types | `src/types/database.ts` | TypeScript types + enum labels |
+| Validation | `src/lib/schemas/index.ts` | Zod schemas |
+| Data reads | `src/lib/actions.ts` | Server actions (queries) |
+| Data writes | `src/lib/mutations.ts` | Server actions (mutations) |
+| Migrations | `scripts/migrations/` | Numbered SQL files |
+| Integrations | `src/lib/{dropbox,gmail,taxes}/` | External service clients |
 
-Next.js 14 (App Router) | TypeScript | Tailwind + shadcn/ui | PostgreSQL
+## Skills (Commands)
 
-Production: spmsystem.com (143.110.229.185)
-
-## Key Files
-
-| Purpose | Path |
-|---------|------|
-| Schema | `scripts/init.sql` |
-| Types | `src/types/database.ts` |
-| Zod schemas | `src/lib/schemas/index.ts` |
-| Server reads | `src/lib/actions.ts` |
-| Server writes | `src/lib/mutations.ts` |
-| Utilities | `src/lib/utils.ts` |
-
-## Skills
-
-| Skill | Purpose |
-|-------|---------|
-| `/deploy` | Deploy to production (tests, version bump, commit, push, deploy) |
-| `/test` | Run test suite |
-| `/build` | TypeScript/build check |
-| `/health` | Production health check |
-| `/schema` | Database schema reference |
-| `/deploydev` | Restart dev with clean caches |
-| `/backup` | Backup production database |
+| Skill | Action |
+|-------|--------|
+| `/deploy` | Full deploy: test → version bump → commit → push → deploy |
+| `/test` | Run vitest |
+| `/build` | TypeScript check |
+| `/health` | Production health |
+| `/migrate` | Run SQL migration on production |
+| `/backup` | Download production DB |
 | `/prod-logs` | View production logs |
-| `/prod-db` | Production database shell |
-| `/migrate` | Run production migration |
+| `/prod-db` | Production psql shell |
 
-## Common Gotchas
+## Production Cron Jobs
 
-| Problem | Fix |
-|---------|-----|
-| Date arithmetic fails | Cast: `$1::INTEGER` |
-| Zod validation errors | Enum mismatch between PG and Zod |
-| Hydration errors (dates) | Use `mounted` state pattern with `suppressHydrationWarning` |
-| Email styles bleed | Use `sanitizeEmailHtml()` before `dangerouslySetInnerHTML` |
-| Empty Dropbox folders | Check `namespace_id` in `dropbox_oauth_tokens` |
-| UUID generation | Use `gen_random_uuid()` not `uuid_generate_v4()` |
+| Schedule | Endpoint | Purpose |
+|----------|----------|---------|
+| */15 * | `/api/cron/dropbox-sync` | Sync Dropbox files |
+| 0 * | `/api/cron/refresh-dropbox-token` | Keep OAuth token fresh |
+| 0 3 | `run-backup.sh` | Database backup |
+| 0 4 | docker prune | Clean images |
+| 0 6 | `disk-check.sh` | Disk space alert |
 
-## Patterns
+## Key Enums
 
-**Server Components by default.** Use `"use client"` only when needed.
+```typescript
+// Vendor specialties (36 values) - see src/types/database.ts
+hvac, plumbing, electrical, roofing, general_contractor, landscaping,
+cleaning, pest_control, pool_spa, appliance, locksmith, alarm_security,
+snow_removal, fuel_oil, property_management, architect, movers, trash,
+internet, phone, water, septic, forester, fireplace, insurance, auto,
+elevator, flooring, parking, masonry, audiovisual, shoveling, plowing,
+mowing, attorney, window_washing, other
 
-**Server Actions for mutations.** No API routes for data operations.
+// Payment status flow
+pending → sent → confirmed | overdue | cancelled
 
-**Optional relations need LEFT JOIN:**
+// Ticket status
+pending | in_progress | completed | cancelled
+```
+
+## Common Patterns
+
+**Server Components default** - `"use client"` only when needed
+
+**Server Actions for data** - No API routes for CRUD
+
+**LEFT JOIN for optional relations:**
 ```sql
 SELECT b.*, p.name FROM bills b LEFT JOIN properties p ON b.property_id = p.id
 ```
 
-**Feature workflow:**
-1. Migration in `scripts/migrations/`
-2. Types in `src/types/database.ts`
-3. Zod in `src/lib/schemas/index.ts`
-4. Actions in `actions.ts` (reads) or `mutations.ts` (writes)
-5. `/build` then `/test` then `/deploy`
+**Feature implementation order:**
+1. Migration → 2. Types → 3. Zod → 4. Actions → 5. `/build` → 6. `/test` → 7. `/deploy`
 
-## Users
+## Common Fixes
 
-| User | Role |
-|------|------|
-| Anne, Todd, Michael, Amelia | owner (full access) |
-| Barbara Brady (CBIZ) | bookkeeper (bills/payments only) |
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Date arithmetic error | Missing cast | `$1::INTEGER` |
+| Zod validation error | Enum mismatch | Sync PG enum with Zod |
+| Hydration error (dates) | SSR/client TZ diff | `mounted` state + `suppressHydrationWarning` |
+| Email CSS bleeding | Raw HTML injection | `sanitizeEmailHtml()` |
+| Dropbox "wrong folder" | Missing namespace_id | Set `namespace_id = '13490620643'` in `dropbox_oauth_tokens` |
+| UUID error | Wrong function | `gen_random_uuid()` not `uuid_generate_v4()` |
 
-Bookkeeper restricted to: `/`, `/payments/**`, `/settings` via middleware.
+## Users & Auth
 
-## Business Rules
+| User | Role | Access |
+|------|------|--------|
+| Anne, Todd, Michael, Amelia | owner | Full |
+| Barbara Brady (CBIZ) | bookkeeper | `/`, `/payments/**`, `/settings` only |
 
-- **Payment flow:** pending → sent → confirmed (or overdue/cancelled)
-- **Check confirmation:** Flag unconfirmed checks >14 days (Bank of America unreliable)
-- **Smart pins:** Auto-generated for urgent items (bills due <7 days, overdue, high-priority tickets)
-- **Property visibility:** `property_visibility` table whitelists users (default: all owners see all)
+## Business Logic
 
-## Detailed Rules
+- **Check confirmation:** Alert if unconfirmed >14 days (Bank of America unreliable)
+- **Smart pins:** Auto-pin bills due <7 days, overdue items, high-priority tickets
+- **Property visibility:** Whitelist in `property_visibility` table (default: all owners see all)
+- **Dropbox shared folder:** namespace_id `13490620643` for "Property Management" folder
 
-Loaded on-demand when working in relevant paths:
+## Modular Rules
 
-- `.claude/rules/database.md` - Schema, enums, relationships, query patterns
-- `.claude/rules/payments.md` - Payment workflows, tax schedules, confirmation logic
-- `.claude/rules/security.md` - Authorization, route restrictions, OAuth
-- `.claude/rules/integrations.md` - Dropbox, Gmail, tax lookup systems
-- `.claude/rules/pinning.md` - Smart pins vs user pins, sync triggers
-- `.claude/rules/development.md` - Docker, dev server, production commands
+Loaded contextually from `.claude/rules/`:
+
+| File | Topics |
+|------|--------|
+| `database.md` | Schema, enums, relationships, indexes |
+| `payments.md` | Payment workflows, tax schedules, confirmations |
+| `security.md` | Authorization, route guards, OAuth tokens |
+| `integrations.md` | Dropbox, Gmail, tax lookup providers |
+| `pinning.md` | Smart pins, user pins, sync triggers |
+| `development.md` | Docker, dev server, production SSH |

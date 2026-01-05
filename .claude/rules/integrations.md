@@ -8,7 +8,9 @@ paths: src/lib/dropbox/**, src/lib/gmail/**, src/lib/taxes/**, scripts/*tax*.py,
 
 OAuth tokens encrypted (AES-256-GCM) in `dropbox_oauth_tokens`.
 
-**Key config:** `namespace_id` (13490620643) for shared folder "Property Management"
+**Critical config:** `namespace_id = '13490620643'` for shared folder "Property Management"
+- Without this, Dropbox returns wrong folder contents
+- Auto-set on OAuth callback, but verify after reconnection issues
 
 **Tables:**
 - `dropbox_folder_mappings` - Entity → folder path
@@ -22,13 +24,27 @@ OAuth tokens encrypted (AES-256-GCM) in `dropbox_oauth_tokens`.
 - Vehicles: `/Vehicles/{vehicle_name}`
 - Insurance portfolio: `/Insurance Portfolio`
 
-**Sync:** Runs every 15 min via production cron → `/var/log/dropbox-sync.log`
+**Production Cron Jobs:**
+| Schedule | Endpoint | Log | Purpose |
+|----------|----------|-----|---------|
+| */15 * * * * | `/api/cron/dropbox-sync` | dropbox-sync.log | Sync files |
+| 0 * * * * | `/api/cron/refresh-dropbox-token` | dropbox-refresh.log | Keep token fresh |
+
+**Token Refresh:**
+- Access tokens expire in 4 hours
+- Hourly cron refreshes if <2 hours remaining
+- On-demand refresh if <1 hour remaining (in `getDropboxClient`)
+- If refresh fails → user must reconnect at `/settings/dropbox`
 
 **Commands:**
 ```bash
 npm run dropbox:sync          # Incremental (new files only)
 npm run dropbox:sync:force    # Force regenerate all AI summaries
 ```
+
+**Troubleshooting:**
+- "Unauthorized" errors → Token expired, check refresh cron or reconnect
+- Wrong folder contents → Missing `namespace_id`, run: `UPDATE dropbox_oauth_tokens SET namespace_id = '13490620643'`
 
 ## Gmail Integration
 
