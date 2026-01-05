@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { formatDateTime } from "@/lib/utils"
 import { Circle } from "lucide-react"
 import type { TicketActivity } from "@/types/database"
@@ -48,6 +49,12 @@ function formatActivityMessage(activity: TicketActivity): string {
 }
 
 export function TicketActivityList({ activities }: TicketActivityListProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   if (activities.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-4 text-center">
@@ -68,8 +75,8 @@ export function TicketActivityList({ activities }: TicketActivityListProps) {
           </div>
           <div className="flex-1 pb-3">
             <p className="text-sm">{formatActivityMessage(activity)}</p>
-            <p className="text-xs text-muted-foreground">
-              {formatDateTime(activity.created_at)}
+            <p className="text-xs text-muted-foreground" suppressHydrationWarning>
+              {mounted ? formatDateTime(activity.created_at) : ""}
             </p>
           </div>
         </div>

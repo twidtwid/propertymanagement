@@ -22,6 +22,7 @@ import { TASK_PRIORITY_LABELS, TICKET_STATUS_LABELS } from "@/types/database"
 import { TicketActivityList } from "@/components/tickets/ticket-activity"
 import { CloseTicketDialog } from "@/components/tickets/close-ticket-dialog"
 import { TicketStatusButton } from "@/components/tickets/ticket-status-button"
+import { TicketPhotos } from "@/components/tickets/ticket-photos"
 
 export default async function TicketDetailPage({
   params,
@@ -234,6 +235,9 @@ export default async function TicketDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {/* Photos */}
+          <TicketPhotos ticketId={ticket.id} />
         </div>
 
         {/* Right Column - Activity */}

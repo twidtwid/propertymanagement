@@ -23,6 +23,7 @@ import { getVendorContacts } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
 import { TASK_PRIORITY_LABELS } from "@/types/database"
 import type { Property, Vehicle, Vendor, VendorContact, MaintenanceTask } from "@/types/database"
+import { PhotoUpload } from "./photo-upload"
 
 interface TicketFormProps {
   properties: Property[]
@@ -37,6 +38,8 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
   const [isPending, startTransition] = useTransition()
   const [vendorContacts, setVendorContacts] = useState<VendorContact[]>([])
   const [loadingContacts, setLoadingContacts] = useState(false)
+  const [stagedPhotos, setStagedPhotos] = useState<File[]>([])
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
 
   const isEditing = !!ticket
 
@@ -71,6 +74,32 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
     }
   }, [watchVendorId, form])
 
+  const uploadPhotos = async (ticketId: string) => {
+    if (stagedPhotos.length === 0) return
+
+    setUploadingPhotos(true)
+    try {
+      for (const file of stagedPhotos) {
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("path", `/Tickets/${ticketId}`)
+
+        const response = await fetch("/api/dropbox/upload", {
+          method: "POST",
+          body: formData,
+        })
+
+        if (!response.ok) {
+          console.error("Failed to upload photo:", file.name)
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading photos:", error)
+    } finally {
+      setUploadingPhotos(false)
+    }
+  }
+
   const onSubmit = (data: TicketFormData) => {
     startTransition(async () => {
       const result = isEditing
@@ -78,13 +107,18 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
         : await createTicket(data)
 
       if (result.success) {
+        // Upload photos if any were staged (only for new tickets)
+        if (!isEditing && stagedPhotos.length > 0) {
+          await uploadPhotos(result.data!.id)
+        }
+
         toast({
           title: isEditing ? "Ticket updated" : "Ticket created",
           description: isEditing
             ? "Your changes have been saved."
             : `"${data.title}" has been created.`,
         })
-        router.push(isEditing ? `/tickets/${ticket.id}` : "/tickets")
+        router.push(isEditing ? `/tickets/${ticket.id}` : `/tickets/${result.data!.id}`)
       } else {
         toast({
           title: "Error",
@@ -299,6 +333,14 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
               />
             </div>
           </div>
+
+          {/* Photos (only for new tickets) */}
+          {!isEditing && (
+            <PhotoUpload
+              onPhotosChange={setStagedPhotos}
+              disabled={isPending || uploadingPhotos}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -307,14 +349,16 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isPending}>
-          {isPending
-            ? isEditing
-              ? "Saving..."
-              : "Creating..."
-            : isEditing
-              ? "Save Changes"
-              : "Create Ticket"}
+        <Button type="submit" disabled={isPending || uploadingPhotos}>
+          {uploadingPhotos
+            ? "Uploading photos..."
+            : isPending
+              ? isEditing
+                ? "Saving..."
+                : "Creating..."
+              : isEditing
+                ? "Save Changes"
+                : "Create Ticket"}
         </Button>
       </div>
     </form>

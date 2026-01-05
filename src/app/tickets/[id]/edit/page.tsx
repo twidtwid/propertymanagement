@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { getTicket, getProperties, getVehicles, getVendors } from "@/lib/actions"
 import { TicketForm } from "@/components/tickets/ticket-form"
+import { TicketPhotos } from "@/components/tickets/ticket-photos"
 
 export default async function EditTicketPage({
   params,
@@ -33,13 +34,14 @@ export default async function EditTicketPage({
         <h1 className="text-2xl font-semibold tracking-tight">Edit Ticket</h1>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="max-w-2xl space-y-6">
         <TicketForm
           properties={properties}
           vehicles={vehicles}
           vendors={vendors}
           ticket={ticket}
         />
+        <TicketPhotos ticketId={id} editable />
       </div>
     </div>
   )

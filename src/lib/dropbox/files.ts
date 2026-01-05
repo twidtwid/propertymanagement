@@ -338,8 +338,18 @@ export async function createFolder(
   path: string
 ): Promise<void> {
   const dbx = await getDropboxClient(email)
+  const rootFolder = await getRootFolder(email)
+
+  // Construct full path with root folder prefix
+  let fullPath: string
+  if (rootFolder && !path.startsWith(rootFolder)) {
+    fullPath = `${rootFolder}${path.startsWith("/") ? path : `/${path}`}`
+  } else {
+    fullPath = path.startsWith("/") ? path : `/${path}`
+  }
+
   try {
-    await dbx.filesCreateFolderV2({ path, autorename: false })
+    await dbx.filesCreateFolderV2({ path: fullPath, autorename: false })
   } catch (error: unknown) {
     const err = error as { status?: number; error?: { error_summary?: string } }
     // Ignore "path/conflict/folder" - folder already exists
@@ -348,6 +358,56 @@ export async function createFolder(
     }
     throw error
   }
+}
+
+/**
+ * Upload a file to Dropbox.
+ */
+export async function uploadFile(
+  email: string,
+  path: string,
+  contents: Buffer
+): Promise<DropboxFileEntry> {
+  const dbx = await getDropboxClient(email)
+  const rootFolder = await getRootFolder(email)
+
+  // Construct full path with root folder prefix
+  let fullPath: string
+  if (rootFolder && !path.startsWith(rootFolder)) {
+    fullPath = `${rootFolder}${path.startsWith("/") ? path : `/${path}`}`
+  } else {
+    fullPath = path.startsWith("/") ? path : `/${path}`
+  }
+
+  const response = await dbx.filesUpload({
+    path: fullPath,
+    contents,
+    mode: { ".tag": "add" },
+    autorename: true,
+  })
+
+  return {
+    id: response.result.id,
+    name: response.result.name,
+    path_lower: response.result.path_lower || "",
+    path_display: response.result.path_display || "",
+    is_folder: false,
+    size: response.result.size,
+    client_modified: response.result.client_modified,
+    server_modified: response.result.server_modified,
+    content_hash: response.result.content_hash,
+  }
+}
+
+/**
+ * Delete a file from Dropbox.
+ */
+export async function deleteFile(
+  email: string,
+  path: string
+): Promise<void> {
+  const dbx = await getDropboxClient(email)
+  await dbx.filesDeleteV2({ path })
 }
 
 /**
