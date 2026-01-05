@@ -1,4 +1,5 @@
 import Link from "next/link"
+import React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -95,12 +96,51 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
 
   return (
     <div className="space-y-8">
-      {/* Print Header - hidden on screen, shown in print */}
-      <div className="hidden print:block print-header">
+      {/* Print Header */}
+      <div className="print-only print-header">
         <h1 className="text-2xl font-bold">Weekly Ticket Summary</h1>
         <p className="text-sm text-muted-foreground">
           Last {weeksBack} weeks | Generated: {new Date().toLocaleDateString()} | {totalTickets} tickets | {formatCurrency(totalCost)} total cost
         </p>
+      </div>
+
+      {/* PRINT LAYOUT - Dense weekly table */}
+      <div className="print-only">
+        <table className="print-table">
+          <thead>
+            <tr>
+              <th>Week</th>
+              <th>Ticket</th>
+              <th>Property</th>
+              <th>Vendor</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th style={{ textAlign: 'right' }}>Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {weeklyReport.map(week => (
+              <React.Fragment key={week.weekStart}>
+                <tr className="category-header">
+                  <td colSpan={7}>
+                    <strong>{formatWeekRange(week.weekStart, week.weekEnd)}</strong> ({week.totalCount} tickets{week.totalCost > 0 ? ` · ${formatCurrency(week.totalCost)}` : ''})
+                  </td>
+                </tr>
+                {Object.values(week.byProperty).flatMap(p => p.tickets).map(ticket => (
+                  <tr key={ticket.id}>
+                    <td></td>
+                    <td><strong>{ticket.title}</strong></td>
+                    <td>{ticket.property_name || '-'}</td>
+                    <td>{ticket.vendor_company || ticket.vendor_name || '-'}</td>
+                    <td>{TICKET_STATUS_LABELS[ticket.status]}</td>
+                    <td>{TASK_PRIORITY_LABELS[ticket.priority]}</td>
+                    <td style={{ textAlign: 'right' }}>{ticket.actual_cost ? formatCurrency(Number(ticket.actual_cost)) : '-'}</td>
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="flex items-center justify-between no-print">
@@ -164,6 +204,8 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
         />
       </div>
 
+      {/* SCREEN LAYOUT */}
+      <div className="screen-only">
       {weeklyReport.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
@@ -343,6 +385,7 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
           </Card>
         ))
       )}
+      </div>
     </div>
   )
 }

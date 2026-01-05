@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Suspense } from "react"
+import React, { Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -163,8 +163,8 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-8">
-      {/* Print Header - hidden on screen, shown in print */}
-      <div className="hidden print:block print-header">
+      {/* Print Header */}
+      <div className="print-only print-header">
         <h1 className="text-2xl font-bold">Ticket Report</h1>
         {filterSummary.length > 0 && (
           <p className="text-sm text-muted-foreground">{filterSummary.join(' | ')}</p>
@@ -172,6 +172,84 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
         <p className="text-sm text-muted-foreground">
           Generated: {new Date().toLocaleDateString()} | {report.stats.total} tickets | {formatCurrency(report.stats.totalCost)} total cost
         </p>
+      </div>
+
+      {/* PRINT LAYOUT - Dense ticket table */}
+      <div className="print-only">
+        <table className="print-table">
+          <thead>
+            <tr>
+              <th>Ticket</th>
+              <th>Property</th>
+              <th>Vendor</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Date</th>
+              <th style={{ textAlign: 'right' }}>Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {viewMode === 'byProperty' ? (
+              Object.entries(report.byProperty)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([propertyName, tickets]) => (
+                  <React.Fragment key={propertyName}>
+                    <tr className="category-header">
+                      <td colSpan={7}>
+                        <strong>{propertyName}</strong> ({tickets.length})
+                      </td>
+                    </tr>
+                    {tickets.map(ticket => (
+                      <tr key={ticket.id}>
+                        <td><strong>{ticket.title}</strong></td>
+                        <td>{ticket.property_name || '-'}</td>
+                        <td>{ticket.vendor_company || ticket.vendor_name || '-'}</td>
+                        <td>{TICKET_STATUS_LABELS[ticket.status]}</td>
+                        <td>{TASK_PRIORITY_LABELS[ticket.priority]}</td>
+                        <td>{ticket.completed_date ? formatDate(ticket.completed_date) : ticket.due_date ? formatDate(ticket.due_date) : '-'}</td>
+                        <td style={{ textAlign: 'right' }}>{ticket.actual_cost ? formatCurrency(Number(ticket.actual_cost)) : '-'}</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))
+            ) : viewMode === 'byVendor' ? (
+              Object.entries(report.byVendor)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([vendorName, tickets]) => (
+                  <React.Fragment key={vendorName}>
+                    <tr className="category-header">
+                      <td colSpan={7}>
+                        <strong>{vendorName}</strong> ({tickets.length})
+                      </td>
+                    </tr>
+                    {tickets.map(ticket => (
+                      <tr key={ticket.id}>
+                        <td><strong>{ticket.title}</strong></td>
+                        <td>{ticket.property_name || '-'}</td>
+                        <td>{ticket.vendor_company || ticket.vendor_name || '-'}</td>
+                        <td>{TICKET_STATUS_LABELS[ticket.status]}</td>
+                        <td>{TASK_PRIORITY_LABELS[ticket.priority]}</td>
+                        <td>{ticket.completed_date ? formatDate(ticket.completed_date) : ticket.due_date ? formatDate(ticket.due_date) : '-'}</td>
+                        <td style={{ textAlign: 'right' }}>{ticket.actual_cost ? formatCurrency(Number(ticket.actual_cost)) : '-'}</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))
+            ) : (
+              report.tickets.map(ticket => (
+                <tr key={ticket.id}>
+                  <td><strong>{ticket.title}</strong></td>
+                  <td>{ticket.property_name || '-'}</td>
+                  <td>{ticket.vendor_company || ticket.vendor_name || '-'}</td>
+                  <td>{TICKET_STATUS_LABELS[ticket.status]}</td>
+                  <td>{TASK_PRIORITY_LABELS[ticket.priority]}</td>
+                  <td>{ticket.completed_date ? formatDate(ticket.completed_date) : ticket.due_date ? formatDate(ticket.due_date) : '-'}</td>
+                  <td style={{ textAlign: 'right' }}>{ticket.actual_cost ? formatCurrency(Number(ticket.actual_cost)) : '-'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       <div className="flex items-center justify-between no-print">
@@ -227,6 +305,8 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
         </Suspense>
       </Card>
 
+      {/* SCREEN LAYOUT */}
+      <div className="screen-only">
       {viewMode === 'byProperty' ? (
         // Group by Property view
         Object.entries(report.byProperty)
@@ -359,6 +439,7 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   )
 }
