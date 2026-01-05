@@ -15,7 +15,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-      - /app/.next
+      # Note: .next lives on host (not in anonymous volume) so rm -rf .next works
     depends_on:
       db:
         condition: service_healthy
