@@ -205,22 +205,22 @@ export function BuildingLinkClient({
         </PinnedSection>
       )}
 
-      {/* Uncollected Packages */}
-      {uncollectedPackages.length > 0 && (
-        <Card className="border-purple-200 bg-purple-50/50">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-purple-700 flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Uncollected Packages
-              </CardTitle>
-              <Badge variant="secondary" className="bg-purple-200 text-purple-800">
-                {uncollectedPackages.length}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-2">
-            {uncollectedPackages.map((message) => (
+      {/* Uncollected Packages - Always show for UI consistency */}
+      <Card className="border-purple-200 bg-purple-50/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-purple-700 flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Uncollected Packages
+            </CardTitle>
+            <Badge variant="secondary" className="bg-purple-200 text-purple-800">
+              {uncollectedPackages.length}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          {uncollectedPackages.length > 0 ? (
+            uncollectedPackages.map((message) => (
               <MessageRow
                 key={message.id}
                 message={message}
@@ -228,10 +228,14 @@ export function BuildingLinkClient({
                 compact
                 onTogglePin={handleTogglePin}
               />
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            ))
+          ) : (
+            <p className="text-sm text-purple-600/70 py-2">
+              All packages have been collected
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Tabs and Search */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
