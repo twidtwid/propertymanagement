@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { exchangeCodeForTokens, storeTokens } from "@/lib/dropbox/auth"
+import { query } from "@/lib/db"
+
+// The namespace_id for the shared "Property Management" folder
+// This is required to access the shared folder contents
+const PROPERTY_MANAGEMENT_NAMESPACE_ID = "13490620643"
 
 /**
  * Get the base URL for redirects (handles reverse proxy correctly)
@@ -43,6 +48,15 @@ export async function GET(request: NextRequest) {
 
     // Store tokens in database
     await storeTokens(userEmail, credentials)
+
+    // Set the namespace_id for the shared "Property Management" folder
+    // This is required to access files in the shared folder
+    await query(
+      `UPDATE dropbox_oauth_tokens
+       SET namespace_id = $1
+       WHERE user_email = $2`,
+      [PROPERTY_MANAGEMENT_NAMESPACE_ID, userEmail]
+    )
 
     // Redirect to settings page with success
     return NextResponse.redirect(

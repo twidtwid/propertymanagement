@@ -232,8 +232,9 @@ export async function refreshTokenIfNeeded(email: string): Promise<boolean> {
   const expiryTime = new Date(row.token_expiry).getTime()
   const now = Date.now()
 
-  // Refresh if token expires in less than 5 minutes
-  if (expiryTime - now > 5 * 60 * 1000) {
+  // Refresh if token expires in less than 1 hour (was 5 minutes - too aggressive)
+  // This gives buffer for long-running operations and prevents edge cases
+  if (expiryTime - now > 60 * 60 * 1000) {
     return false
   }
 

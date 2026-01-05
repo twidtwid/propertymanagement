@@ -20,7 +20,7 @@ export type VendorSpecialty =
   | 'property_management' | 'architect' | 'movers' | 'trash' | 'internet'
   | 'phone' | 'water' | 'septic' | 'forester' | 'fireplace' | 'insurance'
   | 'auto' | 'elevator' | 'flooring' | 'parking' | 'masonry' | 'audiovisual'
-  | 'shoveling' | 'plowing' | 'mowing' | 'attorney' | 'other'
+  | 'shoveling' | 'plowing' | 'mowing' | 'attorney' | 'window_washing' | 'other'
 export type Season = 'winter' | 'spring' | 'summer' | 'fall' | 'annual'
 export type AlertSeverity = 'info' | 'warning' | 'critical'
 export type PinnedEntityType = 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message' | 'property_tax' | 'insurance_premium' | 'document'
@@ -459,6 +459,7 @@ export const VENDOR_SPECIALTY_LABELS: Record<VendorSpecialty, string> = {
   plowing: 'Plowing',
   mowing: 'Mowing',
   attorney: 'Attorney',
+  window_washing: 'Window Washing',
   other: 'Other',
 }
 
