@@ -4181,3 +4181,376 @@ export async function getRecentAutoPayConfirmations(
     LIMIT $2
   `, [daysBack, limit])
 }
+
+// ============================================
+// Vendor Report
+// ============================================
+
+export interface VendorReportItem extends Vendor {
+  properties: Array<{ id: string; name: string; state: string | null; country: string }>
+  ticket_count: number
+  open_ticket_count: number
+  total_spent: number
+}
+
+export interface VendorReportFilters {
+  specialty?: string
+  region?: string
+  property?: string
+  groupBy?: 'vendor' | 'region' | 'property' | 'specialty'
+}
+
+export async function getVendorReport(filters?: VendorReportFilters): Promise<{
+  vendors: VendorReportItem[]
+  regions: string[]
+  specialties: string[]
+}> {
+  const visibleVendorIds = await getVisibleVendorIds()
+  if (visibleVendorIds.length === 0) return { vendors: [], regions: [], specialties: [] }
+
+  const ctx = await getVisibilityContext()
+  if (!ctx) return { vendors: [], regions: [], specialties: [] }
+
+  // Get all vendors with their properties, ticket counts, and spending
+  const vendors = await query<Vendor & {
+    property_data: string | null
+    ticket_count: string
+    open_ticket_count: string
+    total_spent: string
+  }>(`
+    WITH vendor_properties AS (
+      SELECT
+        pv.vendor_id,
+        json_agg(json_build_object(
+          'id', p.id,
+          'name', p.name,
+          'state', p.state,
+          'country', p.country
+        )) as properties
+      FROM property_vendors pv
+      JOIN properties p ON pv.property_id = p.id
+      WHERE p.id = ANY($2::uuid[])
+      GROUP BY pv.vendor_id
+    ),
+    vendor_tickets AS (
+      SELECT
+        vendor_id,
+        COUNT(*) as ticket_count,
+        COUNT(*) FILTER (WHERE status NOT IN ('completed', 'cancelled')) as open_ticket_count
+      FROM maintenance_tasks
+      WHERE vendor_id IS NOT NULL
+      GROUP BY vendor_id
+    ),
+    vendor_spending AS (
+      SELECT
+        vendor_id,
+        COALESCE(SUM(actual_cost), 0) as total_spent
+      FROM maintenance_tasks
+      WHERE vendor_id IS NOT NULL AND actual_cost IS NOT NULL
+      GROUP BY vendor_id
+    )
+    SELECT
+      v.*,
+      vp.properties::text as property_data,
+      COALESCE(vt.ticket_count, 0) as ticket_count,
+      COALESCE(vt.open_ticket_count, 0) as open_ticket_count,
+      COALESCE(vs.total_spent, 0) as total_spent
+    FROM vendors v
+    LEFT JOIN vendor_properties vp ON v.id = vp.vendor_id
+    LEFT JOIN vendor_tickets vt ON v.id = vt.vendor_id
+    LEFT JOIN vendor_spending vs ON v.id = vs.vendor_id
+    WHERE v.id = ANY($1::uuid[])
+    ORDER BY COALESCE(v.company, v.name)
+  `, [visibleVendorIds, ctx.visiblePropertyIds])
+
+  // Transform results
+  let result: VendorReportItem[] = vendors.map(v => ({
+    ...v,
+    properties: v.property_data ? JSON.parse(v.property_data) : [],
+    ticket_count: parseInt(v.ticket_count) || 0,
+    open_ticket_count: parseInt(v.open_ticket_count) || 0,
+    total_spent: parseFloat(v.total_spent) || 0,
+  }))
+
+  // Apply filters
+  if (filters?.specialty && filters.specialty !== 'all') {
+    result = result.filter(v => v.specialties.includes(filters.specialty as VendorSpecialty))
+  }
+
+  if (filters?.region && filters.region !== 'all') {
+    const region = filters.region
+    result = result.filter(v =>
+      v.properties.some(p => p.state === region || p.country === region)
+    )
+  }
+
+  if (filters?.property && filters.property !== 'all') {
+    result = result.filter(v =>
+      v.properties.some(p => p.id === filters.property)
+    )
+  }
+
+  // Get unique regions and specialties for filter dropdowns
+  const allRegions = new Set<string>()
+  const allSpecialties = new Set<string>()
+  result.forEach(v => {
+    v.properties.forEach(p => {
+      if (p.state) allRegions.add(p.state)
+      else if (p.country !== 'USA') allRegions.add(p.country)
+    })
+    v.specialties.forEach(s => allSpecialties.add(s))
+  })
+
+  return {
+    vendors: result,
+    regions: Array.from(allRegions).sort(),
+    specialties: Array.from(allSpecialties).sort(),
+  }
+}
+
+// ============================================
+// Ticket Report
+// ============================================
+
+export interface TicketReportItem extends MaintenanceTask {
+  property_name: string | null
+  property_state: string | null
+  vendor_name: string | null
+  vendor_company: string | null
+}
+
+export interface TicketReportFilters {
+  property?: string
+  vendor?: string
+  status?: string
+  priority?: string
+  dateFrom?: string
+  dateTo?: string
+  sortBy?: 'property' | 'vendor' | 'date' | 'priority' | 'status'
+}
+
+export async function getTicketReport(filters?: TicketReportFilters): Promise<{
+  tickets: TicketReportItem[]
+  byProperty: Record<string, TicketReportItem[]>
+  byVendor: Record<string, TicketReportItem[]>
+  stats: {
+    total: number
+    open: number
+    completed: number
+    totalCost: number
+  }
+}> {
+  const ctx = await getVisibilityContext()
+  if (!ctx || ctx.visiblePropertyIds.length === 0) {
+    return { tickets: [], byProperty: {}, byVendor: {}, stats: { total: 0, open: 0, completed: 0, totalCost: 0 } }
+  }
+
+  const conditions: string[] = []
+  const params: (string | string[])[] = [ctx.visiblePropertyIds]
+  let paramIndex = 2
+
+  // Property must be visible
+  conditions.push(`(
+    mt.property_id = ANY($1::uuid[])
+    OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]))
+    OR (mt.property_id IS NULL AND mt.vehicle_id IS NULL)
+  )`)
+
+  if (filters?.property && filters.property !== 'all') {
+    conditions.push(`mt.property_id = $${paramIndex}`)
+    params.push(filters.property)
+    paramIndex++
+  }
+
+  if (filters?.vendor && filters.vendor !== 'all') {
+    conditions.push(`mt.vendor_id = $${paramIndex}`)
+    params.push(filters.vendor)
+    paramIndex++
+  }
+
+  if (filters?.status && filters.status !== 'all') {
+    conditions.push(`mt.status = $${paramIndex}`)
+    params.push(filters.status)
+    paramIndex++
+  }
+
+  if (filters?.priority && filters.priority !== 'all') {
+    conditions.push(`mt.priority = $${paramIndex}`)
+    params.push(filters.priority)
+    paramIndex++
+  }
+
+  if (filters?.dateFrom) {
+    conditions.push(`COALESCE(mt.completed_date, mt.due_date, mt.created_at) >= $${paramIndex}`)
+    params.push(filters.dateFrom)
+    paramIndex++
+  }
+
+  if (filters?.dateTo) {
+    conditions.push(`COALESCE(mt.completed_date, mt.due_date, mt.created_at) <= $${paramIndex}`)
+    params.push(filters.dateTo)
+    paramIndex++
+  }
+
+  // Determine sort order
+  let orderBy = 'mt.created_at DESC'
+  if (filters?.sortBy === 'property') orderBy = 'p.name ASC, mt.created_at DESC'
+  else if (filters?.sortBy === 'vendor') orderBy = 'COALESCE(vd.company, vd.name) ASC, mt.created_at DESC'
+  else if (filters?.sortBy === 'date') orderBy = 'COALESCE(mt.completed_date, mt.due_date, mt.created_at) DESC'
+  else if (filters?.sortBy === 'priority') orderBy = "CASE mt.priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END, mt.created_at DESC"
+  else if (filters?.sortBy === 'status') orderBy = "CASE mt.status WHEN 'pending' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END, mt.created_at DESC"
+
+  const tickets = await query<TicketReportItem>(`
+    SELECT
+      mt.*,
+      p.name as property_name,
+      p.state as property_state,
+      vd.name as vendor_name,
+      vd.company as vendor_company
+    FROM maintenance_tasks mt
+    LEFT JOIN properties p ON mt.property_id = p.id
+    LEFT JOIN vendors vd ON mt.vendor_id = vd.id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY ${orderBy}
+  `, params)
+
+  // Group by property
+  const byProperty: Record<string, TicketReportItem[]> = {}
+  tickets.forEach(t => {
+    const key = t.property_name || 'No Property'
+    if (!byProperty[key]) byProperty[key] = []
+    byProperty[key].push(t)
+  })
+
+  // Group by vendor
+  const byVendor: Record<string, TicketReportItem[]> = {}
+  tickets.forEach(t => {
+    const key = t.vendor_company || t.vendor_name || 'No Vendor'
+    if (!byVendor[key]) byVendor[key] = []
+    byVendor[key].push(t)
+  })
+
+  // Calculate stats
+  const stats = {
+    total: tickets.length,
+    open: tickets.filter(t => t.status === 'pending' || t.status === 'in_progress').length,
+    completed: tickets.filter(t => t.status === 'completed').length,
+    totalCost: tickets.reduce((sum, t) => sum + (Number(t.actual_cost) || 0), 0),
+  }
+
+  return { tickets, byProperty, byVendor, stats }
+}
+
+// ============================================
+// Weekly Ticket Report
+// ============================================
+
+export interface WeeklyTicketSummary {
+  weekStart: string
+  weekEnd: string
+  byProperty: Record<string, {
+    property_name: string
+    tickets: TicketReportItem[]
+    count: number
+    cost: number
+  }>
+  byVendor: Record<string, {
+    vendor_name: string
+    tickets: TicketReportItem[]
+    count: number
+    cost: number
+  }>
+  totalCount: number
+  totalCost: number
+}
+
+export async function getWeeklyTicketReport(weeksBack: number = 4): Promise<WeeklyTicketSummary[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
+
+  // Get tickets from the last N weeks
+  const tickets = await query<TicketReportItem>(`
+    SELECT
+      mt.*,
+      p.name as property_name,
+      p.state as property_state,
+      vd.name as vendor_name,
+      vd.company as vendor_company
+    FROM maintenance_tasks mt
+    LEFT JOIN properties p ON mt.property_id = p.id
+    LEFT JOIN vendors vd ON mt.vendor_id = vd.id
+    WHERE (
+      mt.property_id = ANY($1::uuid[])
+      OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]))
+      OR (mt.property_id IS NULL AND mt.vehicle_id IS NULL)
+    )
+    AND COALESCE(mt.completed_date, mt.due_date, mt.created_at) >= CURRENT_DATE - ($2::INTEGER * 7)
+    ORDER BY COALESCE(mt.completed_date, mt.due_date, mt.created_at) DESC
+  `, [ctx.visiblePropertyIds, weeksBack])
+
+  // Group tickets by week
+  const weeklyData: Map<string, WeeklyTicketSummary> = new Map()
+
+  tickets.forEach(ticket => {
+    const ticketDate = new Date(ticket.completed_date || ticket.due_date || ticket.created_at)
+    // Get Monday of the week
+    const day = ticketDate.getDay()
+    const diff = ticketDate.getDate() - day + (day === 0 ? -6 : 1)
+    const weekStart = new Date(ticketDate)
+    weekStart.setDate(diff)
+    weekStart.setHours(0, 0, 0, 0)
+
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekEnd.getDate() + 6)
+
+    const weekKey = weekStart.toISOString().split('T')[0]
+
+    if (!weeklyData.has(weekKey)) {
+      weeklyData.set(weekKey, {
+        weekStart: weekKey,
+        weekEnd: weekEnd.toISOString().split('T')[0],
+        byProperty: {},
+        byVendor: {},
+        totalCount: 0,
+        totalCost: 0,
+      })
+    }
+
+    const week = weeklyData.get(weekKey)!
+    week.totalCount++
+    week.totalCost += Number(ticket.actual_cost) || 0
+
+    // Group by property
+    const propertyKey = ticket.property_name || 'No Property'
+    if (!week.byProperty[propertyKey]) {
+      week.byProperty[propertyKey] = {
+        property_name: propertyKey,
+        tickets: [],
+        count: 0,
+        cost: 0,
+      }
+    }
+    week.byProperty[propertyKey].tickets.push(ticket)
+    week.byProperty[propertyKey].count++
+    week.byProperty[propertyKey].cost += Number(ticket.actual_cost) || 0
+
+    // Group by vendor
+    const vendorKey = ticket.vendor_company || ticket.vendor_name || 'No Vendor'
+    if (!week.byVendor[vendorKey]) {
+      week.byVendor[vendorKey] = {
+        vendor_name: vendorKey,
+        tickets: [],
+        count: 0,
+        cost: 0,
+      }
+    }
+    week.byVendor[vendorKey].tickets.push(ticket)
+    week.byVendor[vendorKey].count++
+    week.byVendor[vendorKey].cost += Number(ticket.actual_cost) || 0
+  })
+
+  // Sort by week start date (most recent first)
+  return Array.from(weeklyData.values()).sort((a, b) =>
+    b.weekStart.localeCompare(a.weekStart)
+  )
+}

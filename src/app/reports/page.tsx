@@ -12,6 +12,9 @@ import {
   Wrench,
   ArrowRight,
   Sun,
+  Users,
+  Ticket,
+  CalendarDays,
 } from "lucide-react"
 
 const reports = [
@@ -21,6 +24,27 @@ const reports = [
     href: "/reports/daily-summary",
     icon: Sun,
     color: "orange",
+  },
+  {
+    title: "Vendor Directory",
+    description: "All vendors by region, property, or specialty with activity",
+    href: "/reports/vendors",
+    icon: Users,
+    color: "indigo",
+  },
+  {
+    title: "Ticket Report",
+    description: "All tickets sorted by house, vendor, or date",
+    href: "/reports/tickets",
+    icon: Ticket,
+    color: "rose",
+  },
+  {
+    title: "Weekly Tickets",
+    description: "Weekly breakdown of tickets by vendor and property",
+    href: "/reports/tickets/weekly",
+    icon: CalendarDays,
+    color: "teal",
   },
   {
     title: "Payment Summary",
@@ -74,6 +98,9 @@ const colorClasses: Record<string, { bg: string; text: string }> = {
   purple: { bg: "bg-purple-50", text: "text-purple-600" },
   red: { bg: "bg-red-50", text: "text-red-600" },
   cyan: { bg: "bg-cyan-50", text: "text-cyan-600" },
+  indigo: { bg: "bg-indigo-50", text: "text-indigo-600" },
+  rose: { bg: "bg-rose-50", text: "text-rose-600" },
+  teal: { bg: "bg-teal-50", text: "text-teal-600" },
 }
 
 export default function ReportsPage() {
