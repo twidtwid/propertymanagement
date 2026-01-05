@@ -4191,6 +4191,10 @@ export interface VendorReportItem extends Vendor {
   ticket_count: number
   open_ticket_count: number
   total_spent: number
+  primary_contact_name: string | null
+  primary_contact_title: string | null
+  primary_contact_phone: string | null
+  primary_contact_email: string | null
 }
 
 export interface VendorReportFilters {
@@ -4211,12 +4215,16 @@ export async function getVendorReport(filters?: VendorReportFilters): Promise<{
   const ctx = await getVisibilityContext()
   if (!ctx) return { vendors: [], regions: [], specialties: [] }
 
-  // Get all vendors with their properties, ticket counts, and spending
+  // Get all vendors with their properties, ticket counts, spending, and primary contact
   const vendors = await query<Vendor & {
     property_data: string | null
     ticket_count: string
     open_ticket_count: string
     total_spent: string
+    primary_contact_name: string | null
+    primary_contact_title: string | null
+    primary_contact_phone: string | null
+    primary_contact_email: string | null
   }>(`
     WITH vendor_properties AS (
       SELECT
@@ -4248,17 +4256,32 @@ export async function getVendorReport(filters?: VendorReportFilters): Promise<{
       FROM maintenance_tasks
       WHERE vendor_id IS NOT NULL AND actual_cost IS NOT NULL
       GROUP BY vendor_id
+    ),
+    primary_contacts AS (
+      SELECT DISTINCT ON (vendor_id)
+        vendor_id,
+        name as contact_name,
+        title as contact_title,
+        phone as contact_phone,
+        email as contact_email
+      FROM vendor_contacts
+      WHERE is_primary = true
     )
     SELECT
       v.*,
       vp.properties::text as property_data,
       COALESCE(vt.ticket_count, 0) as ticket_count,
       COALESCE(vt.open_ticket_count, 0) as open_ticket_count,
-      COALESCE(vs.total_spent, 0) as total_spent
+      COALESCE(vs.total_spent, 0) as total_spent,
+      pc.contact_name as primary_contact_name,
+      pc.contact_title as primary_contact_title,
+      pc.contact_phone as primary_contact_phone,
+      pc.contact_email as primary_contact_email
     FROM vendors v
     LEFT JOIN vendor_properties vp ON v.id = vp.vendor_id
     LEFT JOIN vendor_tickets vt ON v.id = vt.vendor_id
     LEFT JOIN vendor_spending vs ON v.id = vs.vendor_id
+    LEFT JOIN primary_contacts pc ON v.id = pc.vendor_id
     WHERE v.id = ANY($1::uuid[])
     ORDER BY COALESCE(v.company, v.name)
   `, [visibleVendorIds, ctx.visiblePropertyIds])
@@ -4270,6 +4293,10 @@ export async function getVendorReport(filters?: VendorReportFilters): Promise<{
     ticket_count: parseInt(v.ticket_count) || 0,
     open_ticket_count: parseInt(v.open_ticket_count) || 0,
     total_spent: parseFloat(v.total_spent) || 0,
+    primary_contact_name: v.primary_contact_name,
+    primary_contact_title: v.primary_contact_title,
+    primary_contact_phone: v.primary_contact_phone,
+    primary_contact_email: v.primary_contact_email,
   }))
 
   // Apply filters

@@ -25,13 +25,12 @@ import {
   ChevronDown,
   CheckCircle,
   Clock,
-  AlertTriangle,
   ExternalLink,
 } from "lucide-react"
 import { getTicketReport, getProperties, getVendors } from "@/lib/actions"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { TASK_PRIORITY_LABELS, TICKET_STATUS_LABELS, type TaskPriority, type TaskStatus } from "@/types/database"
-import { ReportCard, ExportButton } from "@/components/reports"
+import { ReportCard, ExportButton, PrintButton } from "@/components/reports"
 import { TicketReportFilters } from "@/components/reports/ticket-report-filters"
 
 interface PageProps {
@@ -77,6 +76,20 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
     resolution: t.resolution || '',
   }))
 
+  // Build filter summary for print header
+  const filterSummary: string[] = []
+  if (params.property) {
+    const propName = properties.find(p => p.id === params.property)?.name
+    if (propName) filterSummary.push(`Property: ${propName}`)
+  }
+  if (params.vendor) {
+    const vendorObj = vendors.find(v => v.id === params.vendor)
+    if (vendorObj) filterSummary.push(`Vendor: ${vendorObj.company || vendorObj.name}`)
+  }
+  if (params.status) filterSummary.push(`Status: ${TICKET_STATUS_LABELS[params.status as TaskStatus] || params.status}`)
+  if (params.priority) filterSummary.push(`Priority: ${TASK_PRIORITY_LABELS[params.priority as TaskPriority] || params.priority}`)
+  if (viewMode !== 'list') filterSummary.push(`View: By ${viewMode === 'byProperty' ? 'Property' : 'Vendor'}`)
+
   const getPriorityColor = (priority: TaskPriority) => {
     switch (priority) {
       case 'urgent': return 'destructive'
@@ -104,7 +117,7 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
             className="font-medium hover:underline flex items-center gap-1"
           >
             {ticket.title}
-            <ExternalLink className="h-3 w-3" />
+            <ExternalLink className="h-3 w-3 no-print" />
           </Link>
           {ticket.description && (
             <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
@@ -150,7 +163,18 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      {/* Print Header - hidden on screen, shown in print */}
+      <div className="hidden print:block print-header">
+        <h1 className="text-2xl font-bold">Ticket Report</h1>
+        {filterSummary.length > 0 && (
+          <p className="text-sm text-muted-foreground">{filterSummary.join(' | ')}</p>
+        )}
+        <p className="text-sm text-muted-foreground">
+          Generated: {new Date().toLocaleDateString()} | {report.stats.total} tickets | {formatCurrency(report.stats.totalCost)} total cost
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/reports">
@@ -164,10 +188,13 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
             </p>
           </div>
         </div>
-        <ExportButton data={exportData} filename="ticket-report" />
+        <div className="flex gap-2">
+          <PrintButton />
+          <ExportButton data={exportData} filename="ticket-report" />
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-4 no-print">
         <ReportCard
           title="Total Tickets"
           value={report.stats.total.toString()}
@@ -194,7 +221,7 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
         />
       </div>
 
-      <Card className="p-4">
+      <Card className="p-4 no-print">
         <Suspense fallback={null}>
           <TicketReportFilters properties={properties} vendors={vendors} />
         </Suspense>
@@ -205,7 +232,7 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
         Object.entries(report.byProperty)
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([propertyName, tickets]) => (
-            <Card key={propertyName}>
+            <Card key={propertyName} className="print-break-avoid">
               <Collapsible defaultOpen>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -222,7 +249,7 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
                           </Badge>
                         )}
                       </CardTitle>
-                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      <ChevronDown className="h-5 w-5 text-muted-foreground no-print" />
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
@@ -254,7 +281,7 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
         Object.entries(report.byVendor)
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([vendorName, tickets]) => (
-            <Card key={vendorName}>
+            <Card key={vendorName} className="print-break-avoid">
               <Collapsible defaultOpen>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -271,7 +298,7 @@ export default async function TicketReportPage({ searchParams }: PageProps) {
                           </Badge>
                         )}
                       </CardTitle>
-                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      <ChevronDown className="h-5 w-5 text-muted-foreground no-print" />
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>

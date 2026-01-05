@@ -128,3 +128,102 @@ html {
     min-height: -webkit-fill-available;
   }
 }
+
+/* Print visibility classes - screen defaults */
+.print-only {
+  display: none;
+}
+
+/* Print styles for reports */
+@media print {
+  /* Page setup */
+  @page {
+    margin: 0.3in;
+    size: landscape;
+  }
+
+  /* Safari-compatible show/hide for print */
+  .print-only {
+    display: block !important;
+  }
+
+  .screen-only {
+    display: none !important;
+  }
+
+  /* Hide nav/buttons */
+  nav, .no-print, button {
+    display: none !important;
+  }
+
+  /* White background */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Print header */
+  .print-header {
+    margin-bottom: 8px;
+  }
+
+  .print-header h1 {
+    font-size: 14pt;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .print-header p {
+    font-size: 8pt;
+    margin: 2px 0 0 0;
+    color: #666;
+  }
+
+  /* Print table - dense contact list */
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+
+  .print-table th {
+    font-size: 8pt;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .print-table td {
+    padding: 3px 8px;
+    border-bottom: 0.5px solid #eee;
+    vertical-align: top;
+  }
+
+  .print-table .category-header td {
+    padding: 8px 8px 4px 0;
+    border-bottom: 1px solid #999;
+    font-size: 10pt;
+    background: transparent;
+  }
+
+  .print-table .contact-name {
+    font-size: 8pt;
+    color: #666;
+  }
+
+  .print-table .specialty-text {
+    font-size: 8pt;
+    color: #888;
+  }
+
+  .print-table strong {
+    font-weight: 500;
+  }
+
+  .print-table tr {
+    break-inside: avoid;
+  }
+}

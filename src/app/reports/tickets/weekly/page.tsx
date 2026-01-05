@@ -34,7 +34,7 @@ import {
 import { getWeeklyTicketReport } from "@/lib/actions"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { TASK_PRIORITY_LABELS, TICKET_STATUS_LABELS, type TaskPriority, type TaskStatus } from "@/types/database"
-import { ReportCard, ExportButton } from "@/components/reports"
+import { ReportCard, ExportButton, PrintButton } from "@/components/reports"
 
 interface PageProps {
   searchParams: Promise<{ weeks?: string }>
@@ -95,7 +95,15 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      {/* Print Header - hidden on screen, shown in print */}
+      <div className="hidden print:block print-header">
+        <h1 className="text-2xl font-bold">Weekly Ticket Summary</h1>
+        <p className="text-sm text-muted-foreground">
+          Last {weeksBack} weeks | Generated: {new Date().toLocaleDateString()} | {totalTickets} tickets | {formatCurrency(totalCost)} total cost
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/reports">
@@ -124,11 +132,12 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
               </Button>
             ))}
           </div>
+          <PrintButton />
           <ExportButton data={exportData} filename="weekly-tickets" />
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-4 no-print">
         <ReportCard
           title="Total Tickets"
           value={totalTickets.toString()}
@@ -163,7 +172,7 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
         </Card>
       ) : (
         weeklyReport.map(week => (
-          <Card key={week.weekStart}>
+          <Card key={week.weekStart} className="print-break-avoid">
             <Collapsible defaultOpen>
               <CollapsibleTrigger asChild>
                 <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -180,14 +189,14 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
                         </Badge>
                       )}
                     </CardTitle>
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    <ChevronDown className="h-5 w-5 text-muted-foreground no-print" />
                   </div>
                 </CardHeader>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent>
                   <Tabs defaultValue="byProperty">
-                    <TabsList className="mb-4">
+                    <TabsList className="mb-4 no-print">
                       <TabsTrigger value="byProperty" className="gap-1">
                         <Building2 className="h-4 w-4" />
                         By Property
@@ -235,7 +244,7 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
                                           className="hover:underline flex items-center gap-1"
                                         >
                                           {ticket.title}
-                                          <ExternalLink className="h-3 w-3" />
+                                          <ExternalLink className="h-3 w-3 no-print" />
                                         </Link>
                                       </TableCell>
                                       <TableCell>
@@ -300,7 +309,7 @@ export default async function WeeklyTicketReportPage({ searchParams }: PageProps
                                           className="hover:underline flex items-center gap-1"
                                         >
                                           {ticket.title}
-                                          <ExternalLink className="h-3 w-3" />
+                                          <ExternalLink className="h-3 w-3 no-print" />
                                         </Link>
                                       </TableCell>
                                       <TableCell>
