@@ -105,5 +105,8 @@ Location: `scripts/migrations/`
 - 013: BuildingLink flags
 - 014-016: Berkley auto, data reconciliation
 - 019-025: Unified pinning system
+- 026-027: Payment suggestions, email links
+- 028-033: Photo descriptions, vendor specialties, property taxes
+- 034: Autopay performance indexes
 
 **Running migrations:** Use `/migrate` skill for production.
