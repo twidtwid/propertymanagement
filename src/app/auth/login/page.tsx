@@ -11,7 +11,7 @@ import { Building2, Loader2, Mail, CheckCircle } from "lucide-react"
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirect = searchParams.get("redirect") || "/"
+  const redirect = searchParams?.get("redirect") || "/"
 
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)

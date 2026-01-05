@@ -5,6 +5,10 @@ import { AppShell } from "@/components/layout/app-shell"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/toaster"
 
+// Force dynamic rendering - layout uses client components with React hooks
+// that fail during static generation
+export const dynamic = "force-dynamic"
+
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {

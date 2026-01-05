@@ -10,7 +10,7 @@ import { FileBrowser } from "@/components/documents/file-browser"
 
 function DocumentsContent() {
   const searchParams = useSearchParams()
-  const path = searchParams.get("path") || ""
+  const path = searchParams?.get("path") || ""
 
   return (
     <div className="space-y-8">

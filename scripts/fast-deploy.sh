@@ -92,27 +92,45 @@ if [[ "${SKIP_BUILD}" == "false" ]]; then
     else
         START_TIME=$(date +%s)
 
-        # Build app (runner target) with BuildKit for cache mounts
-        log "Building app image..."
+        # Pull latest images for cache (ignore errors if they don't exist yet)
+        log "Pulling cache images..."
+        docker pull ${REGISTRY}/${IMAGE_NAME}:latest 2>/dev/null || true
+        docker pull ${REGISTRY}/${IMAGE_NAME}-worker:latest 2>/dev/null || true
+
+        # Build app and worker in parallel with layer caching
+        log "Building app and worker images in parallel..."
+
+        # Build app (runner target) with cache-from for layer reuse
         DOCKER_BUILDKIT=1 docker build \
             --platform linux/amd64 \
             --target runner \
             --build-arg BUILD_VERSION=${TAG} \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            --cache-from ${REGISTRY}/${IMAGE_NAME}:latest \
             -t ${REGISTRY}/${IMAGE_NAME}:${TAG} \
             -t ${REGISTRY}/${IMAGE_NAME}:latest \
-            .
+            . &
+        APP_PID=$!
 
-        # Build worker target (reuses cached layers from app build)
-        log "Building worker image..."
+        # Build worker target with cache-from
         DOCKER_BUILDKIT=1 docker build \
             --platform linux/amd64 \
             --target worker \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            --cache-from ${REGISTRY}/${IMAGE_NAME}-worker:latest \
+            --cache-from ${REGISTRY}/${IMAGE_NAME}:latest \
             -t ${REGISTRY}/${IMAGE_NAME}-worker:${TAG} \
             -t ${REGISTRY}/${IMAGE_NAME}-worker:latest \
-            .
+            . &
+        WORKER_PID=$!
+
+        # Wait for both builds to complete
+        log "Waiting for parallel builds to complete..."
+        wait $APP_PID || { log_error "App build failed"; exit 1; }
+        wait $WORKER_PID || { log_error "Worker build failed"; exit 1; }
 
         BUILD_TIME=$(($(date +%s) - START_TIME))
-        log_success "Build complete in ${BUILD_TIME}s"
+        log_success "Parallel builds complete in ${BUILD_TIME}s"
     fi
 
     log_step "PUSHING TO REGISTRY"

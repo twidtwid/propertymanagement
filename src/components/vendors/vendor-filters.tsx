@@ -22,13 +22,13 @@ export function VendorFilters({ locations }: VendorFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const specialty = searchParams.get("specialty") || "all"
-  const location = searchParams.get("location") || "all"
-  const search = searchParams.get("search") || ""
+  const specialty = searchParams?.get("specialty") || "all"
+  const location = searchParams?.get("location") || "all"
+  const search = searchParams?.get("search") || ""
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParams?.toString() || "")
       if (value === "all" || value === "") {
         params.delete(key)
       } else {

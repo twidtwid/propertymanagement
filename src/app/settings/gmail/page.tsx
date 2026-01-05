@@ -58,9 +58,9 @@ export default function GmailSettingsPage() {
   const [importEndDate, setImportEndDate] = useState(new Date().toISOString().split("T")[0])
 
   // Check for OAuth callback params
-  const success = searchParams.get("success")
-  const callbackError = searchParams.get("error")
-  const connectedEmail = searchParams.get("email")
+  const success = searchParams?.get("success")
+  const callbackError = searchParams?.get("error")
+  const connectedEmail = searchParams?.get("email")
 
   useEffect(() => {
     fetchStatus()

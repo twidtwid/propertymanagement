@@ -25,7 +25,7 @@ export function YearFilter({ currentYear, startYear = 2020 }: YearFilterProps) {
   }
 
   const handleYearChange = (year: string) => {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString() || "")
     params.set("year", year)
     router.push(`?${params.toString()}`)
   }

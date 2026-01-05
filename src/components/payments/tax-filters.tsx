@@ -29,15 +29,15 @@ export function TaxFilters({ properties, jurisdictions }: TaxFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const status = searchParams.get("status") || "all"
-  const propertyId = searchParams.get("propertyId") || "all"
-  const jurisdiction = searchParams.get("jurisdiction") || "all"
-  const year = searchParams.get("year") || "all"
-  const search = searchParams.get("search") || ""
+  const status = searchParams?.get("status") || "all"
+  const propertyId = searchParams?.get("propertyId") || "all"
+  const jurisdiction = searchParams?.get("jurisdiction") || "all"
+  const year = searchParams?.get("year") || "all"
+  const search = searchParams?.get("search") || ""
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParams?.toString() || "")
       if (value === "all" || value === "") {
         params.delete(key)
       } else {

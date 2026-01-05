@@ -37,14 +37,14 @@ export function InsuranceFilters({ carriers }: InsuranceFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const policyType = searchParams.get("type") || "all"
-  const carrier = searchParams.get("carrier") || "all"
-  const status = searchParams.get("status") || "all"
-  const search = searchParams.get("search") || ""
+  const policyType = searchParams?.get("type") || "all"
+  const carrier = searchParams?.get("carrier") || "all"
+  const status = searchParams?.get("status") || "all"
+  const search = searchParams?.get("search") || ""
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParams?.toString() || "")
       if (value === "all" || value === "") {
         params.delete(key)
       } else {

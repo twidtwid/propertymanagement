@@ -32,8 +32,8 @@ function DropboxSettingsContent() {
   const [error, setError] = useState<string | null>(null)
 
   // Check for OAuth callback params
-  const success = searchParams.get("success")
-  const callbackError = searchParams.get("error")
+  const success = searchParams?.get("success")
+  const callbackError = searchParams?.get("error")
 
   useEffect(() => {
     fetchStatus()

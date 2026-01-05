@@ -86,7 +86,7 @@ export function BuildingLinkClient({
   // Update URL params
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParams?.toString() || "")
       Object.entries(updates).forEach(([key, value]) => {
         if (value === undefined || value === "") {
           params.delete(key)

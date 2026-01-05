@@ -52,7 +52,7 @@ export function Sidebar() {
 
   // Helper to check if path is active
   const isActive = (href: string) => {
-    if (!mounted) return false
+    if (!mounted || !pathname) return false
     return pathname === href || (href !== "/" && pathname.startsWith(href + "/"))
   }
 

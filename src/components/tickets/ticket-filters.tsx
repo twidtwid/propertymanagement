@@ -25,14 +25,14 @@ export function TicketFilters({ properties, vendors }: TicketFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const propertyId = searchParams.get("property") || "all"
-  const vendorId = searchParams.get("vendor") || "all"
-  const search = searchParams.get("search") || ""
-  const showClosed = searchParams.get("showClosed") === "true"
+  const propertyId = searchParams?.get("property") || "all"
+  const vendorId = searchParams?.get("vendor") || "all"
+  const search = searchParams?.get("search") || ""
+  const showClosed = searchParams?.get("showClosed") === "true"
 
   const updateFilter = useCallback(
     (key: string, value: string | boolean) => {
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParams?.toString() || "")
       if (value === "all" || value === "" || value === false) {
         params.delete(key)
       } else {

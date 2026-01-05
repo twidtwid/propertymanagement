@@ -65,7 +65,7 @@ function SortableHeader({
   const searchParams = useSearchParams()
 
   const handleSort = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString() || "")
     if (currentSort === column) {
       params.set('sortOrder', currentOrder === 'asc' ? 'desc' : 'asc')
     } else {

@@ -23,14 +23,14 @@ export function PaymentFilters({ properties }: PaymentFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const category = searchParams.get("category") || "all"
-  const status = searchParams.get("status") || "all"
-  const propertyId = searchParams.get("propertyId") || "all"
-  const search = searchParams.get("search") || ""
+  const category = searchParams?.get("category") || "all"
+  const status = searchParams?.get("status") || "all"
+  const propertyId = searchParams?.get("propertyId") || "all"
+  const search = searchParams?.get("search") || ""
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParams?.toString() || "")
       if (value === "all" || value === "") {
         params.delete(key)
       } else {
