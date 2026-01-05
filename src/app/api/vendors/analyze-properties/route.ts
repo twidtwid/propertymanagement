@@ -11,7 +11,7 @@ export async function GET() {
         id: v.id,
         name: v.name,
         company: v.company,
-        specialty: v.specialty,
+        specialties: v.specialties,
       })),
     })
   } catch (error) {

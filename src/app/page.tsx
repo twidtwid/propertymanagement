@@ -52,7 +52,7 @@ export default async function Dashboard() {
       INNER JOIN vendors v ON vc.vendor_id = v.id
       WHERE vc.received_at >= CURRENT_DATE - 7
         AND vc.direction = 'inbound'
-        AND v.specialty != 'other'
+        AND NOT (v.specialties = ARRAY['other']::vendor_specialty[])
         AND v.name != 'BuildingLink'
         AND NOT (vc.labels && ARRAY['CATEGORY_PROMOTIONS', 'SPAM']::text[])
       ORDER BY vc.received_at DESC

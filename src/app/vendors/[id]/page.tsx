@@ -81,9 +81,13 @@ export default async function VendorDetailPage({
                 <span className="text-lg">{vendor.primary_contact.name}</span>
               </div>
             )}
-            <Badge variant="outline">
-              {VENDOR_SPECIALTY_LABELS[vendor.specialty]}
-            </Badge>
+            <div className="flex flex-wrap gap-1">
+              {vendor.specialties.map((s) => (
+                <Badge key={s} variant="outline">
+                  {VENDOR_SPECIALTY_LABELS[s]}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
       </div>

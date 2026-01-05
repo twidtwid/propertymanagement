@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import { createVendor, updateVendor, updateVendorProperties } from "@/lib/mutations"
 import { vendorSchema, type VendorFormData } from "@/lib/schemas"
 import { getVendorSpecialtyOptions } from "@/types/database"
-import type { Vendor, Property } from "@/types/database"
+import type { Vendor, Property, VendorSpecialty } from "@/types/database"
 import { Star, Home } from "lucide-react"
 
 interface VendorFormProps {
@@ -50,7 +50,7 @@ export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], 
       ? {
           name: vendor.name,
           company: vendor.company || "",
-          specialty: vendor.specialty,
+          specialties: vendor.specialties,
           phone: vendor.phone || "",
           email: vendor.email || "",
           address: vendor.address || "",
@@ -64,15 +64,16 @@ export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], 
           is_active: vendor.is_active,
         }
       : {
-          specialty: "other",
+          specialties: ["other"],
           is_active: true,
         },
   })
 
-  const specialty = watch("specialty")
+  const specialties = watch("specialties") || []
   const paymentMethod = watch("payment_method")
   const isActive = watch("is_active")
   const rating = watch("rating")
+  const specialtyOptions = getVendorSpecialtyOptions()
 
   const onSubmit = async (data: VendorFormData) => {
     const result = isEditing
@@ -135,17 +136,42 @@ export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], 
             />
           </div>
 
-          <FormSelect
-            label="Specialty"
-            name="specialty"
-            value={specialty}
-            onChange={(value) =>
-              setValue("specialty", value as VendorFormData["specialty"])
-            }
-            options={getVendorSpecialtyOptions()}
-            error={errors.specialty?.message}
-            required
-          />
+          <div className="space-y-2">
+            <Label>
+              Specialties <span className="text-red-500">*</span>
+            </Label>
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 max-h-64 overflow-y-auto p-3 border rounded-lg bg-muted/30">
+              {specialtyOptions.map((option) => (
+                <label
+                  key={option.value}
+                  htmlFor={`specialty-${option.value}`}
+                  className="flex items-center gap-2 text-sm cursor-pointer hover:text-foreground"
+                >
+                  <Checkbox
+                    id={`specialty-${option.value}`}
+                    checked={specialties.includes(option.value)}
+                    onCheckedChange={(checked) => {
+                      const newSpecialties = checked
+                        ? [...specialties, option.value]
+                        : specialties.filter((s: VendorSpecialty) => s !== option.value)
+                      setValue("specialties", newSpecialties.length > 0 ? newSpecialties : ["other"])
+                    }}
+                  />
+                  <span className={specialties.includes(option.value) ? "font-medium" : "text-muted-foreground"}>
+                    {option.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+            {errors.specialties?.message && (
+              <p className="text-sm text-red-500">{errors.specialties.message}</p>
+            )}
+            {specialties.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {specialties.length} specialt{specialties.length === 1 ? 'y' : 'ies'} selected
+              </p>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <Checkbox

@@ -330,11 +330,19 @@ export default async function PropertyDetailPage({
                         )}
                       </div>
                       <div className="text-right">
-                        <Badge variant="outline">
-                          {VENDOR_SPECIALTY_LABELS[
-                            pv.specialty_override || pv.vendor?.specialty || "other"
-                          ]}
-                        </Badge>
+                        {pv.specialty_override ? (
+                          <Badge variant="outline">
+                            {VENDOR_SPECIALTY_LABELS[pv.specialty_override]}
+                          </Badge>
+                        ) : (
+                          <div className="flex flex-wrap gap-1 justify-end">
+                            {(pv.vendor?.specialties || ["other"]).map(s => (
+                              <Badge key={s} variant="outline">
+                                {VENDOR_SPECIALTY_LABELS[s]}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                         {pv.vendor?.phone && (
                           <p className="text-sm text-muted-foreground mt-1">
                             {pv.vendor.phone}

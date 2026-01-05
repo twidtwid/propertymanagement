@@ -166,7 +166,7 @@ export function QuickContactModal({
                 >
                   <p className="font-medium">{v.company || v.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {VENDOR_SPECIALTY_LABELS[v.specialty]}
+                    {v.specialties.map(s => VENDOR_SPECIALTY_LABELS[s]).join(", ")}
                   </p>
                 </button>
               ))}
@@ -217,9 +217,13 @@ export function QuickContactModal({
                   {vendor.company && vendor.name && (
                     <p className="text-muted-foreground">{vendor.name}</p>
                   )}
-                  <Badge variant="outline" className="mt-1">
-                    {VENDOR_SPECIALTY_LABELS[vendor.specialty]}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {vendor.specialties.map(s => (
+                      <Badge key={s} variant="outline">
+                        {VENDOR_SPECIALTY_LABELS[s]}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               </div>
 

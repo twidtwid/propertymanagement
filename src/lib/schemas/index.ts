@@ -74,7 +74,7 @@ const vendorSpecialties = [
 export const vendorSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   company: z.string().max(100).nullable().optional(),
-  specialty: z.enum(vendorSpecialties).default("other"),
+  specialties: z.array(z.enum(vendorSpecialties)).min(1, "At least one specialty required").default(["other"]),
   phone: z.string().max(30).nullable().optional(),
   email: z.string().email("Invalid email").or(z.literal("")).nullable().optional(),
   address: z.string().max(200).nullable().optional(),

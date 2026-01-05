@@ -80,7 +80,7 @@ async function analyzeVendorEmails(
     )
     .join("\n---\n")
 
-  const prompt = `Analyze the following email communications for vendor "${vendor.name}" (${vendor.company || "no company"}, specialty: ${vendor.specialty}) and determine which properties they likely service.
+  const prompt = `Analyze the following email communications for vendor "${vendor.name}" (${vendor.company || "no company"}, specialties: ${vendor.specialties.join(", ")}) and determine which properties they likely service.
 
 PROPERTIES:
 ${propertyInfo}

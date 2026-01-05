@@ -81,7 +81,7 @@ export function VendorList({ vendors, userPins: initialUserPins, initialNotesMap
             onToggle={(isPinned) => handleTogglePin(vendor.id, isPinned)}
             metadata={{
               title: vendor.company || vendor.name,
-              specialty: vendor.specialty,
+              specialties: vendor.specialties,
             }}
           />
         </TableCell>
@@ -112,7 +112,11 @@ export function VendorList({ vendors, userPins: initialUserPins, initialNotesMap
         </Link>
       </TableCell>
       <TableCell>
-        <Badge variant="outline">{VENDOR_SPECIALTY_LABELS[vendor.specialty]}</Badge>
+        <div className="flex flex-wrap gap-1">
+          {vendor.specialties.map((s) => (
+            <Badge key={s} variant="outline">{VENDOR_SPECIALTY_LABELS[s]}</Badge>
+          ))}
+        </div>
       </TableCell>
       <TableCell className="hidden sm:table-cell">
         {vendor.locations.length > 0 ? (

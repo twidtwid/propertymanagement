@@ -35,12 +35,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const vendor = await queryOne<Vendor>(
-      `SELECT v.id, v.name, v.company, v.specialty, v.phone, v.email,
+      `SELECT v.id, v.name, v.company, v.specialties, v.phone, v.email,
               v.address, v.website, v.emergency_phone, v.notes, v.rating, v.is_active
        FROM property_vendors pv
        JOIN vendors v ON pv.vendor_id = v.id
        WHERE pv.property_id = $1
-         AND (pv.specialty_override = $2 OR v.specialty = $2)
+         AND (pv.specialty_override = $2 OR $2 = ANY(v.specialties))
          AND v.is_active = TRUE
        ORDER BY pv.is_primary DESC
        LIMIT 1`,

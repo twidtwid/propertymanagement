@@ -229,13 +229,13 @@ export async function createVendor(formData: unknown): Promise<ActionResult<Vend
     const d = parsed.data
     const vendor = await queryOne<Vendor>(
       `INSERT INTO vendors (
-        name, company, specialty, phone, email, address, website,
+        name, company, specialties, phone, email, address, website,
         emergency_phone, account_number, payment_method, login_info,
         notes, rating, is_active
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
       [
-        d.name, emptyToNull(d.company), d.specialty, emptyToNull(d.phone), emptyToNull(d.email), emptyToNull(d.address), emptyToNull(d.website),
+        d.name, emptyToNull(d.company), d.specialties, emptyToNull(d.phone), emptyToNull(d.email), emptyToNull(d.address), emptyToNull(d.website),
         emptyToNull(d.emergency_phone), emptyToNull(d.account_number), emptyToNull(d.payment_method), emptyToNull(d.login_info),
         emptyToNull(d.notes), emptyToNull(d.rating), d.is_active
       ]
@@ -246,7 +246,7 @@ export async function createVendor(formData: unknown): Promise<ActionResult<Vend
       entityType: "vendor",
       entityId: vendor!.id,
       entityName: vendor!.name,
-      metadata: { specialty: vendor!.specialty, company: vendor!.company },
+      metadata: { specialties: vendor!.specialties, company: vendor!.company },
     })
 
     revalidatePath("/vendors")
@@ -274,7 +274,7 @@ export async function updateVendor(id: string, formData: unknown): Promise<Actio
       `UPDATE vendors SET
         name = COALESCE($2, name),
         company = $3,
-        specialty = COALESCE($4, specialty),
+        specialties = COALESCE($4, specialties),
         phone = $5,
         email = $6,
         address = $7,
@@ -291,7 +291,7 @@ export async function updateVendor(id: string, formData: unknown): Promise<Actio
       RETURNING *`,
       [
         id,
-        d.name, emptyToNull(d.company), d.specialty, emptyToNull(d.phone), emptyToNull(d.email), emptyToNull(d.address), emptyToNull(d.website),
+        d.name, emptyToNull(d.company), d.specialties, emptyToNull(d.phone), emptyToNull(d.email), emptyToNull(d.address), emptyToNull(d.website),
         emptyToNull(d.emergency_phone), emptyToNull(d.account_number), emptyToNull(d.payment_method), emptyToNull(d.login_info),
         emptyToNull(d.notes), emptyToNull(d.rating), d.is_active
       ]
@@ -305,7 +305,7 @@ export async function updateVendor(id: string, formData: unknown): Promise<Actio
     const vendorChanges: Record<string, { old: unknown; new: unknown }> = {}
     if (oldVendor) {
       if (oldVendor.name !== vendor.name) vendorChanges.name = { old: oldVendor.name, new: vendor.name }
-      if (oldVendor.specialty !== vendor.specialty) vendorChanges.specialty = { old: oldVendor.specialty, new: vendor.specialty }
+      if (JSON.stringify(oldVendor.specialties) !== JSON.stringify(vendor.specialties)) vendorChanges.specialties = { old: oldVendor.specialties, new: vendor.specialties }
       if (oldVendor.is_active !== vendor.is_active) vendorChanges.is_active = { old: oldVendor.is_active, new: vendor.is_active }
     }
     await audit({
@@ -339,7 +339,7 @@ export async function deleteVendor(id: string): Promise<ActionResult> {
         entityType: "vendor",
         entityId: id,
         entityName: vendor.name,
-        metadata: { specialty: vendor.specialty, company: vendor.company },
+        metadata: { specialties: vendor.specialties, company: vendor.company },
       })
     }
 

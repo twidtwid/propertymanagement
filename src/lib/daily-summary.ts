@@ -87,7 +87,7 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
     INNER JOIN vendors v ON vc.vendor_id = v.id
     WHERE vc.received_at >= CURRENT_DATE - 1
       AND vc.direction = 'inbound'
-      AND v.specialty != 'other'
+      AND NOT (v.specialties = ARRAY['other']::vendor_specialty[])
       AND NOT (vc.labels && ARRAY['CATEGORY_PROMOTIONS', 'SPAM']::text[])
     ORDER BY vc.received_at DESC
     LIMIT 10
@@ -109,7 +109,7 @@ export async function generateDailySummary(): Promise<DailySummaryData> {
        INNER JOIN vendors v ON vc.vendor_id = v.id
        WHERE vc.received_at >= CURRENT_DATE
          AND vc.direction = 'inbound'
-         AND v.specialty != 'other'
+         AND NOT (v.specialties = ARRAY['other']::vendor_specialty[])
          AND NOT (vc.labels && ARRAY['CATEGORY_PROMOTIONS', 'SPAM']::text[])) as new_emails
   `)
 

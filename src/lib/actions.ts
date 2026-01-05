@@ -11,6 +11,7 @@ import type {
   Vehicle,
   Vendor,
   VendorContact,
+  VendorSpecialty,
   Bill,
   PropertyTax,
   InsurancePolicy,
@@ -132,7 +133,7 @@ export async function getVendorsBySpecialty(specialty: string): Promise<Vendor[]
   if (visibleIds.length === 0) return []
 
   return query<Vendor>(
-    `SELECT * FROM vendors WHERE specialty = $1 AND is_active = TRUE AND id = ANY($2::uuid[]) ORDER BY rating DESC NULLS LAST, name`,
+    `SELECT * FROM vendors WHERE $1 = ANY(specialties) AND is_active = TRUE AND id = ANY($2::uuid[]) ORDER BY rating DESC NULLS LAST, name`,
     [specialty, visibleIds]
   )
 }
@@ -183,7 +184,7 @@ export async function getVendorsFiltered(filters?: VendorFilters): Promise<Vendo
   }))
 
   if (filters?.specialty && filters.specialty !== 'all') {
-    result = result.filter(v => v.specialty === filters.specialty)
+    result = result.filter(v => v.specialties.includes(filters.specialty as VendorSpecialty))
   }
 
   if (filters?.location && filters.location !== 'all') {
@@ -1587,7 +1588,7 @@ export async function findVendorForProperty(
      FROM property_vendors pv
      JOIN vendors v ON pv.vendor_id = v.id
      WHERE pv.property_id = $1
-       AND (pv.specialty_override = $2 OR v.specialty = $2)
+       AND (pv.specialty_override = $2 OR $2 = ANY(v.specialties))
        AND v.is_active = TRUE
      ORDER BY pv.is_primary DESC
      LIMIT 1`,
@@ -2490,9 +2491,9 @@ export async function globalSearch(searchTerm: string): Promise<SearchResult[]> 
        LIMIT 5`,
       [term]
     ),
-    query<{ id: string; name: string; company: string; specialty: string }>(
-      `SELECT id, name, company, specialty FROM vendors
-       WHERE LOWER(name) LIKE $1 OR LOWER(company) LIKE $1 OR specialty::text ILIKE $1
+    query<{ id: string; name: string; company: string; specialties: VendorSpecialty[] }>(
+      `SELECT id, name, company, specialties FROM vendors
+       WHERE LOWER(name) LIKE $1 OR LOWER(company) LIKE $1 OR EXISTS (SELECT 1 FROM unnest(specialties) s WHERE s::text ILIKE $1)
        LIMIT 5`,
       [term]
     ),
@@ -2531,7 +2532,7 @@ export async function globalSearch(searchTerm: string): Promise<SearchResult[]> 
       type: "vendor",
       id: v.id,
       title: v.name,
-      subtitle: v.company || v.specialty,
+      subtitle: v.company || v.specialties.join(", "),
       href: `/vendors/${v.id}`,
     })
   })

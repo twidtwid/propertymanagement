@@ -105,7 +105,7 @@ export interface Vendor {
   id: string
   name: string
   company: string | null
-  specialty: VendorSpecialty
+  specialties: VendorSpecialty[]
   phone: string | null
   email: string | null
   address: string | null
