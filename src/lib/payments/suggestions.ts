@@ -235,7 +235,9 @@ export async function scanEmailsForPaymentSuggestions(
 }
 
 /**
- * Get pending payment suggestions for review
+ * Get pending payment suggestions for review.
+ * Excludes invoice emails that already have a matching auto-pay bill
+ * (same vendor, similar amount, confirmed within 14 days).
  */
 export async function getPendingPaymentSuggestions(): Promise<PaymentSuggestion[]> {
   return query<PaymentSuggestion>(`
@@ -250,6 +252,21 @@ export async function getPendingPaymentSuggestions(): Promise<PaymentSuggestion[
     WHERE ps.status = 'pending_review'
       AND ps.confidence IN ('high', 'medium')
       AND ps.vendor_id IS NOT NULL
+      -- Exclude invoice emails that match an existing auto-pay bill
+      AND NOT EXISTS (
+        SELECT 1 FROM bills b
+        WHERE b.vendor_id = ps.vendor_id
+          AND b.payment_method = 'auto_pay'
+          AND b.status = 'confirmed'
+          -- Amount matches within $1 or 1%
+          AND (
+            ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < 1.00
+            OR ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < b.amount * 0.01
+          )
+          -- Bill confirmed within 14 days of the email
+          AND b.confirmation_date >= (ps.email_received_at::date - 14)
+          AND b.confirmation_date <= (ps.email_received_at::date + 14)
+      )
     ORDER BY
       CASE ps.confidence
         WHEN 'high' THEN 1
@@ -262,15 +279,29 @@ export async function getPendingPaymentSuggestions(): Promise<PaymentSuggestion[
 }
 
 /**
- * Get count of pending suggestions by confidence
+ * Get count of pending suggestions by confidence.
+ * Excludes invoice emails that already have a matching auto-pay bill.
  */
 export async function getPaymentSuggestionCounts(): Promise<{ high: number; medium: number; total: number }> {
   const result = await query<{ confidence: PaymentSuggestionConfidence; count: string }>(`
     SELECT confidence, COUNT(*) as count
-    FROM payment_suggestions
+    FROM payment_suggestions ps
     WHERE status = 'pending_review'
       AND confidence IN ('high', 'medium')
       AND vendor_id IS NOT NULL
+      -- Exclude invoice emails that match an existing auto-pay bill
+      AND NOT EXISTS (
+        SELECT 1 FROM bills b
+        WHERE b.vendor_id = ps.vendor_id
+          AND b.payment_method = 'auto_pay'
+          AND b.status = 'confirmed'
+          AND (
+            ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < 1.00
+            OR ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < b.amount * 0.01
+          )
+          AND b.confirmation_date >= (ps.email_received_at::date - 14)
+          AND b.confirmation_date <= (ps.email_received_at::date + 14)
+      )
     GROUP BY confidence
   `)
 
