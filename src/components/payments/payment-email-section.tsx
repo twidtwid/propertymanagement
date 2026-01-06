@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { GmailViewLink } from "@/components/ui/gmail-view-link"
 import {
   Collapsible,
   CollapsibleContent,
@@ -104,14 +105,17 @@ export function PaymentEmailSection({ emails, className }: PaymentEmailSectionPr
                     {email.email_snippet}
                   </p>
                 )}
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-xs"
-                  onClick={() => setSelectedEmail(email)}
-                >
-                  View Full Email <ExternalLink className="h-3 w-3 ml-1" />
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => setSelectedEmail(email)}
+                  >
+                    View Full Email <ExternalLink className="h-3 w-3 ml-1" />
+                  </Button>
+                  <GmailViewLink subject={email.email_subject || ""} />
+                </div>
               </div>
             ))}
           </div>

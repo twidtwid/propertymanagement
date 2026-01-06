@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { GmailViewLink } from "@/components/ui/gmail-view-link"
 import { Inbox, ChevronRight, AlertCircle } from "lucide-react"
 import type { PaymentSuggestion } from "@/types/database"
 
@@ -62,9 +63,12 @@ export function NeedsReview({ suggestions }: NeedsReviewProps) {
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground truncate">
-                {suggestion.email_subject || "(No subject)"}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-muted-foreground truncate flex-1">
+                  {suggestion.email_subject || "(No subject)"}
+                </p>
+                <GmailViewLink subject={suggestion.email_subject || ""} />
+              </div>
             </div>
           </Link>
         ))}

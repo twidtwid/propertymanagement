@@ -15,6 +15,7 @@ import {
 import { formatDateTime } from "@/lib/utils"
 import type { VendorCommunication } from "@/lib/actions"
 import { EmailPreview } from "./email-preview"
+import { GmailViewLink } from "@/components/ui/gmail-view-link"
 
 interface VendorJournalProps {
   communications: VendorCommunication[]
@@ -71,6 +72,7 @@ export function VendorJournal({ communications }: VendorJournalProps) {
                 {comm.has_attachment && (
                   <Paperclip className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 )}
+                <GmailViewLink subject={comm.subject || ""} />
               </div>
               <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                 <span className="truncate">

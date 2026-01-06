@@ -3,31 +3,31 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { GmailViewLink } from "@/components/ui/gmail-view-link"
 import { Mail } from "lucide-react"
+import { GmailViewLink } from "@/components/ui/gmail-view-link"
 import { formatDateTime } from "@/lib/utils"
 
-interface RecentVendorEmailsProps {
-  emails: Array<{
-    vendorName: string | null
-    subject: string
-    receivedAt: string
-    isUrgent: boolean
-    snippet?: string
-    bodyHtml?: string
-  }>
+interface VendorEmail {
+  vendorName: string | null
+  subject: string
+  receivedAt: string
+  isUrgent: boolean
+  snippet?: string
+  bodyHtml?: string
+}
+
+interface VendorEmailsSectionProps {
+  emails: VendorEmail[]
 }
 
 // Sanitize email HTML to prevent style bleeding
 function sanitizeEmailHtml(html: string): string {
-  // Remove <style> tags and their content
   let sanitized = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-  // Remove <link> tags (stylesheets, fonts, etc.)
   sanitized = sanitized.replace(/<link[^>]*>/gi, '')
   return sanitized
 }
 
-export function RecentVendorEmails({ emails }: RecentVendorEmailsProps) {
+export function VendorEmailsSection({ emails }: VendorEmailsSectionProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -40,11 +40,11 @@ export function RecentVendorEmails({ emails }: RecentVendorEmailsProps) {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
           <Mail className="h-5 w-5" />
-          Recent Vendor Emails (Last 7 Days)
-          <Badge variant="secondary" className="ml-2">
+          Vendor Emails Today
+          <Badge variant="secondary" className="ml-auto">
             {emails.length}
           </Badge>
         </CardTitle>

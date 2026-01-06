@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { GmailViewLink } from "@/components/ui/gmail-view-link"
 import { Mail, ChevronRight, AlertCircle, Inbox } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
 import type { PaymentSuggestion } from "@/types/database"
@@ -91,9 +92,12 @@ export function EmailInboxSummary({ suggestions, otherEmails }: EmailInboxSummar
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {suggestion.email_subject || "(No subject)"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground truncate flex-1">
+                      {suggestion.email_subject || "(No subject)"}
+                    </p>
+                    <GmailViewLink subject={suggestion.email_subject || ""} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -147,9 +151,12 @@ export function EmailInboxSummary({ suggestions, otherEmails }: EmailInboxSummar
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1 truncate">
-                          {email.subject}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-sm text-muted-foreground truncate flex-1">
+                            {email.subject}
+                          </p>
+                          <GmailViewLink subject={email.subject} />
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1" suppressHydrationWarning>
                           {mounted ? formatDateTime(email.receivedAt) : ""}
                         </p>

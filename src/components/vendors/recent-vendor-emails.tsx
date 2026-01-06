@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { GmailViewLink } from "@/components/ui/gmail-view-link"
 import { Mail } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import type { VendorCommunication } from "@/lib/actions"
@@ -76,6 +77,7 @@ export function RecentVendorEmails({ communications }: RecentVendorEmailsProps) 
                       <Badge variant="outline" className="text-xs">
                         {email.direction === "inbound" ? "Received" : "Sent"}
                       </Badge>
+                      <GmailViewLink subject={email.subject || ""} />
                     </div>
                     <p className="text-sm text-muted-foreground" suppressHydrationWarning>
                       {mounted ? formatDate(email.received_at) : ""}

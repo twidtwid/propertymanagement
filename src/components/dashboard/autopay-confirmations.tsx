@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { GmailViewLink } from "@/components/ui/gmail-view-link"
 import { Zap, Check, ArrowRight, Mail, Building2 } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import {
@@ -121,7 +122,8 @@ export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProp
                 <div className="mt-2 pt-2 border-t border-green-100">
                   <div className="flex items-center gap-2 text-xs text-green-700">
                     <Mail className="h-3 w-3" />
-                    <span className="truncate">{confirmation.email_subject}</span>
+                    <span className="truncate flex-1">{confirmation.email_subject}</span>
+                    <GmailViewLink subject={confirmation.email_subject} />
                   </div>
                 </div>
               </div>

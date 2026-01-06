@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Inbox, AlertCircle, Check, X, Loader2, Mail, ChevronDown } from "lucide-react"
+import { GmailViewLink } from "@/components/ui/gmail-view-link"
 import { formatDate } from "@/lib/utils"
 import { dismissPaymentSuggestion, importPaymentSuggestion } from "@/lib/mutations"
 import { getEmailById } from "@/lib/actions"
@@ -203,9 +204,12 @@ export function EmailSuggestionsInbox({
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate mb-1">
-                      {suggestion.email_subject || "(No subject)"}
-                    </p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm text-muted-foreground truncate flex-1">
+                        {suggestion.email_subject || "(No subject)"}
+                      </p>
+                      <GmailViewLink subject={suggestion.email_subject || ""} />
+                    </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       {suggestion.amount_extracted && (
                         <span className="font-medium text-foreground">
