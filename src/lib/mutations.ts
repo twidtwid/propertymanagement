@@ -1494,6 +1494,7 @@ export async function createTicket(formData: unknown): Promise<ActionResult<Main
     })
 
     revalidatePath("/tickets")
+    revalidatePath(`/tickets/${ticket!.id}`)
     revalidatePath("/maintenance")
     log.info("Ticket created", { ticketId: ticket!.id, title: ticket!.title })
     return { success: true, data: ticket! }
