@@ -36,7 +36,7 @@ export function QuickActionsBar({ properties, pinnedVendors = [] }: QuickActions
           </Button>
 
           <Button variant="outline" className="w-full justify-start" asChild>
-            <Link href="/maintenance/new">
+            <Link href="/tickets/new">
               <Plus className="h-4 w-4 mr-2" />
               New Ticket
             </Link>
