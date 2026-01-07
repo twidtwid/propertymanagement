@@ -118,6 +118,12 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
             ? "Your changes have been saved."
             : `"${data.title}" has been created.`,
         })
+
+        // Small delay for new tickets to ensure server-side cache invalidation
+        // completes before navigation (helps with mobile/slower networks)
+        if (!isEditing) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
         router.push(isEditing ? `/tickets/${ticket.id}` : `/tickets/${result.data!.id}`)
       } else {
         toast({

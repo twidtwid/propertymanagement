@@ -2413,9 +2413,14 @@ export async function getTickets(filters?: TicketFilters): Promise<TicketWithDet
 
 export async function getTicket(id: string): Promise<TicketWithDetails | null> {
   const ctx = await getVisibilityContext()
-  if (!ctx || ctx.visiblePropertyIds.length === 0) return null
+  if (!ctx) {
+    console.log("[getTicket] No visibility context - user not authenticated")
+    return null
+  }
 
-  return queryOne<TicketWithDetails>(
+  // Even if visiblePropertyIds is empty, we should still query for tickets
+  // with null property_id/vehicle_id (they're visible to everyone)
+  const ticket = await queryOne<TicketWithDetails>(
     `SELECT
        mt.id, mt.property_id, mt.vehicle_id, mt.equipment_id, mt.vendor_id, mt.vendor_contact_id,
        mt.title, mt.description, mt.priority, mt.due_date::text, mt.completed_date::text,
@@ -2442,6 +2447,16 @@ export async function getTicket(id: string): Promise<TicketWithDetails | null> {
        )`,
     [id, ctx.visiblePropertyIds]
   )
+
+  if (!ticket) {
+    console.log("[getTicket] Ticket not found or not visible", {
+      id,
+      userId: ctx.userId,
+      visiblePropertyCount: ctx.visiblePropertyIds.length
+    })
+  }
+
+  return ticket
 }
 
 export async function getTicketActivity(ticketId: string): Promise<TicketActivity[]> {
