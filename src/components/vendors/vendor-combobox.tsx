@@ -17,7 +17,7 @@ import type { Vendor } from "@/types/database"
 
 interface VendorComboboxProps {
   vendors: Vendor[]
-  value: string | null
+  value: string | null | undefined
   onValueChange: (value: string | null) => void
   placeholder?: string
   disabled?: boolean
