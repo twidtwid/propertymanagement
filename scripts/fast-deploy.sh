@@ -194,6 +194,32 @@ else
     fi
 fi
 
+log_step "RESTARTING LOCAL DEV"
+
+if [[ "${DRY_RUN}" == "true" ]]; then
+    log "Would clean .next cache and restart dev container"
+else
+    # Clean stale .next cache created by production build
+    rm -rf .next 2>/dev/null || true
+
+    # Restart dev app container if running
+    if docker compose ps app --status running -q 2>/dev/null | grep -q .; then
+        log "Restarting dev app container..."
+        docker compose restart app >/dev/null 2>&1
+
+        # Wait for dev to be ready
+        for i in {1..30}; do
+            if docker compose logs app --tail 5 2>/dev/null | grep -q "Ready in"; then
+                log_success "Dev server ready"
+                break
+            fi
+            sleep 1
+        done
+    else
+        log "Dev container not running, skipping restart"
+    fi
+fi
+
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║                    DEPLOY SUCCESSFUL                         ║"
