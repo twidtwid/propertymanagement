@@ -27,7 +27,10 @@ import {
   FolderOpen,
 } from "lucide-react"
 import { EntityDocuments } from "@/components/documents/entity-documents"
-import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory, getInsurancePoliciesForProperty, getTicketsForProperty } from "@/lib/actions"
+import { PropertyAccessCard } from "@/components/properties/property-access-card"
+import { PropertyNeighborsCard } from "@/components/properties/property-neighbors-card"
+import { PropertyRenewalsCard } from "@/components/properties/property-renewals-card"
+import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory, getInsurancePoliciesForProperty, getTicketsForProperty, getPropertyAccess, getTrustedNeighbors, getPropertyRenewals, getVendors } from "@/lib/actions"
 import { getDocumentCountForEntity } from "@/lib/dropbox/files"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PROPERTY_TYPE_LABELS, VENDOR_SPECIALTY_LABELS, INSURANCE_TYPE_LABELS, RECURRENCE_LABELS } from "@/types/database"
@@ -44,13 +47,17 @@ export default async function PropertyDetailPage({
     notFound()
   }
 
-  const [vendors, taskLists, taxHistory, insurancePolicies, documentCount, tickets] = await Promise.all([
+  const [vendors, taskLists, taxHistory, insurancePolicies, documentCount, tickets, accessItems, neighbors, renewals, allVendors] = await Promise.all([
     getPropertyVendors(id),
     getSharedTaskListsForProperty(id),
     getPropertyTaxHistory(id),
     getInsurancePoliciesForProperty(id),
     getDocumentCountForEntity("property", id),
     getTicketsForProperty(id),
+    getPropertyAccess(id),
+    getTrustedNeighbors(id),
+    getPropertyRenewals(id),
+    getVendors(),
   ])
 
   return (
@@ -264,6 +271,13 @@ export default async function PropertyDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Property Quick Info Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <PropertyAccessCard propertyId={property.id} accessItems={accessItems} />
+        <PropertyNeighborsCard propertyId={property.id} neighbors={neighbors} />
+        <PropertyRenewalsCard propertyId={property.id} renewals={renewals} vendors={allVendors} />
+      </div>
 
       <Tabs defaultValue="vendors" className="space-y-6">
         <TabsList>

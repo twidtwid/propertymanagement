@@ -260,6 +260,72 @@ export const sharedTaskItemSchema = z.object({
 export type SharedTaskItemFormData = z.infer<typeof sharedTaskItemSchema>
 
 // ============================================
+// Property Access Schema
+// ============================================
+
+const accessTypes = [
+  "garage_code", "alarm_code", "house_key", "gate_code",
+  "lockbox", "wifi_password", "building_fob", "mailbox_key",
+  "storage_key", "safe_combination", "other"
+] as const
+
+export const propertyAccessSchema = z.object({
+  property_id: z.string().uuid("Property is required"),
+  access_type: z.enum(accessTypes),
+  description: z.string().min(1, "Description is required").max(200),
+  code_value: z.string().max(100).nullable().optional(),
+  holder_name: z.string().max(100).nullable().optional(),
+  notes: z.string().nullable().optional(),
+  is_active: z.boolean().default(true),
+})
+
+export type PropertyAccessFormData = z.infer<typeof propertyAccessSchema>
+
+// ============================================
+// Trusted Neighbor Schema
+// ============================================
+
+export const trustedNeighborSchema = z.object({
+  property_id: z.string().uuid("Property is required"),
+  name: z.string().min(1, "Name is required").max(100),
+  phone: z.string().max(30).nullable().optional(),
+  email: z.string().email("Invalid email").or(z.literal("")).nullable().optional(),
+  address: z.string().max(200).nullable().optional(),
+  relationship: z.string().max(100).nullable().optional(),
+  has_keys: z.boolean().default(false),
+  notes: z.string().nullable().optional(),
+  is_active: z.boolean().default(true),
+})
+
+export type TrustedNeighborFormData = z.infer<typeof trustedNeighborSchema>
+
+// ============================================
+// Property Renewal Schema
+// ============================================
+
+const renewalTypes = [
+  "elevator_cert", "fire_alarm", "fire_suppression", "generator_service",
+  "septic", "chimney", "boiler_cert", "backflow_test", "pest_control",
+  "hvac_service", "pool_inspection", "uva_renewal", "rental_license",
+  "building_permit", "other"
+] as const
+
+export const propertyRenewalSchema = z.object({
+  property_id: z.string().uuid("Property is required"),
+  name: z.string().min(1, "Name is required").max(200),
+  renewal_type: z.enum(renewalTypes),
+  recurrence: z.enum(["one_time", "monthly", "quarterly", "semi_annual", "annual"]).default("annual"),
+  due_date: dateField,
+  last_renewed: dateField,
+  vendor_id: z.string().uuid().nullable().optional(),
+  cost: z.coerce.number().positive().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  is_active: z.boolean().default(true),
+})
+
+export type PropertyRenewalFormData = z.infer<typeof propertyRenewalSchema>
+
+// ============================================
 // Action Result Type
 // ============================================
 

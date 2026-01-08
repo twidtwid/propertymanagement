@@ -17,6 +17,9 @@ import type {
   MaintenanceTask,
   SharedTaskList,
   SharedTaskItem,
+  PropertyAccess,
+  TrustedNeighbor,
+  PropertyRenewal,
 } from "@/types/database"
 import {
   propertySchema,
@@ -30,6 +33,9 @@ import {
   sharedTaskItemSchema,
   ticketSchema,
   closeTicketSchema,
+  propertyAccessSchema,
+  trustedNeighborSchema,
+  propertyRenewalSchema,
   type ActionResult,
 } from "./schemas"
 import { getUser } from "./auth"
@@ -2138,5 +2144,361 @@ export async function importPaymentSuggestion(
       error: error instanceof Error ? error.message : "Unknown"
     })
     return { success: false, error: "Failed to import suggestion" }
+  }
+}
+
+// ============================================
+// Property Access (Codes & Keys)
+// ============================================
+
+export async function createPropertyAccess(formData: unknown): Promise<ActionResult<PropertyAccess>> {
+  const log = getLogger("createPropertyAccess")
+  const validated = propertyAccessSchema.safeParse(formData)
+  if (!validated.success) {
+    return { success: false, error: validated.error.errors[0].message }
+  }
+
+  const data = validated.data
+  if (!(await canAccessProperty(data.property_id))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    const access = await queryOne<PropertyAccess>(`
+      INSERT INTO property_access (property_id, access_type, description, code_value, holder_name, notes)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [
+      data.property_id,
+      data.access_type,
+      data.description,
+      emptyToNull(data.code_value),
+      emptyToNull(data.holder_name),
+      emptyToNull(data.notes)
+    ])
+
+    if (!access) {
+      return { success: false, error: "Failed to create access item" }
+    }
+
+    log.info("Created property access", { id: access.id, type: data.access_type })
+    revalidatePath(`/properties/${data.property_id}`)
+    return { success: true, data: access }
+  } catch (error) {
+    log.error("Failed to create property access", { error })
+    return { success: false, error: "Failed to create access item" }
+  }
+}
+
+export async function updatePropertyAccess(id: string, formData: unknown): Promise<ActionResult<PropertyAccess>> {
+  const log = getLogger("updatePropertyAccess")
+  const validated = propertyAccessSchema.safeParse(formData)
+  if (!validated.success) {
+    return { success: false, error: validated.error.errors[0].message }
+  }
+
+  const data = validated.data
+  if (!(await canAccessProperty(data.property_id))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    const access = await queryOne<PropertyAccess>(`
+      UPDATE property_access
+      SET access_type = $2, description = $3, code_value = $4, holder_name = $5, notes = $6, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [
+      id,
+      data.access_type,
+      data.description,
+      emptyToNull(data.code_value),
+      emptyToNull(data.holder_name),
+      emptyToNull(data.notes)
+    ])
+
+    if (!access) {
+      return { success: false, error: "Access item not found" }
+    }
+
+    log.info("Updated property access", { id })
+    revalidatePath(`/properties/${data.property_id}`)
+    return { success: true, data: access }
+  } catch (error) {
+    log.error("Failed to update property access", { error })
+    return { success: false, error: "Failed to update access item" }
+  }
+}
+
+export async function deletePropertyAccess(id: string, propertyId: string): Promise<ActionResult<void>> {
+  const log = getLogger("deletePropertyAccess")
+  if (!(await canAccessProperty(propertyId))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    await query(`UPDATE property_access SET is_active = FALSE WHERE id = $1`, [id])
+    log.info("Deleted property access", { id })
+    revalidatePath(`/properties/${propertyId}`)
+    return { success: true, data: undefined }
+  } catch (error) {
+    log.error("Failed to delete property access", { error })
+    return { success: false, error: "Failed to delete access item" }
+  }
+}
+
+// ============================================
+// Trusted Neighbors
+// ============================================
+
+export async function createTrustedNeighbor(formData: unknown): Promise<ActionResult<TrustedNeighbor>> {
+  const log = getLogger("createTrustedNeighbor")
+  const validated = trustedNeighborSchema.safeParse(formData)
+  if (!validated.success) {
+    return { success: false, error: validated.error.errors[0].message }
+  }
+
+  const data = validated.data
+  if (!(await canAccessProperty(data.property_id))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    const neighbor = await queryOne<TrustedNeighbor>(`
+      INSERT INTO trusted_neighbors (property_id, name, phone, email, address, relationship, has_keys, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      data.property_id,
+      data.name,
+      emptyToNull(data.phone),
+      emptyToNull(data.email),
+      emptyToNull(data.address),
+      emptyToNull(data.relationship),
+      data.has_keys ?? false,
+      emptyToNull(data.notes)
+    ])
+
+    if (!neighbor) {
+      return { success: false, error: "Failed to create neighbor" }
+    }
+
+    log.info("Created trusted neighbor", { id: neighbor.id, name: data.name })
+    revalidatePath(`/properties/${data.property_id}`)
+    return { success: true, data: neighbor }
+  } catch (error) {
+    log.error("Failed to create trusted neighbor", { error })
+    return { success: false, error: "Failed to create neighbor" }
+  }
+}
+
+export async function updateTrustedNeighbor(id: string, formData: unknown): Promise<ActionResult<TrustedNeighbor>> {
+  const log = getLogger("updateTrustedNeighbor")
+  const validated = trustedNeighborSchema.safeParse(formData)
+  if (!validated.success) {
+    return { success: false, error: validated.error.errors[0].message }
+  }
+
+  const data = validated.data
+  if (!(await canAccessProperty(data.property_id))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    const neighbor = await queryOne<TrustedNeighbor>(`
+      UPDATE trusted_neighbors
+      SET name = $2, phone = $3, email = $4, address = $5, relationship = $6, has_keys = $7, notes = $8, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [
+      id,
+      data.name,
+      emptyToNull(data.phone),
+      emptyToNull(data.email),
+      emptyToNull(data.address),
+      emptyToNull(data.relationship),
+      data.has_keys ?? false,
+      emptyToNull(data.notes)
+    ])
+
+    if (!neighbor) {
+      return { success: false, error: "Neighbor not found" }
+    }
+
+    log.info("Updated trusted neighbor", { id })
+    revalidatePath(`/properties/${data.property_id}`)
+    return { success: true, data: neighbor }
+  } catch (error) {
+    log.error("Failed to update trusted neighbor", { error })
+    return { success: false, error: "Failed to update neighbor" }
+  }
+}
+
+export async function deleteTrustedNeighbor(id: string, propertyId: string): Promise<ActionResult<void>> {
+  const log = getLogger("deleteTrustedNeighbor")
+  if (!(await canAccessProperty(propertyId))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    await query(`UPDATE trusted_neighbors SET is_active = FALSE WHERE id = $1`, [id])
+    log.info("Deleted trusted neighbor", { id })
+    revalidatePath(`/properties/${propertyId}`)
+    return { success: true, data: undefined }
+  } catch (error) {
+    log.error("Failed to delete trusted neighbor", { error })
+    return { success: false, error: "Failed to delete neighbor" }
+  }
+}
+
+// ============================================
+// Property Renewals
+// ============================================
+
+export async function createPropertyRenewal(formData: unknown): Promise<ActionResult<PropertyRenewal>> {
+  const log = getLogger("createPropertyRenewal")
+  const validated = propertyRenewalSchema.safeParse(formData)
+  if (!validated.success) {
+    return { success: false, error: validated.error.errors[0].message }
+  }
+
+  const data = validated.data
+  if (!(await canAccessProperty(data.property_id))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    const renewal = await queryOne<PropertyRenewal>(`
+      INSERT INTO property_renewals (property_id, name, renewal_type, recurrence, due_date, last_renewed, vendor_id, cost, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `, [
+      data.property_id,
+      data.name,
+      data.renewal_type,
+      data.recurrence ?? 'annual',
+      data.due_date,
+      emptyToNull(data.last_renewed),
+      emptyToNull(data.vendor_id),
+      emptyToNull(data.cost),
+      emptyToNull(data.notes)
+    ])
+
+    if (!renewal) {
+      return { success: false, error: "Failed to create renewal" }
+    }
+
+    log.info("Created property renewal", { id: renewal.id, name: data.name })
+    revalidatePath(`/properties/${data.property_id}`)
+    revalidatePath('/')
+    return { success: true, data: renewal }
+  } catch (error) {
+    log.error("Failed to create property renewal", { error })
+    return { success: false, error: "Failed to create renewal" }
+  }
+}
+
+export async function updatePropertyRenewal(id: string, formData: unknown): Promise<ActionResult<PropertyRenewal>> {
+  const log = getLogger("updatePropertyRenewal")
+  const validated = propertyRenewalSchema.safeParse(formData)
+  if (!validated.success) {
+    return { success: false, error: validated.error.errors[0].message }
+  }
+
+  const data = validated.data
+  if (!(await canAccessProperty(data.property_id))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    const renewal = await queryOne<PropertyRenewal>(`
+      UPDATE property_renewals
+      SET name = $2, renewal_type = $3, recurrence = $4, due_date = $5, last_renewed = $6, vendor_id = $7, cost = $8, notes = $9, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [
+      id,
+      data.name,
+      data.renewal_type,
+      data.recurrence ?? 'annual',
+      data.due_date,
+      emptyToNull(data.last_renewed),
+      emptyToNull(data.vendor_id),
+      emptyToNull(data.cost),
+      emptyToNull(data.notes)
+    ])
+
+    if (!renewal) {
+      return { success: false, error: "Renewal not found" }
+    }
+
+    log.info("Updated property renewal", { id })
+    revalidatePath(`/properties/${data.property_id}`)
+    revalidatePath('/')
+    return { success: true, data: renewal }
+  } catch (error) {
+    log.error("Failed to update property renewal", { error })
+    return { success: false, error: "Failed to update renewal" }
+  }
+}
+
+export async function deletePropertyRenewal(id: string, propertyId: string): Promise<ActionResult<void>> {
+  const log = getLogger("deletePropertyRenewal")
+  if (!(await canAccessProperty(propertyId))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    await query(`UPDATE property_renewals SET is_active = FALSE WHERE id = $1`, [id])
+    log.info("Deleted property renewal", { id })
+    revalidatePath(`/properties/${propertyId}`)
+    revalidatePath('/')
+    return { success: true, data: undefined }
+  } catch (error) {
+    log.error("Failed to delete property renewal", { error })
+    return { success: false, error: "Failed to delete renewal" }
+  }
+}
+
+export async function markRenewalComplete(id: string, propertyId: string): Promise<ActionResult<PropertyRenewal>> {
+  const log = getLogger("markRenewalComplete")
+  if (!(await canAccessProperty(propertyId))) {
+    return { success: false, error: "Access denied" }
+  }
+
+  try {
+    // Get the renewal to calculate the next due date
+    const existing = await queryOne<PropertyRenewal>(`SELECT * FROM property_renewals WHERE id = $1`, [id])
+    if (!existing) {
+      return { success: false, error: "Renewal not found" }
+    }
+
+    // Calculate the next due date based on recurrence
+    let interval = '1 year'
+    switch (existing.recurrence) {
+      case 'monthly': interval = '1 month'; break
+      case 'quarterly': interval = '3 months'; break
+      case 'semi_annual': interval = '6 months'; break
+      case 'annual': interval = '1 year'; break
+    }
+
+    const renewal = await queryOne<PropertyRenewal>(`
+      UPDATE property_renewals
+      SET last_renewed = CURRENT_DATE, due_date = due_date + INTERVAL '${interval}', updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [id])
+
+    if (!renewal) {
+      return { success: false, error: "Failed to update renewal" }
+    }
+
+    log.info("Marked renewal complete", { id, nextDue: renewal.due_date })
+    revalidatePath(`/properties/${propertyId}`)
+    revalidatePath('/')
+    return { success: true, data: renewal }
+  } catch (error) {
+    log.error("Failed to mark renewal complete", { error })
+    return { success: false, error: "Failed to complete renewal" }
   }
 }

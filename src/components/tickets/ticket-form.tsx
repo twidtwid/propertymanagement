@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast"
 import { TASK_PRIORITY_LABELS } from "@/types/database"
 import type { Property, Vehicle, Vendor, VendorContact, MaintenanceTask } from "@/types/database"
 import { PhotoUpload } from "./photo-upload"
+import { VendorCombobox } from "@/components/vendors/vendor-combobox"
 
 interface TicketFormProps {
   properties: Property[]
@@ -228,24 +229,12 @@ export function TicketForm({ properties, vehicles, vendors, ticket }: TicketForm
           {/* Vendor */}
           <div className="space-y-2">
             <Label htmlFor="vendor">Assign to Vendor</Label>
-            <Select
-              value={form.watch("vendor_id") || "__none__"}
-              onValueChange={(value) => form.setValue("vendor_id", value === "__none__" ? null : value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select vendor..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Unassigned</SelectItem>
-                {[...vendors]
-                  .sort((a, b) => (a.company || a.name).localeCompare(b.company || b.name))
-                  .map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.company || v.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <VendorCombobox
+              vendors={vendors}
+              value={form.watch("vendor_id")}
+              onValueChange={(value) => form.setValue("vendor_id", value)}
+              placeholder="Search vendors..."
+            />
           </div>
 
           {/* Vendor Contact */}

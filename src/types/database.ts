@@ -27,6 +27,19 @@ export type PinnedEntityType = 'vendor' | 'bill' | 'insurance_policy' | 'ticket'
 export type PaymentSuggestionStatus = 'pending_review' | 'imported' | 'dismissed'
 export type PaymentSuggestionConfidence = 'high' | 'medium' | 'low'
 
+// Property access types
+export type AccessType =
+  | 'garage_code' | 'alarm_code' | 'house_key' | 'gate_code'
+  | 'lockbox' | 'wifi_password' | 'building_fob' | 'mailbox_key'
+  | 'storage_key' | 'safe_combination' | 'other'
+
+// Property renewal types
+export type RenewalType =
+  | 'elevator_cert' | 'fire_alarm' | 'fire_suppression' | 'generator_service'
+  | 'septic' | 'chimney' | 'boiler_cert' | 'backflow_test' | 'pest_control'
+  | 'hvac_service' | 'pool_inspection' | 'uva_renewal' | 'rental_license'
+  | 'building_permit' | 'other'
+
 export interface Profile {
   id: string
   email: string
@@ -733,4 +746,88 @@ export interface PaymentSuggestion {
   // Joined fields
   vendor?: Vendor
   property?: Property
+}
+
+// Property access codes and keys
+export interface PropertyAccess {
+  id: string
+  property_id: string
+  access_type: AccessType
+  description: string
+  code_value: string | null
+  holder_name: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// Trusted neighbors for property emergencies
+export interface TrustedNeighbor {
+  id: string
+  property_id: string
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  relationship: string | null
+  has_keys: boolean
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// Property renewals (annual inspections, certifications)
+export interface PropertyRenewal {
+  id: string
+  property_id: string
+  name: string
+  renewal_type: RenewalType
+  recurrence: Recurrence
+  due_date: string
+  last_renewed: string | null
+  vendor_id: string | null
+  cost: number | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  // Joined fields
+  vendor?: Vendor
+  property?: Property
+}
+
+// Access type labels
+export const ACCESS_TYPE_LABELS: Record<AccessType, string> = {
+  garage_code: 'Garage Code',
+  alarm_code: 'Alarm Code',
+  house_key: 'House Key',
+  gate_code: 'Gate Code',
+  lockbox: 'Lockbox',
+  wifi_password: 'WiFi Password',
+  building_fob: 'Building Fob',
+  mailbox_key: 'Mailbox Key',
+  storage_key: 'Storage Key',
+  safe_combination: 'Safe Combination',
+  other: 'Other',
+}
+
+// Renewal type labels
+export const RENEWAL_TYPE_LABELS: Record<RenewalType, string> = {
+  elevator_cert: 'Elevator Certification',
+  fire_alarm: 'Fire Alarm Inspection',
+  fire_suppression: 'Fire Suppression',
+  generator_service: 'Generator Service',
+  septic: 'Septic Inspection',
+  chimney: 'Chimney Inspection',
+  boiler_cert: 'Boiler Certification',
+  backflow_test: 'Backflow Test',
+  pest_control: 'Pest Control',
+  hvac_service: 'HVAC Service',
+  pool_inspection: 'Pool Inspection',
+  uva_renewal: 'UVA Renewal',
+  rental_license: 'Rental License',
+  building_permit: 'Building Permit',
+  other: 'Other',
 }

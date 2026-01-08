@@ -113,6 +113,7 @@ export default async function VendorReportPage({ searchParams }: PageProps) {
       specialties: v.specialties.map(s => VENDOR_SPECIALTY_LABELS[s] || s).join(', '),
       phone: v.phone || '',
       email: v.email || '',
+      address: v.address || '',
       properties: filteredProps.map(p => p.name).join(', '),
       regions: Array.from(new Set(filteredProps.map(p => p.state || p.country))).join(', '),
       total_tickets: v.ticket_count,
@@ -212,6 +213,7 @@ export default async function VendorReportPage({ searchParams }: PageProps) {
               <th>Vendor</th>
               <th>Phone</th>
               <th>Email</th>
+              <th>Address</th>
               <th>Emergency</th>
             </tr>
           </thead>
@@ -233,7 +235,7 @@ export default async function VendorReportPage({ searchParams }: PageProps) {
                       {/* Category header row */}
                       {groupBy !== 'vendor' && (
                         <tr className="category-header">
-                          <td colSpan={4}>
+                          <td colSpan={5}>
                             <strong>{group}</strong> ({uniqueVendors.length})
                           </td>
                         </tr>
@@ -257,6 +259,7 @@ export default async function VendorReportPage({ searchParams }: PageProps) {
                           </td>
                           <td>{vendor.phone || '-'}</td>
                           <td>{vendor.email || '-'}</td>
+                          <td>{vendor.address || '-'}</td>
                           <td>{vendor.emergency_phone || '-'}</td>
                         </tr>
                       ))}
@@ -301,6 +304,7 @@ export default async function VendorReportPage({ searchParams }: PageProps) {
                           <TableHead>Specialty</TableHead>
                           <TableHead>Phone</TableHead>
                           <TableHead>Email</TableHead>
+                          <TableHead className="hidden lg:table-cell">Address</TableHead>
                           <TableHead>Properties</TableHead>
                           <TableHead className="text-right">Tickets</TableHead>
                           <TableHead className="text-right">Spent</TableHead>
@@ -346,6 +350,7 @@ export default async function VendorReportPage({ searchParams }: PageProps) {
                               </TableCell>
                               <TableCell>{vendor.phone || '-'}</TableCell>
                               <TableCell className="text-sm">{vendor.email || '-'}</TableCell>
+                              <TableCell className="hidden lg:table-cell text-sm">{vendor.address || '-'}</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap gap-1">
                                   {displayProperties.slice(0, 2).map(p => (
