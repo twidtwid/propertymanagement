@@ -831,3 +831,17 @@ export const RENEWAL_TYPE_LABELS: Record<RenewalType, string> = {
   building_permit: 'Building Permit',
   other: 'Other',
 }
+
+// Health monitoring
+export type HealthCheckStatus = 'ok' | 'warning' | 'critical'
+
+export interface HealthCheckState {
+  check_name: string
+  status: HealthCheckStatus
+  last_checked_at: string
+  last_alerted_at: string | null
+  last_recovered_at: string | null
+  failure_count: number
+  first_failure_at: string | null
+  details: Record<string, unknown> | null
+}
