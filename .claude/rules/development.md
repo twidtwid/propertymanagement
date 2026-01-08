@@ -68,6 +68,8 @@ ssh root@143.110.229.185 "cd /root/app && docker compose -f docker-compose.prod.
 | Schedule | Task | Log |
 |----------|------|-----|
 | Every 15 min | Dropbox sync | /var/log/dropbox-sync.log |
+| Every 15 min | Health check (Pushover alerts) | /var/log/health-check.log |
+| Hourly | Dropbox token refresh | /var/log/dropbox-refresh.log |
 | 3 AM daily | Database backup | /var/log/backup.log |
 | 6 AM daily | Disk check | /var/log/disk-check.log |
 | Sunday 4 AM | Docker prune | /var/log/docker-prune.log |
@@ -108,5 +110,7 @@ Location: `scripts/migrations/`
 - 026-027: Payment suggestions, email links
 - 028-033: Photo descriptions, vendor specialties, property taxes
 - 034: Autopay performance indexes
+- 035-037: Property access codes, trusted neighbors, renewals
+- 038: Health monitoring state
 
 **Running migrations:** Use `/migrate` skill for production.
