@@ -2346,10 +2346,10 @@ export async function getTickets(filters?: TicketFilters): Promise<TicketWithDet
   const params: (string | string[])[] = [ctx.visiblePropertyIds]
   let paramIndex = 2
 
-  // Property must be visible (or vehicle's property must be visible, or no property/vehicle)
+  // Property must be visible (or vehicle's property must be visible, or vehicle has no property, or no property/vehicle)
   conditions.push(`(
     mt.property_id = ANY($1::uuid[])
-    OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]))
+    OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]) OR property_id IS NULL)
     OR (mt.property_id IS NULL AND mt.vehicle_id IS NULL)
   )`)
 
@@ -2446,7 +2446,7 @@ export async function getTicket(id: string): Promise<TicketWithDetails | null> {
      WHERE mt.id = $1
        AND (
          mt.property_id = ANY($2::uuid[])
-         OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($2::uuid[]))
+         OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($2::uuid[]) OR property_id IS NULL)
          OR (mt.property_id IS NULL AND mt.vehicle_id IS NULL)
        )`,
     [id, ctx.visiblePropertyIds]
@@ -2484,7 +2484,7 @@ export async function getOpenTicketCount(): Promise<number> {
      WHERE mt.status NOT IN ('completed', 'cancelled')
        AND (
          mt.property_id = ANY($1::uuid[])
-         OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]))
+         OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]) OR property_id IS NULL)
          OR (mt.property_id IS NULL AND mt.vehicle_id IS NULL)
        )`,
     [ctx.visiblePropertyIds]
@@ -4405,10 +4405,10 @@ export async function getTicketReport(filters?: TicketReportFilters): Promise<{
   const params: (string | string[])[] = [ctx.visiblePropertyIds]
   let paramIndex = 2
 
-  // Property must be visible
+  // Property must be visible (or vehicle has no property)
   conditions.push(`(
     mt.property_id = ANY($1::uuid[])
-    OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]))
+    OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]) OR property_id IS NULL)
     OR (mt.property_id IS NULL AND mt.vehicle_id IS NULL)
   )`)
 
@@ -4537,7 +4537,7 @@ export async function getWeeklyTicketReport(weeksBack: number = 4): Promise<Week
     LEFT JOIN vendors vd ON mt.vendor_id = vd.id
     WHERE (
       mt.property_id = ANY($1::uuid[])
-      OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]))
+      OR mt.vehicle_id IN (SELECT id FROM vehicles WHERE property_id = ANY($1::uuid[]) OR property_id IS NULL)
       OR (mt.property_id IS NULL AND mt.vehicle_id IS NULL)
     )
     AND COALESCE(mt.completed_date, mt.due_date, mt.created_at) >= CURRENT_DATE - ($2::INTEGER * 7)
