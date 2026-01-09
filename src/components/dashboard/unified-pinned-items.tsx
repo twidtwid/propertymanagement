@@ -221,10 +221,10 @@ export function UnifiedPinnedItems({ items: initialItems }: UnifiedPinnedItemsPr
               {/* Content */}
               <div className="flex-1 min-w-0">
                 <Link href={item.href} className="hover:underline">
-                  <p className="font-medium truncate">{item.title}</p>
+                  <p className="font-medium line-clamp-2 sm:line-clamp-1">{item.title}</p>
                 </Link>
                 {item.subtitle && (
-                  <p className="text-sm text-muted-foreground truncate">
+                  <p className="text-sm text-muted-foreground line-clamp-1">
                     {item.subtitle}
                   </p>
                 )}
@@ -234,7 +234,7 @@ export function UnifiedPinnedItems({ items: initialItems }: UnifiedPinnedItemsPr
                     {item.notes.slice(0, 2).map((note) => (
                       <p
                         key={note.id}
-                        className="text-xs text-muted-foreground italic truncate"
+                        className="text-xs text-muted-foreground italic line-clamp-2 sm:line-clamp-1"
                       >
                         "{note.note}" — {note.user_name}
                       </p>

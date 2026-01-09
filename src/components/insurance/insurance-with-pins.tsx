@@ -36,6 +36,19 @@ const INSURANCE_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 }
 
+// Short labels for mobile
+const INSURANCE_TYPE_SHORT_LABELS: Record<string, string> = {
+  homeowners: "Home",
+  auto: "Auto",
+  umbrella: "Umbrella",
+  flood: "Flood",
+  earthquake: "Quake",
+  liability: "Liab.",
+  health: "Health",
+  travel: "Travel",
+  other: "Other",
+}
+
 interface InsuranceWithPinsProps {
   policies: InsurancePolicy[]
   expiring: InsurancePolicy[]
@@ -226,7 +239,8 @@ export function InsuranceWithPins({
         {showType && (
           <TableCell>
             <Badge variant="outline">
-              {INSURANCE_TYPE_LABELS[policy.policy_type]}
+              <span className="sm:hidden">{INSURANCE_TYPE_SHORT_LABELS[policy.policy_type]}</span>
+              <span className="hidden sm:inline">{INSURANCE_TYPE_LABELS[policy.policy_type]}</span>
             </Badge>
           </TableCell>
         )}
@@ -352,7 +366,8 @@ export function InsuranceWithPins({
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {INSURANCE_TYPE_LABELS[policy.policy_type]}
+                          <span className="sm:hidden">{INSURANCE_TYPE_SHORT_LABELS[policy.policy_type]}</span>
+                          <span className="hidden sm:inline">{INSURANCE_TYPE_LABELS[policy.policy_type]}</span>
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -467,7 +482,8 @@ export function InsuranceWithPins({
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {INSURANCE_TYPE_LABELS[policy.policy_type]}
+                          <span className="sm:hidden">{INSURANCE_TYPE_SHORT_LABELS[policy.policy_type]}</span>
+                          <span className="hidden sm:inline">{INSURANCE_TYPE_LABELS[policy.policy_type]}</span>
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -573,20 +589,20 @@ export function InsuranceWithPins({
 
       {/* Tabbed Content - Unpinned Policies */}
       <Tabs defaultValue="property" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="property" className="gap-2">
+        <TabsList className="w-full sm:w-auto overflow-x-auto flex-nowrap">
+          <TabsTrigger value="property" className="gap-2 flex-shrink-0">
             <Building2 className="h-4 w-4" />
             Property ({propertyPolicies.length})
           </TabsTrigger>
-          <TabsTrigger value="auto" className="gap-2">
+          <TabsTrigger value="auto" className="gap-2 flex-shrink-0">
             <Car className="h-4 w-4" />
             Auto ({vehiclePolicies.length})
           </TabsTrigger>
-          <TabsTrigger value="other" className="gap-2">
+          <TabsTrigger value="other" className="gap-2 flex-shrink-0">
             <Shield className="h-4 w-4" />
             Other ({otherPolicies.length})
           </TabsTrigger>
-          <TabsTrigger value="claims" className="gap-2">
+          <TabsTrigger value="claims" className="gap-2 flex-shrink-0">
             <FileText className="h-4 w-4" />
             Claims
           </TabsTrigger>
