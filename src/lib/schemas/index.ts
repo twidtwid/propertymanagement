@@ -264,7 +264,7 @@ export type SharedTaskItemFormData = z.infer<typeof sharedTaskItemSchema>
 // ============================================
 
 const accessTypes = [
-  "garage_code", "alarm_code", "house_key", "gate_code",
+  "garage_code", "alarm_code", "house_key", "gate_code", "front_door_code",
   "lockbox", "wifi_password", "building_fob", "mailbox_key",
   "storage_key", "safe_combination", "other"
 ] as const

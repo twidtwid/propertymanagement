@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
@@ -76,7 +77,9 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
       </div>
 
       <Card className="p-4">
-        <TicketFilters properties={properties} vendors={vendors} />
+        <Suspense fallback={<div className="h-10" />}>
+          <TicketFilters properties={properties} vendors={vendors} />
+        </Suspense>
       </Card>
 
       <TicketsContent

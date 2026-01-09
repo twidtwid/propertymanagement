@@ -29,7 +29,7 @@ export type PaymentSuggestionConfidence = 'high' | 'medium' | 'low'
 
 // Property access types
 export type AccessType =
-  | 'garage_code' | 'alarm_code' | 'house_key' | 'gate_code'
+  | 'garage_code' | 'alarm_code' | 'house_key' | 'gate_code' | 'front_door_code'
   | 'lockbox' | 'wifi_password' | 'building_fob' | 'mailbox_key'
   | 'storage_key' | 'safe_combination' | 'other'
 
@@ -804,6 +804,7 @@ export const ACCESS_TYPE_LABELS: Record<AccessType, string> = {
   alarm_code: 'Alarm Code',
   house_key: 'House Key',
   gate_code: 'Gate Code',
+  front_door_code: 'Front Door Code',
   lockbox: 'Lockbox',
   wifi_password: 'WiFi Password',
   building_fob: 'Building Fob',

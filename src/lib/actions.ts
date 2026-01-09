@@ -989,7 +989,7 @@ export async function getDashboardPinnedItems(): Promise<{
           [byType.property_tax]
         )
       : [],
-    // Tickets
+    // Tickets - exclude closed/cancelled
     byType.ticket.length > 0
       ? query<MaintenanceTask & { property_name: string | null; vehicle_name: string | null }>(
           `SELECT mt.*, p.name as property_name,
@@ -997,7 +997,8 @@ export async function getDashboardPinnedItems(): Promise<{
            FROM maintenance_tasks mt
            LEFT JOIN properties p ON mt.property_id = p.id
            LEFT JOIN vehicles v ON mt.vehicle_id = v.id
-           WHERE mt.id = ANY($1::uuid[])`,
+           WHERE mt.id = ANY($1::uuid[])
+             AND mt.status NOT IN ('completed', 'cancelled')`,
           [byType.ticket]
         )
       : [],
