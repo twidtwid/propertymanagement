@@ -82,10 +82,12 @@ async function checkDropboxTokenHealth(): Promise<HealthResult> {
     }
   }
 
-  if (hoursUntilExpiry < 24) {
+  // Dropbox tokens last 4 hours and auto-refresh at 2 hours remaining.
+  // Alert only if < 1 hour (means refresh cron is failing).
+  if (hoursUntilExpiry < 1) {
     return {
       ok: false,
-      message: `Token expires in ${hoursUntilExpiry}h`,
+      message: `Token expires in ${hoursUntilExpiry}h - refresh may be failing`,
       details: { token_expiry: result.token_expiry, hours_until_expiry: hoursUntilExpiry },
     }
   }
