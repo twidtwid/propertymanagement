@@ -4,7 +4,7 @@
 
 INSERT INTO insurance_policies (
   id, property_id, carrier_name, policy_number, policy_type,
-  expiration_date, premium, notes, created_at, updated_at
+  expiration_date, notes, created_at, updated_at
 )
 SELECT
   gen_random_uuid(),
@@ -13,8 +13,7 @@ SELECT
   'C211899/0002',
   'homeowners',
   '2025-12-31',
-  1016.58,
-  'Auto-renews annually. Premium in EUR. Coverage: habitation (dwelling), responsabilite civile (liability), dommages aux biens (property damage).',
+  'Customer ref: C254683. Premium: EUR 1,016.58/year. Coverage includes terrorism, legal protection, natural disaster. Property: Les Terrasses de la Plage, Anse Mitan, Les Trois Ilets.',
   NOW(), NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM insurance_policies ip
