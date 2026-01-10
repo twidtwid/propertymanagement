@@ -134,11 +134,15 @@ function formatNotification(
   const timeUntil = formatTimeUntil(alert.expiresAt)
   const sound = getAlertSound(alert.severity, alert.eventType)
 
-  // Short title with location for phone notifications
-  // e.g., "❄️ VT: Winter Advisory" or "🌊 RI: Flood Watch"
-  const shortLocation = propertyNames.length === 1
-    ? propertyNames[0].replace(/\s*(House|Condo|Property|Apartment)s?/gi, '').trim()
-    : `${propertyNames.length} props`
+  // Short title - use region name based on zone code
+  const zoneToRegion: Record<string, string> = {
+    'VTZ014': 'Vermont',
+    'NYZ075': 'Brooklyn',
+    'RIZ002': 'Rhode Island',
+    '75': 'Paris',
+    '972': 'Martinique',
+  }
+  const shortLocation = zoneToRegion[alert.zoneCode] || propertyNames[0].replace(/\s*(House|Condo|Property|Apartment)s?/gi, '').trim()
 
   return {
     title: `${emoji} ${shortLocation}: ${label}`,
