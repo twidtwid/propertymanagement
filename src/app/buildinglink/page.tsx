@@ -8,7 +8,7 @@ import {
   getSmartAndUserPins,
   getBuildingLinkNeedsAttention,
   getPinNotesByEntities,
-  getUserPinNote,
+  getUserPinNotesByEntities,
   type BuildingLinkMessage,
 } from "@/lib/actions"
 
@@ -61,17 +61,11 @@ export default async function BuildingLinkPage({ searchParams }: BuildingLinkPag
   // Get all pinned message IDs
   const allPinnedIds = [...Array.from(pins.smartPins), ...Array.from(pins.userPins)]
 
-  // Load notes for all pinned messages
-  const notesMap = await getPinNotesByEntities('buildinglink_message', allPinnedIds)
-
-  // Get user's notes for each pinned message
-  const userNotesMap = new Map<string, any>()
-  for (const messageId of allPinnedIds) {
-    const userNote = await getUserPinNote('buildinglink_message', messageId, user.id)
-    if (userNote) {
-      userNotesMap.set(messageId, userNote)
-    }
-  }
+  // Load notes for all pinned messages (batch queries - no N+1)
+  const [notesMap, userNotesMap] = await Promise.all([
+    getPinNotesByEntities('buildinglink_message', allPinnedIds),
+    getUserPinNotesByEntities('buildinglink_message', allPinnedIds, user.id),
+  ])
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">

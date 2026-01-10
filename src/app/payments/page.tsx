@@ -9,7 +9,7 @@ import {
   getActiveVehicles,
   getSmartAndUserPins,
   getPinNotesByEntities,
-  getUserPinNote,
+  getUserPinNotesByEntities,
   getPendingPaymentSuggestions,
   getPaymentEmailLinks,
 } from "@/lib/actions"
@@ -84,20 +84,18 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
     ...Array.from(insuranceNotesMap.entries()),
   ])
 
-  // Load user notes for all pinned payments
+  // Load user notes for all pinned payments (batch queries - no N+1)
   const userNotesMap = new Map()
   if (user) {
-    const allPinnedIds = [...Array.from(pins.smartPins), ...Array.from(pins.userPins)]
-    for (const payment of payments.filter(p => allPinnedIds.includes(p.source_id))) {
-      const entityType =
-        payment.source === 'bill' ? 'bill' :
-        payment.source === 'property_tax' ? 'property_tax' :
-        'insurance_premium'
-      const userNote = await getUserPinNote(entityType, payment.source_id, user.id)
-      if (userNote) {
-        userNotesMap.set(payment.source_id, userNote)
-      }
-    }
+    const [billUserNotes, taxUserNotes, insuranceUserNotes] = await Promise.all([
+      getUserPinNotesByEntities('bill', Array.from(billPins.smartPins).concat(Array.from(billPins.userPins)), user.id),
+      getUserPinNotesByEntities('property_tax', Array.from(taxPins.smartPins).concat(Array.from(taxPins.userPins)), user.id),
+      getUserPinNotesByEntities('insurance_premium', Array.from(insurancePins.smartPins).concat(Array.from(insurancePins.userPins)), user.id),
+    ])
+    // Merge all user notes into a single map
+    billUserNotes.forEach((note, id) => userNotesMap.set(id, note))
+    taxUserNotes.forEach((note, id) => userNotesMap.set(id, note))
+    insuranceUserNotes.forEach((note, id) => userNotesMap.set(id, note))
   }
 
   // Fetch email links for all bill payments
@@ -109,26 +107,17 @@ async function PaymentsContentWrapper({ searchParams }: PaymentsPageProps) {
   const emailLinksMap = Object.fromEntries(emailLinksMapRaw)
 
   // Also load notes for payments needing attention (smart pins shown in QuickActions)
+  // Copy from already-fetched notesMap and userNotesMap (no additional queries needed)
   const attentionNotesMap = new Map()
   const attentionUserNotesMap = new Map()
-  if (user) {
-    for (const payment of attentionPayments) {
-      const entityType =
-        payment.source === 'bill' ? 'bill' :
-        payment.source === 'property_tax' ? 'property_tax' :
-        'insurance_premium'
-
-      // Get all notes for this entity
-      const notes = notesMap.get(payment.source_id)
-      if (notes) {
-        attentionNotesMap.set(payment.source_id, notes)
-      }
-
-      // Get user's note for this entity
-      const userNote = await getUserPinNote(entityType, payment.source_id, user.id)
-      if (userNote) {
-        attentionUserNotesMap.set(payment.source_id, userNote)
-      }
+  for (const payment of attentionPayments) {
+    const notes = notesMap.get(payment.source_id)
+    if (notes) {
+      attentionNotesMap.set(payment.source_id, notes)
+    }
+    const userNote = userNotesMap.get(payment.source_id)
+    if (userNote) {
+      attentionUserNotesMap.set(payment.source_id, userNote)
     }
   }
 

@@ -9,7 +9,7 @@ import {
   getVendors,
   getSmartAndUserPins,
   getPinNotesByEntities,
-  getUserPinNote,
+  getUserPinNotesByEntities,
 } from "@/lib/actions"
 import { getUser } from "@/lib/auth"
 import { TicketFilters } from "@/components/tickets/ticket-filters"
@@ -44,20 +44,12 @@ export default async function TicketsPage({ searchParams }: TicketsPageProps) {
     (t) => t.status !== "completed" && t.status !== "cancelled"
   ).length
 
-  // Load notes for all pinned tickets
+  // Load notes for all pinned tickets (batch queries - no N+1)
   const allPinnedIds = [...Array.from(pins.smartPins), ...Array.from(pins.userPins)]
-  const notesMap = await getPinNotesByEntities('ticket', allPinnedIds)
-
-  // Load user notes
-  const userNotesMap = new Map()
-  if (user) {
-    for (const ticketId of allPinnedIds) {
-      const userNote = await getUserPinNote('ticket', ticketId, user.id)
-      if (userNote) {
-        userNotesMap.set(ticketId, userNote)
-      }
-    }
-  }
+  const [notesMap, userNotesMap] = await Promise.all([
+    getPinNotesByEntities('ticket', allPinnedIds),
+    user ? getUserPinNotesByEntities('ticket', allPinnedIds, user.id) : Promise.resolve(new Map()),
+  ])
 
   return (
     <div className="space-y-6">

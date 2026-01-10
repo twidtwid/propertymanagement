@@ -8,7 +8,7 @@ import {
   getProperties,
   getSmartAndUserPins,
   getPinNotesByEntities,
-  getUserPinNote,
+  getUserPinNotesByEntities,
 } from "@/lib/actions"
 import { getUser } from "@/lib/auth"
 import { VendorFilters } from "@/components/vendors/vendor-filters"
@@ -38,20 +38,12 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
     getSmartAndUserPins('vendor'),
   ])
 
-  // Load notes for all pinned vendors
+  // Load notes for all pinned vendors (batch queries - no N+1)
   const allPinnedIds = Array.from(pins.userPins)
-  const notesMap = await getPinNotesByEntities('vendor', allPinnedIds)
-
-  // Load user notes
-  const userNotesMap = new Map()
-  if (user) {
-    for (const vendorId of allPinnedIds) {
-      const userNote = await getUserPinNote('vendor', vendorId, user.id)
-      if (userNote) {
-        userNotesMap.set(vendorId, userNote)
-      }
-    }
-  }
+  const [notesMap, userNotesMap] = await Promise.all([
+    getPinNotesByEntities('vendor', allPinnedIds),
+    user ? getUserPinNotesByEntities('vendor', allPinnedIds, user.id) : Promise.resolve(new Map()),
+  ])
 
   return (
     <div className="space-y-8">

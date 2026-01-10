@@ -217,6 +217,40 @@ export async function getVendorsFiltered(filters?: VendorFilters): Promise<Vendo
   return result
 }
 
+/**
+ * Get vendors by specific IDs - optimized for dashboard pinned vendors.
+ * Skips the full visibility check since we already have the pinned IDs.
+ */
+export async function getVendorsByIds(ids: string[]): Promise<VendorWithLocations[]> {
+  if (ids.length === 0) return []
+
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const vendors = await query<Vendor & { property_locations: string | null }>(`
+    SELECT
+      v.*,
+      STRING_AGG(DISTINCT
+        CASE
+          WHEN p.state IS NOT NULL THEN p.state
+          WHEN p.country != 'USA' THEN p.country
+          ELSE NULL
+        END, ', '
+      ) as property_locations
+    FROM vendors v
+    LEFT JOIN property_vendors pv ON v.id = pv.vendor_id
+    LEFT JOIN properties p ON pv.property_id = p.id AND p.id = ANY($2::uuid[])
+    WHERE v.id = ANY($1::uuid[]) AND v.is_active = TRUE
+    GROUP BY v.id
+    ORDER BY COALESCE(v.company, v.name)
+  `, [ids, ctx.visiblePropertyIds])
+
+  return vendors.map(v => ({
+    ...v,
+    locations: v.property_locations ? v.property_locations.split(', ').filter(Boolean) : []
+  }))
+}
+
 // Get unique locations from vendor-property associations
 export async function getVendorLocations(): Promise<string[]> {
   const results = await query<{ location: string }>(`
@@ -564,6 +598,30 @@ export async function getUserPinNote(
      WHERE entity_type = $1 AND entity_id = $2 AND user_id = $3`,
     [entityType, entityId, userId]
   )
+}
+
+/**
+ * Batch fetch user pin notes for multiple entities (avoids N+1 queries)
+ */
+export async function getUserPinNotesByEntities(
+  entityType: PinnedEntityType,
+  entityIds: string[],
+  userId: string
+): Promise<Map<string, PinNote>> {
+  if (entityIds.length === 0) return new Map()
+
+  const notes = await query<PinNote>(
+    `SELECT * FROM pin_notes
+     WHERE entity_type = $1 AND entity_id = ANY($2::uuid[]) AND user_id = $3`,
+    [entityType, entityIds, userId]
+  )
+
+  const notesByEntity = new Map<string, PinNote>()
+  for (const note of notes) {
+    notesByEntity.set(note.entity_id, note)
+  }
+
+  return notesByEntity
 }
 
 /**
@@ -1411,87 +1469,95 @@ export async function getDashboardPinnedItems(): Promise<{
  * For the "Coming Up" section of the dashboard.
  */
 export async function getUpcomingWeek(): Promise<UpcomingItem[]> {
-  const ctx = await getVisibilityContext()
+  // Phase 1: Get visibility context (cached per-request)
+  const [ctx, visibleVehicleIds] = await Promise.all([
+    getVisibilityContext(),
+    getVisibleVehicleIds()
+  ])
   if (!ctx) return []
 
-  const visibleVehicleIds = await getVisibleVehicleIds()
-
-  // Get all currently pinned entity IDs to exclude
-  const pinnedBills = await getPinnedIds('bill')
-  const pinnedTaxes = await getPinnedIds('property_tax')
-  const pinnedTickets = await getPinnedIds('ticket')
-
-  // Fetch bills due in 7 days (not pinned)
-  const bills = await query<{ id: string; description: string; bill_type: string; amount: string; due_date: string; property_name: string | null }>(
-    `SELECT b.id, b.description, b.bill_type, b.amount, b.due_date::text, p.name as property_name
-     FROM bills b
-     LEFT JOIN properties p ON b.property_id = p.id
-     WHERE b.status = 'pending'
-       AND b.due_date >= CURRENT_DATE
-       AND b.due_date <= CURRENT_DATE + 7
-       AND (b.property_id IS NULL OR b.property_id = ANY($1::uuid[]))
-       AND (b.vehicle_id IS NULL OR b.vehicle_id = ANY($2::uuid[]))
-     ORDER BY b.due_date`,
-    [ctx.visiblePropertyIds, visibleVehicleIds]
-  )
-
-  // Fetch property taxes due in 7 days (not pinned)
-  const taxes = await query<{ id: string; jurisdiction: string; installment: number; amount: string; due_date: string; property_name: string }>(
-    `SELECT pt.id, pt.jurisdiction, pt.installment, pt.amount, pt.due_date::text, p.name as property_name
-     FROM property_taxes pt
-     JOIN properties p ON pt.property_id = p.id
-     WHERE pt.status = 'pending'
-       AND pt.due_date >= CURRENT_DATE
-       AND pt.due_date <= CURRENT_DATE + 7
-       AND pt.property_id = ANY($1::uuid[])
-     ORDER BY pt.due_date`,
-    [ctx.visiblePropertyIds]
-  )
-
-  // Fetch insurance expirations in 7 days
-  const insurance = await query<{ id: string; carrier_name: string; policy_type: string; premium_amount: string | null; expiration_date: string; property_name: string | null; vehicle_name: string | null }>(
-    `SELECT ip.id, ip.carrier_name, ip.policy_type, ip.premium_amount, ip.expiration_date::text,
-       p.name as property_name,
-       CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name
-     FROM insurance_policies ip
-     LEFT JOIN properties p ON ip.property_id = p.id
-     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
-     WHERE ip.expiration_date >= CURRENT_DATE
-       AND ip.expiration_date <= CURRENT_DATE + 7
-       AND (ip.property_id IS NULL OR ip.property_id = ANY($1::uuid[]))
-       AND (ip.vehicle_id IS NULL OR ip.vehicle_id = ANY($2::uuid[]))
-     ORDER BY ip.expiration_date`,
-    [ctx.visiblePropertyIds, visibleVehicleIds]
-  )
-
-  // Fetch vehicle registrations/inspections expiring in 7 days
-  const vehicles = await query<{ id: string; year: number; make: string; model: string; registration_expires: string | null; inspection_expires: string | null }>(
-    `SELECT id, year, make, model, registration_expires::text, inspection_expires::text
-     FROM vehicles
-     WHERE is_active = TRUE
-       AND id = ANY($1::uuid[])
-       AND (
-         (registration_expires >= CURRENT_DATE AND registration_expires <= CURRENT_DATE + 7)
-         OR (inspection_expires >= CURRENT_DATE AND inspection_expires <= CURRENT_DATE + 7)
-       )`,
-    [visibleVehicleIds]
-  )
-
-  // Fetch maintenance tasks with due dates in 7 days (not pinned)
-  const tasks = await query<{ id: string; title: string; due_date: string; property_name: string | null; vehicle_name: string | null }>(
-    `SELECT mt.id, mt.title, mt.due_date::text, p.name as property_name,
-       CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name
-     FROM maintenance_tasks mt
-     LEFT JOIN properties p ON mt.property_id = p.id
-     LEFT JOIN vehicles v ON mt.vehicle_id = v.id
-     WHERE mt.status IN ('pending', 'in_progress')
-       AND mt.due_date >= CURRENT_DATE
-       AND mt.due_date <= CURRENT_DATE + 7
-       AND (mt.property_id IS NULL OR mt.property_id = ANY($1::uuid[]))
-       AND (mt.vehicle_id IS NULL OR mt.vehicle_id = ANY($2::uuid[]))
-     ORDER BY mt.due_date`,
-    [ctx.visiblePropertyIds, visibleVehicleIds]
-  )
+  // Phase 2: All data queries in parallel (including pinned IDs)
+  const [
+    pinnedBills,
+    pinnedTaxes,
+    pinnedTickets,
+    bills,
+    taxes,
+    insurance,
+    vehicles,
+    tasks
+  ] = await Promise.all([
+    getPinnedIds('bill'),
+    getPinnedIds('property_tax'),
+    getPinnedIds('ticket'),
+    // Fetch bills due in 7 days
+    query<{ id: string; description: string; bill_type: string; amount: string; due_date: string; property_name: string | null }>(
+      `SELECT b.id, b.description, b.bill_type, b.amount, b.due_date::text, p.name as property_name
+       FROM bills b
+       LEFT JOIN properties p ON b.property_id = p.id
+       WHERE b.status = 'pending'
+         AND b.due_date >= CURRENT_DATE
+         AND b.due_date <= CURRENT_DATE + 7
+         AND (b.property_id IS NULL OR b.property_id = ANY($1::uuid[]))
+         AND (b.vehicle_id IS NULL OR b.vehicle_id = ANY($2::uuid[]))
+       ORDER BY b.due_date`,
+      [ctx.visiblePropertyIds, visibleVehicleIds]
+    ),
+    // Fetch property taxes due in 7 days
+    query<{ id: string; jurisdiction: string; installment: number; amount: string; due_date: string; property_name: string }>(
+      `SELECT pt.id, pt.jurisdiction, pt.installment, pt.amount, pt.due_date::text, p.name as property_name
+       FROM property_taxes pt
+       JOIN properties p ON pt.property_id = p.id
+       WHERE pt.status = 'pending'
+         AND pt.due_date >= CURRENT_DATE
+         AND pt.due_date <= CURRENT_DATE + 7
+         AND pt.property_id = ANY($1::uuid[])
+       ORDER BY pt.due_date`,
+      [ctx.visiblePropertyIds]
+    ),
+    // Fetch insurance expirations in 7 days
+    query<{ id: string; carrier_name: string; policy_type: string; premium_amount: string | null; expiration_date: string; property_name: string | null; vehicle_name: string | null }>(
+      `SELECT ip.id, ip.carrier_name, ip.policy_type, ip.premium_amount, ip.expiration_date::text,
+         p.name as property_name,
+         CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name
+       FROM insurance_policies ip
+       LEFT JOIN properties p ON ip.property_id = p.id
+       LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+       WHERE ip.expiration_date >= CURRENT_DATE
+         AND ip.expiration_date <= CURRENT_DATE + 7
+         AND (ip.property_id IS NULL OR ip.property_id = ANY($1::uuid[]))
+         AND (ip.vehicle_id IS NULL OR ip.vehicle_id = ANY($2::uuid[]))
+       ORDER BY ip.expiration_date`,
+      [ctx.visiblePropertyIds, visibleVehicleIds]
+    ),
+    // Fetch vehicle registrations/inspections expiring in 7 days
+    query<{ id: string; year: number; make: string; model: string; registration_expires: string | null; inspection_expires: string | null }>(
+      `SELECT id, year, make, model, registration_expires::text, inspection_expires::text
+       FROM vehicles
+       WHERE is_active = TRUE
+         AND id = ANY($1::uuid[])
+         AND (
+           (registration_expires >= CURRENT_DATE AND registration_expires <= CURRENT_DATE + 7)
+           OR (inspection_expires >= CURRENT_DATE AND inspection_expires <= CURRENT_DATE + 7)
+         )`,
+      [visibleVehicleIds]
+    ),
+    // Fetch maintenance tasks with due dates in 7 days
+    query<{ id: string; title: string; due_date: string; property_name: string | null; vehicle_name: string | null }>(
+      `SELECT mt.id, mt.title, mt.due_date::text, p.name as property_name,
+         CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name
+       FROM maintenance_tasks mt
+       LEFT JOIN properties p ON mt.property_id = p.id
+       LEFT JOIN vehicles v ON mt.vehicle_id = v.id
+       WHERE mt.status IN ('pending', 'in_progress')
+         AND mt.due_date >= CURRENT_DATE
+         AND mt.due_date <= CURRENT_DATE + 7
+         AND (mt.property_id IS NULL OR mt.property_id = ANY($1::uuid[]))
+         AND (mt.vehicle_id IS NULL OR mt.vehicle_id = ANY($2::uuid[]))
+       ORDER BY mt.due_date`,
+      [ctx.visiblePropertyIds, visibleVehicleIds]
+    )
+  ])
 
   // Helper to calculate days until
   const daysUntil = (dateStr: string): number => {
@@ -3362,6 +3428,7 @@ export async function getBuildingLinkMessages(
     limit?: number
     offset?: number
     search?: string
+    sinceDate?: string  // ISO date string to filter messages from this date onwards
   }
 ): Promise<BuildingLinkMessage[]> {
   const vendorId = await getBuildingLinkVendorId()
@@ -3378,6 +3445,13 @@ export async function getBuildingLinkMessages(
   `
   const params: (string | number)[] = [vendorId]
   let paramIndex = 2
+
+  // Filter by date if specified (for performance on dashboard)
+  if (options?.sinceDate) {
+    sql += ` AND received_at >= $${paramIndex}::date`
+    params.push(options.sinceDate)
+    paramIndex++
+  }
 
   if (search) {
     sql += ` AND (subject ILIKE $${paramIndex} OR body_snippet ILIKE $${paramIndex})`
@@ -3555,7 +3629,15 @@ export interface NeedsAttentionItems {
 }
 
 export async function getBuildingLinkNeedsAttention(): Promise<NeedsAttentionItems> {
-  const messages = await getBuildingLinkMessages({ limit: 500 })
+  // Only fetch messages from last 14 days (packages) - outages only need 7 days
+  const fourteenDaysAgo = new Date()
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
+  const sinceDate = fourteenDaysAgo.toISOString().split('T')[0]
+
+  const messages = await getBuildingLinkMessages({
+    limit: 150,  // Reduced from 500 - we only need recent messages
+    sinceDate,
+  })
 
   // Get dismissed smart pins (user manually dismissed these)
   const dismissedPins = await query<{ entity_id: string }>(
@@ -4799,4 +4881,15 @@ export async function getUpcomingRenewals(daysAhead: number = 90): Promise<(Prop
      ORDER BY pr.due_date`,
     [ctx.visiblePropertyIds, daysAhead]
   )
+}
+
+// Get weather conditions for dashboard SSR (avoids client-side fetch)
+export async function getWeatherConditions() {
+  try {
+    const { fetchAllWeather } = await import('@/lib/weather')
+    return fetchAllWeather()
+  } catch (error) {
+    console.error('Failed to fetch weather conditions:', error)
+    return []
+  }
 }

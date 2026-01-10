@@ -818,18 +818,11 @@ async function getConfirmedVendorIds(
 }
 
 /**
- * Get upcoming autopay notifications from recent emails.
- * These are emails warning that an automatic payment is about to happen.
- * Only shows payments to known vendors, excludes already-confirmed payments.
- *
- * Optimizations:
- * - Batch vendor lookup at start (fixes N+1)
- * - Batch confirmation checks (fixes N+1)
- * - Deduplication by vendor+amount within 5 days
- * - Default 7-day lookback (covers vendors that notify early)
+ * DEPRECATED: Old function that made AI calls on every page load.
+ * Kept temporarily for reference - will be removed after backfill.
  */
-export async function getUpcomingAutopays(
-  daysBack: number = 7,  // 7 days to catch early notifications without false positives
+async function _getUpcomingAutopaysUncached_DEPRECATED(
+  daysBack: number = 7,
   limit: number = 10
 ): Promise<UpcomingAutopay[]> {
   // Batch load all active vendors upfront (fixes N+1 query)
@@ -970,6 +963,100 @@ export async function getUpcomingAutopays(
       email_snippet: email.body_snippet,
       email_received_at: email.received_at,
       confidence: analysis.confidence
+    })
+
+    if (results.length >= limit) break
+  }
+
+  return results
+}
+
+/**
+ * Get upcoming autopays from pre-analyzed email data.
+ * No AI calls - just queries the is_upcoming_autopay flag set by background analysis.
+ */
+export async function getUpcomingAutopays(
+  daysBack: number = 7,
+  limit: number = 10
+): Promise<UpcomingAutopay[]> {
+  // Query pre-analyzed emails flagged as upcoming autopays
+  const emails = await query<{
+    id: string
+    vendor_id: string | null
+    vendor_name: string | null
+    subject: string | null
+    body_snippet: string | null
+    received_at: string
+    autopay_amount: number | null
+    autopay_date: string | null
+    autopay_confidence: string | null
+  }>(`
+    SELECT
+      vc.id, vc.vendor_id, v.name as vendor_name,
+      vc.subject, vc.body_snippet, vc.received_at,
+      vc.autopay_amount, vc.autopay_date, vc.autopay_confidence
+    FROM vendor_communications vc
+    LEFT JOIN vendors v ON vc.vendor_id = v.id
+    WHERE vc.is_upcoming_autopay = true
+      AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
+      AND vc.autopay_confidence IN ('high', 'medium')
+    ORDER BY vc.received_at DESC
+    LIMIT 50
+  `, [daysBack])
+
+  if (emails.length === 0) {
+    return []
+  }
+
+  // Batch check for confirmed payments
+  const confirmedSet = await getConfirmedVendorIds(
+    emails
+      .filter(e => e.vendor_id)
+      .map(e => ({
+        vendorId: e.vendor_id!,
+        amount: e.autopay_amount,
+        emailReceivedAt: e.received_at
+      }))
+  )
+
+  // Deduplication: track vendor+amount combinations within 5-day windows
+  const seenPayments = new Map<string, { receivedAt: Date; emailId: string }>()
+  const results: UpcomingAutopay[] = []
+
+  for (const email of emails) {
+    if (!email.vendor_id) continue
+
+    // Skip if already confirmed
+    const confirmKey = `${email.vendor_id}:${email.autopay_amount}:${email.received_at}`
+    if (confirmedSet.has(confirmKey)) continue
+
+    // Deduplication: skip if we've seen same vendor+amount within 5 days
+    const dedupKey = `${email.vendor_id}:${email.autopay_amount || 'unknown'}`
+    const existing = seenPayments.get(dedupKey)
+    if (existing) {
+      const daysDiff = Math.abs(
+        (new Date(email.received_at).getTime() - existing.receivedAt.getTime()) / (1000 * 60 * 60 * 24)
+      )
+      if (daysDiff <= 5) {
+        if (new Date(email.received_at) < existing.receivedAt) continue
+        const oldIndex = results.findIndex(r => r.email_id === existing.emailId)
+        if (oldIndex >= 0) results.splice(oldIndex, 1)
+      }
+    }
+    seenPayments.set(dedupKey, { receivedAt: new Date(email.received_at), emailId: email.id })
+
+    results.push({
+      id: email.id,
+      email_id: email.id,
+      vendor_id: email.vendor_id,
+      vendor_name: email.vendor_name || 'Unknown',
+      amount: email.autopay_amount,
+      payment_date: email.autopay_date,
+      description: email.subject || 'Upcoming autopay',
+      email_subject: email.subject || '(no subject)',
+      email_snippet: email.body_snippet,
+      email_received_at: email.received_at,
+      confidence: (email.autopay_confidence as 'high' | 'medium' | 'low') || 'medium'
     })
 
     if (results.length >= limit) break

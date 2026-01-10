@@ -1,5 +1,6 @@
 "use server"
 
+import { cache } from "react"
 import { query } from "./db"
 import { getUser } from "./auth"
 
@@ -26,8 +27,9 @@ export interface VisibilityContext {
 /**
  * Get the visibility context for the current user.
  * Returns list of property IDs the user can access.
+ * Cached per-request to avoid repeated queries during dashboard load.
  */
-export async function getVisibilityContext(): Promise<VisibilityContext | null> {
+export const getVisibilityContext = cache(async (): Promise<VisibilityContext | null> => {
   const user = await getUser()
   if (!user) return null
 
@@ -70,7 +72,7 @@ export async function getVisibilityContext(): Promise<VisibilityContext | null> 
     visiblePropertyIds: visibleProps.map((p) => p.id),
     allPropertyIds,
   }
-}
+})
 
 /**
  * Check if a specific property is visible to the current user.
@@ -98,8 +100,9 @@ export async function canAccessAnyProperty(
  * Vehicles are visible if:
  * - They have no property_id (not linked to any property), OR
  * - Their linked property is visible to the user
+ * Cached per-request to avoid repeated queries during dashboard load.
  */
-export async function getVisibleVehicleIds(): Promise<string[]> {
+export const getVisibleVehicleIds = cache(async (): Promise<string[]> => {
   const ctx = await getVisibilityContext()
   if (!ctx) return []
 
@@ -125,7 +128,7 @@ export async function getVisibleVehicleIds(): Promise<string[]> {
     [ctx.userId]
   )
   return vehicles.map((v) => v.id)
-}
+})
 
 /**
  * Get list of visible vendor IDs for the current user.

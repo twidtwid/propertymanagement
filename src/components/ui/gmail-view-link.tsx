@@ -41,15 +41,17 @@ export function GmailViewLink({ subject, className = "", showLabel = true }: Gma
   const gmailUrl = `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(subject)}`
 
   return (
-    <a
-      href={gmailUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
       className={`flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 flex-shrink-0 ${className}`}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        window.open(gmailUrl, "_blank", "noopener,noreferrer")
+      }}
     >
       <ExternalLink className="h-3 w-3" />
       {showLabel && <span className="hidden sm:inline">View</span>}
-    </a>
+    </button>
   )
 }

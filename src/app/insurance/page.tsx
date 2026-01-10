@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { getInsurancePoliciesFiltered, getExpiringPolicies, getSmartAndUserPins, getPinNotesByEntities, getUserPinNote, getInsuranceCarriers } from "@/lib/actions"
+import { getInsurancePoliciesFiltered, getExpiringPolicies, getSmartAndUserPins, getPinNotesByEntities, getUserPinNotesByEntities, getInsuranceCarriers } from "@/lib/actions"
 import { getUser } from "@/lib/auth"
 import { InsuranceWithPins } from "@/components/insurance/insurance-with-pins"
 
@@ -35,19 +35,11 @@ export default async function InsurancePage({ searchParams }: InsurancePageProps
   // Get all pinned policy IDs
   const allPinnedIds = [...Array.from(pins.smartPins), ...Array.from(pins.userPins)]
 
-  // Load notes for all pinned policies
-  const notesMap = await getPinNotesByEntities('insurance_policy', allPinnedIds)
-
-  // Get user's notes for each pinned policy
-  const userNotesMap = new Map<string, any>()
-  if (user) {
-    for (const policyId of allPinnedIds) {
-      const userNote = await getUserPinNote('insurance_policy', policyId, user.id)
-      if (userNote) {
-        userNotesMap.set(policyId, userNote)
-      }
-    }
-  }
+  // Load notes for all pinned policies (batch queries - no N+1)
+  const [notesMap, userNotesMap] = await Promise.all([
+    getPinNotesByEntities('insurance_policy', allPinnedIds),
+    user ? getUserPinNotesByEntities('insurance_policy', allPinnedIds, user.id) : Promise.resolve(new Map()),
+  ])
 
   return (
     <InsuranceWithPins

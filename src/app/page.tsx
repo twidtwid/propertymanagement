@@ -16,7 +16,7 @@ import {
   getActiveProperties,
   getBuildingLinkNeedsAttention,
   getPinnedIds,
-  getVendorsFiltered,
+  getVendorsByIds,
   getPendingPaymentSuggestions,
   getRecentAutoPayConfirmations,
   getUpcomingAutopays,
@@ -24,22 +24,26 @@ import {
 import { query } from "@/lib/db"
 
 export default async function Dashboard() {
+  // Phase 1: Get pinned vendor IDs first (fast query)
+  const pinnedVendorIds = await getPinnedIds('vendor')
+  const pinnedVendorIdArray = Array.from(pinnedVendorIds)
+
+  // Phase 2: All data fetching in parallel (including pinned vendors)
   const [
     pinnedData,
     upcomingWeek,
     properties,
     buildingLink,
-    pinnedVendorIds,
     paymentSuggestions,
     autoPayConfirmations,
     upcomingAutopays,
     recentEmailsRaw,
+    pinnedVendors,
   ] = await Promise.all([
     getDashboardPinnedItems(),
     getUpcomingWeek(),
     getActiveProperties(),
     getBuildingLinkNeedsAttention(),
-    getPinnedIds('vendor'),
     getPendingPaymentSuggestions(),
     getRecentAutoPayConfirmations(7, 10),
     getUpcomingAutopays(7, 10),
@@ -63,6 +67,7 @@ export default async function Dashboard() {
       ORDER BY vc.received_at DESC
       LIMIT 15
     `),
+    getVendorsByIds(pinnedVendorIdArray),
   ])
 
   // Get email IDs that are already in payment suggestions
@@ -83,13 +88,6 @@ export default async function Dashboard() {
       snippet: e.body_snippet || undefined,
       bodyHtml: e.body_html || undefined,
     }))
-
-  // Get pinned vendors for quick actions
-  const pinnedVendors = pinnedVendorIds.size > 0
-    ? await getVendorsFiltered({ search: '' }).then(vendors =>
-        vendors.filter(v => pinnedVendorIds.has(v.id))
-      )
-    : []
 
   // Transform BuildingLink data for the summary component
   const buildingLinkItems: Array<{ type: "outage" | "package" | "flagged"; subject: string; unit: string; receivedAt: string; snippet?: string }> = [
