@@ -30,6 +30,7 @@ import { EntityDocuments } from "@/components/documents/entity-documents"
 import { PropertyAccessCard } from "@/components/properties/property-access-card"
 import { PropertyNeighborsCard } from "@/components/properties/property-neighbors-card"
 import { PropertyRenewalsCard } from "@/components/properties/property-renewals-card"
+import { AddTaxRecordButton } from "@/components/payments/add-tax-record-button"
 import { getProperty, getPropertyVendors, getSharedTaskListsForProperty, getPropertyTaxHistory, getInsurancePoliciesForProperty, getTicketsForProperty, getPropertyAccess, getTrustedNeighbors, getPropertyRenewals, getVendors } from "@/lib/actions"
 import { getDocumentCountForEntity } from "@/lib/dropbox/files"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -375,9 +376,7 @@ export default async function PropertyDetailPage({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Property Tax History</CardTitle>
-              <Button variant="outline" size="sm">
-                Add Tax Record
-              </Button>
+              <AddTaxRecordButton property={property} />
             </CardHeader>
             <CardContent>
               {taxHistory.length === 0 ? (
