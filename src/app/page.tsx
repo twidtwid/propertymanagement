@@ -9,6 +9,7 @@ import { BuildingLinkSummary } from "@/components/dashboard/buildinglink-summary
 import { EmailInboxSummary } from "@/components/dashboard/email-inbox-summary"
 import { AutoPayConfirmations } from "@/components/dashboard/autopay-confirmations"
 import { UpcomingAutopays } from "@/components/dashboard/upcoming-autopays"
+import { WeatherCard } from "@/components/weather/weather-card"
 import {
   getDashboardPinnedItems,
   getUpcomingWeek,
@@ -158,6 +159,8 @@ export default async function Dashboard() {
         )}
       </div>
 
+      {/* Weather Card - Apple-style current conditions */}
+      <WeatherCard />
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">

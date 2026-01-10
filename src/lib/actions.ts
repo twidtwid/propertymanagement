@@ -906,6 +906,63 @@ export async function syncSmartPinsBuildingLink(): Promise<void> {
 }
 
 /**
+ * Sync smart pins for weather alerts
+ * Auto-pins: moderate/severe/extreme weather alerts affecting properties
+ */
+export async function syncSmartPinsWeather(): Promise<void> {
+  // Get active weather alerts with property info
+  const alerts = await query<{
+    id: string
+    event_type: string
+    headline: string
+    severity: string
+    expires_at: string
+    property_names: string[]
+  }>(`
+    SELECT
+      wa.id,
+      wa.event_type,
+      wa.headline,
+      wa.severity,
+      wa.expires_at::text,
+      ARRAY_AGG(DISTINCT p.name) as property_names
+    FROM weather_alerts wa
+    JOIN property_weather_alerts pwa ON wa.id = pwa.weather_alert_id
+    JOIN properties p ON pwa.property_id = p.id
+    WHERE wa.expires_at > NOW()
+      AND wa.severity IN ('moderate', 'severe', 'extreme')
+    GROUP BY wa.id
+  `)
+
+  // Get currently smart-pinned weather alerts
+  const currentSmartPins = await query<{ entity_id: string }>(
+    `SELECT entity_id FROM pinned_items WHERE entity_type = 'weather_alert' AND is_system_pin = true`
+  )
+  const currentSet = new Set(currentSmartPins.map(p => p.entity_id))
+
+  // Pin active alerts
+  for (const alert of alerts) {
+    await upsertSmartPin({
+      entityType: 'weather_alert',
+      entityId: alert.id,
+      metadata: {
+        title: alert.event_type,
+        headline: alert.headline,
+        severity: alert.severity,
+        expires_at: alert.expires_at,
+        property_names: alert.property_names,
+      },
+    })
+    currentSet.delete(alert.id)
+  }
+
+  // Unpin expired or resolved alerts
+  for (const alertId of Array.from(currentSet)) {
+    await removeSmartPin('weather_alert', alertId)
+  }
+}
+
+/**
  * Sync all smart pins (run daily via cron)
  */
 export async function syncAllSmartPins(): Promise<void> {
@@ -913,6 +970,7 @@ export async function syncAllSmartPins(): Promise<void> {
     syncSmartPinsBills(),
     syncSmartPinsTickets(),
     syncSmartPinsBuildingLink(),
+    syncSmartPinsWeather(),
   ])
 }
 
@@ -956,6 +1014,7 @@ export async function getDashboardPinnedItems(): Promise<{
     property_tax: [],
     insurance_premium: [],
     document: [],
+    weather_alert: [],
   }
   const pinTypeMap = new Map<string, 'smart' | 'user'>()
   const metadataMap = new Map<string, Record<string, any> | null>()
@@ -967,7 +1026,7 @@ export async function getDashboardPinnedItems(): Promise<{
   }
 
   // Fetch entity details in parallel
-  const [bills, taxes, tickets, vendors, insurancePolicies, blMessages] = await Promise.all([
+  const [bills, taxes, tickets, vendors, insurancePolicies, blMessages, weatherAlerts] = await Promise.all([
     // Bills
     byType.bill.length > 0
       ? query<Bill & { property_name: string | null; vendor_name: string | null }>(
@@ -1026,6 +1085,27 @@ export async function getDashboardPinnedItems(): Promise<{
       ? query<VendorCommunication>(
           `SELECT * FROM vendor_communications WHERE id = ANY($1::uuid[])`,
           [byType.buildinglink_message]
+        )
+      : [],
+    // Weather alerts
+    byType.weather_alert.length > 0
+      ? query<{
+          id: string
+          event_type: string
+          headline: string
+          severity: string
+          expires_at: string
+          provider: string
+          property_names: string[]
+        }>(
+          `SELECT wa.id, wa.event_type, wa.headline, wa.severity, wa.expires_at::text, wa.provider,
+                  ARRAY_AGG(DISTINCT p.name) as property_names
+           FROM weather_alerts wa
+           LEFT JOIN property_weather_alerts pwa ON wa.id = pwa.weather_alert_id
+           LEFT JOIN properties p ON pwa.property_id = p.id
+           WHERE wa.id = ANY($1::uuid[])
+           GROUP BY wa.id`,
+          [byType.weather_alert]
         )
       : [],
   ])
@@ -1253,6 +1333,47 @@ export async function getDashboardPinnedItems(): Promise<{
       icon: 'document',
       notes: notesMap.get(pin.entity_id) || [],
       metadata,
+    })
+  }
+
+  // Process weather alerts
+  for (const alert of weatherAlerts) {
+    const key = `weather_alert:${alert.id}`
+    const pinType = pinTypeMap.get(key) || 'smart'
+
+    // Weather alerts are always urgent (severe) or normal (moderate)
+    const status: DashboardPinStatus = ['severe', 'extreme'].includes(alert.severity) ? 'urgent' : 'upcoming'
+    if (status === 'urgent') urgentCount++
+
+    // Get emoji based on event type
+    const eventLower = alert.event_type.toLowerCase()
+    let emoji = '⚠️'
+    if (eventLower.includes('winter') || eventLower.includes('snow') || eventLower.includes('ice') || eventLower.includes('blizzard')) emoji = '❄️'
+    else if (eventLower.includes('flood')) emoji = '🌊'
+    else if (eventLower.includes('wind') || eventLower.includes('tornado')) emoji = '💨'
+    else if (eventLower.includes('hurricane') || eventLower.includes('tropical')) emoji = '🌀'
+    else if (eventLower.includes('heat')) emoji = '🌡️'
+    else if (eventLower.includes('thunder') || eventLower.includes('storm')) emoji = '⛈️'
+
+    const propertyStr = alert.property_names?.length > 0
+      ? alert.property_names.filter(Boolean).join(', ')
+      : null
+
+    items.push({
+      id: alert.id,
+      entityType: 'weather_alert',
+      entityId: alert.id,
+      pinType,
+      title: `${emoji} ${alert.event_type}`,
+      subtitle: propertyStr,
+      amount: null,
+      dueDate: alert.expires_at,
+      daysUntilOrOverdue: null, // Weather alerts use expires_at differently
+      status,
+      href: `/`,
+      icon: 'building', // Will be overridden by title emoji
+      notes: notesMap.get(alert.id) || [],
+      metadata: metadataMap.get(key) ?? null,
     })
   }
 

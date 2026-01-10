@@ -23,7 +23,11 @@ export type VendorSpecialty =
   | 'shoveling' | 'plowing' | 'mowing' | 'attorney' | 'window_washing' | 'other'
 export type Season = 'winter' | 'spring' | 'summer' | 'fall' | 'annual'
 export type AlertSeverity = 'info' | 'warning' | 'critical'
-export type PinnedEntityType = 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message' | 'property_tax' | 'insurance_premium' | 'document'
+export type PinnedEntityType = 'vendor' | 'bill' | 'insurance_policy' | 'ticket' | 'buildinglink_message' | 'property_tax' | 'insurance_premium' | 'document' | 'weather_alert'
+
+// Weather alert types
+export type WeatherProvider = 'nws' | 'meteo_france'
+export type WeatherSeverity = 'minor' | 'moderate' | 'severe' | 'extreme'
 export type PaymentSuggestionStatus = 'pending_review' | 'imported' | 'dismissed'
 export type PaymentSuggestionConfidence = 'high' | 'medium' | 'low'
 
@@ -407,6 +411,49 @@ export interface Alert {
   is_read: boolean
   is_dismissed: boolean
   created_at: string
+}
+
+// Weather zone configuration
+export interface WeatherZone {
+  id: string
+  property_id: string
+  provider: WeatherProvider
+  zone_code: string
+  zone_name: string | null
+  is_active: boolean
+  created_at: string
+  // Joined fields
+  property?: Property
+}
+
+// Weather alert from NWS or Météo-France
+export interface WeatherAlert {
+  id: string
+  external_id: string
+  provider: WeatherProvider
+  zone_code: string
+  event_type: string
+  severity: WeatherSeverity
+  urgency: string | null
+  headline: string
+  description: string | null
+  instruction: string | null
+  effective_at: string
+  expires_at: string
+  notified_at: string | null
+  status_change_notified_at: string | null
+  created_at: string
+}
+
+// Link between property and weather alert
+export interface PropertyWeatherAlert {
+  id: string
+  property_id: string
+  weather_alert_id: string
+  created_at: string
+  // Joined fields
+  property?: Property
+  weather_alert?: WeatherAlert
 }
 
 export interface SharedTaskList {
