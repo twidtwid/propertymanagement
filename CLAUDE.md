@@ -30,6 +30,7 @@ Production: spmsystem.com (143.110.229.185)
 | Data writes | `src/lib/mutations.ts` | Server actions (mutations) |
 | Migrations | `scripts/migrations/` | Numbered SQL files |
 | Integrations | `src/lib/{dropbox,gmail,taxes}/` | External service clients |
+| Weather | `src/lib/weather/` | NWS + Météo-France alert clients, wttr.in conditions |
 
 ## Skills (Commands)
 
@@ -49,6 +50,7 @@ Production: spmsystem.com (143.110.229.185)
 | Schedule | Endpoint | Purpose |
 |----------|----------|---------|
 | */15 * | `/api/cron/dropbox-sync` | Sync Dropbox files |
+| */30 * | `/api/cron/weather-sync` | Check NWS + Météo-France for severe weather alerts |
 | 0 * | `/api/cron/refresh-dropbox-token` | Keep OAuth token fresh |
 | 0 3 | `run-backup.sh` | Database backup |
 | 0 4 | docker prune | Clean images |
@@ -110,6 +112,7 @@ SELECT b.*, p.name FROM bills b LEFT JOIN properties p ON b.property_id = p.id
 - **Smart pins:** Auto-pin bills due <7 days, overdue items, high-priority tickets
 - **Property visibility:** Whitelist in `property_visibility` table (default: all owners see all)
 - **Dropbox shared folder:** namespace_id `13490620643` for "Property Management" folder
+- **Weather alerts:** NWS (US) + Météo-France (Paris/Martinique), Pushover notifications to Anne & Todd
 
 ## Modular Rules
 
