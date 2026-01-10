@@ -156,12 +156,12 @@ export function WeatherCard({ initialData }: WeatherCardProps) {
         <CardContent className="p-0">
           {/* Header - clickable to collapse */}
           <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between px-4 pt-3 pb-2 cursor-pointer hover:bg-sky-100/50 transition-colors">
-              <div className="flex items-center gap-2 text-sky-700">
-                <Cloud className="h-4 w-4" />
-                <span className="text-sm font-medium">Weather</span>
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 cursor-pointer hover:bg-sky-100/50 transition-colors gap-2">
+              <div className="flex items-center gap-2 text-sky-700 min-w-0 flex-1">
+                <Cloud className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm font-medium flex-shrink-0">Weather</span>
                   {!isOpen && weather.length > 0 && mounted && (
-                    <span className="text-xs text-sky-600/70 ml-2 tracking-wide">
+                    <span className="text-xs text-sky-600/70 ml-1 overflow-x-auto whitespace-nowrap scrollbar-hide flex-1 min-w-0">
                       {weather.map((w, i) => {
                         const abbrev = LOCATION_ABBREV[w.location] || w.location
                         const hasAlert = ALERT_LOCATIONS.has(w.location)
@@ -182,16 +182,16 @@ export function WeatherCard({ initialData }: WeatherCardProps) {
                         return (
                           <span key={w.location} className="inline-flex items-center">
                             {hasAlert ? <AlertBadge location={w.location}>{locationContent}</AlertBadge> : locationContent}
-                            {i < weather.length - 1 && <span className="mx-1.5 text-sky-300">·</span>}
+                            {i < weather.length - 1 && <span className="mx-1 text-sky-300">·</span>}
                           </span>
                         )
                       })}
                     </span>
                   )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {mounted && lastUpdated && (
-                  <span className="text-xs text-sky-600/70" suppressHydrationWarning>
+                  <span className="text-xs text-sky-600/70 hidden sm:block" suppressHydrationWarning>
                     {formatLastUpdated()}
                   </span>
                 )}
