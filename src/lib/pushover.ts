@@ -97,24 +97,42 @@ export async function notifyTodd(
 }
 
 /**
- * Send notification to both Anne and Todd.
+ * Send notification to Amelia.
+ */
+export async function notifyAmelia(
+  message: string,
+  options: NotifyOptions = {}
+): Promise<{ success: boolean; error?: string }> {
+  const userKey = process.env.PUSHOVER_USER_AMELIA
+  if (!userKey) {
+    console.warn("[Pushover] PUSHOVER_USER_AMELIA not configured")
+    return { success: false, error: "PUSHOVER_USER_AMELIA not configured" }
+  }
+  return sendToUser(userKey, message, options)
+}
+
+/**
+ * Send notification to Anne, Todd, and Amelia.
  */
 export async function notifyAll(
   message: string,
   options: NotifyOptions = {}
-): Promise<{ anne: boolean; todd: boolean; errors: string[] }> {
+): Promise<{ anne: boolean; todd: boolean; amelia: boolean; errors: string[] }> {
   const results = await Promise.all([
     notifyAnne(message, options),
     notifyTodd(message, options),
+    notifyAmelia(message, options),
   ])
 
   const errors: string[] = []
   if (!results[0].success && results[0].error) errors.push(`Anne: ${results[0].error}`)
   if (!results[1].success && results[1].error) errors.push(`Todd: ${results[1].error}`)
+  if (!results[2].success && results[2].error) errors.push(`Amelia: ${results[2].error}`)
 
   return {
     anne: results[0].success,
     todd: results[1].success,
+    amelia: results[2].success,
     errors,
   }
 }
@@ -125,6 +143,6 @@ export async function notifyAll(
 export async function notifyUrgent(
   message: string,
   title: string = "URGENT"
-): Promise<{ anne: boolean; todd: boolean; errors: string[] }> {
+): Promise<{ anne: boolean; todd: boolean; amelia: boolean; errors: string[] }> {
   return notifyAll(message, { title, priority: 1, sound: "siren" })
 }
