@@ -78,7 +78,7 @@ export function SmartPinsSettings() {
             <li>BuildingLink messages requiring action</li>
           </ul>
           <p className="text-sm text-muted-foreground mt-2">
-            You can dismiss smart pins by clicking the orange star. They won't reappear unless conditions change.
+            You can dismiss smart pins by clicking the orange star. They won&apos;t reappear unless conditions change.
           </p>
         </div>
 
@@ -86,7 +86,7 @@ export function SmartPinsSettings() {
           <h4 className="text-sm font-medium mb-3">Reset Smart Pins</h4>
           <p className="text-sm text-muted-foreground mb-4">
             Use this to restore all dismissed smart pins and re-sync based on current system state.
-            This is useful if you've dismissed something and want to see it again.
+            This is useful if you&apos;ve dismissed something and want to see it again.
           </p>
 
           <AlertDialog>
@@ -102,7 +102,7 @@ export function SmartPinsSettings() {
                 <AlertDialogDescription>
                   This will:
                   <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>Clear all dismissed smart pins (you'll see them again)</li>
+                    <li>Clear all dismissed smart pins (you&apos;ll see them again)</li>
                     <li>Re-sync smart pins based on current system state</li>
                     <li>Not affect user pins (yellow stars)</li>
                   </ul>

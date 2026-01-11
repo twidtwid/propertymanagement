@@ -236,7 +236,7 @@ export function UnifiedPinnedItems({ items: initialItems }: UnifiedPinnedItemsPr
                         key={note.id}
                         className="text-xs text-muted-foreground italic line-clamp-2 sm:line-clamp-1"
                       >
-                        "{note.note}" — {note.user_name}
+                        &ldquo;{note.note}&rdquo; — {note.user_name}
                       </p>
                     ))}
                     {item.notes.length > 2 && (

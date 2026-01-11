@@ -291,7 +291,7 @@ export function FileBrowser({ initialPath = "" }: FileBrowserProps) {
 
         {isSearching && (
           <p className="text-sm text-muted-foreground mt-2">
-            Search results for "{searchQuery}"
+            Search results for &ldquo;{searchQuery}&rdquo;
           </p>
         )}
       </CardHeader>

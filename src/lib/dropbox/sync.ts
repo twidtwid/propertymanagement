@@ -127,7 +127,6 @@ async function downloadFile(dbx: Dropbox, path: string): Promise<Buffer | null> 
 async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
     // pdf-parse has ESM/CJS issues, use require for consistency
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParse = require("pdf-parse")
     const data = await pdfParse(buffer)
     return data.text.slice(0, MAX_TEXT_LENGTH)
