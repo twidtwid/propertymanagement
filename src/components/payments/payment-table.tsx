@@ -279,7 +279,7 @@ export function PaymentTable({ payments, pinnedIds, onTogglePin, userNotesMap, o
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <span>{formatDate(payment.due_date)}</span>
+                  <span suppressHydrationWarning>{formatDate(payment.due_date)}</span>
                   {payment.is_overdue && (
                     <Badge variant="destructive" className="text-xs">
                       Overdue

@@ -289,7 +289,7 @@ export function TaxTable({ taxes, sortBy, sortOrder }: TaxTableProps) {
               <TableCell>
                 <Link href={`/payments/taxes/${tax.id}`} className="hover:underline">
                   <div className="flex items-center gap-2">
-                    <span>{formatDate(tax.due_date)}</span>
+                    <span suppressHydrationWarning>{formatDate(tax.due_date)}</span>
                     {isOverdue && (
                       <Badge variant="destructive" className="text-xs">
                         Overdue

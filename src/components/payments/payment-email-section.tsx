@@ -92,7 +92,7 @@ export function PaymentEmailSection({ emails, className }: PaymentEmailSectionPr
                   <div className="flex items-center gap-2 min-w-0">
                     {getLinkTypeIcon(email.link_type)}
                     {getLinkTypeBadge(email.link_type)}
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground" suppressHydrationWarning>
                       {formatDate(email.email_received_at)}
                     </span>
                   </div>
@@ -135,7 +135,7 @@ export function PaymentEmailSection({ emails, className }: PaymentEmailSectionPr
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               {selectedEmail && getLinkTypeBadge(selectedEmail.link_type)}
               <span>From: {selectedEmail?.vendor_name || "Unknown"}</span>
-              <span>{selectedEmail && formatDate(selectedEmail.email_received_at)}</span>
+              <span suppressHydrationWarning>{selectedEmail && formatDate(selectedEmail.email_received_at)}</span>
             </div>
             <div className="border rounded-lg p-4 bg-muted/30">
               {selectedEmail?.email_body_html ? (

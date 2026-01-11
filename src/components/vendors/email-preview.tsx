@@ -27,7 +27,7 @@ export function EmailPreview({ communication }: EmailPreviewProps) {
           </div>
           <div className="flex">
             <span className="w-20 text-muted-foreground">Date:</span>
-            <span>{formatDateTime(communication.received_at)}</span>
+            <span suppressHydrationWarning>{formatDateTime(communication.received_at)}</span>
           </div>
           <div className="flex">
             <span className="w-20 text-muted-foreground">Subject:</span>
