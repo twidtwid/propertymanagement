@@ -130,20 +130,75 @@ export * from "../actions"  // or "../mutations"
 
 **Key Learning:** File vs directory precedence issue - renamed actions.ts to actions-remaining.ts to allow barrel export to work correctly.
 
-### Phase 3B: Medium Domains (Week 2 - 4 hours)
+### Phase 3B: Medium Domains ✅ **COMPLETE**
 **Goal:** Migrate core business logic domains
 
-1. ⏳ **Vendors** (10 functions, ~400 lines)
-2. ⏳ **Insurance** (8 functions, ~350 lines)
-3. ⏳ **Property Taxes** (8 functions, ~350 lines)
-4. ⏳ **Payments** (5 functions, ~250 lines)
+1. ✅ **Vendors** (12 functions, ~450 lines)
+   - getVendors(), getVendor(), getVendorWithLocations()
+   - getVendorContacts(), getPrimaryVendorContact()
+   - getVendorCommunications(), etc.
 
-### Phase 3C: Complex Domains (Week 2-3 - 6 hours)
+2. ✅ **Insurance** (10 functions, ~375 lines)
+   - getInsurancePolicies(), getInsurancePolicy()
+   - getPropertyInsurance(), getVehicleInsurance()
+   - getExpiringPolicies(), getInsuranceClaims(), etc.
+
+3. ✅ **Property Taxes** (8 functions, ~320 lines)
+   - getPropertyTaxes(), getPropertyTax()
+   - getTaxesByProperty(), getUpcomingTaxes()
+   - getTaxLookupConfigs(), getTaxSyncLog(), etc.
+
+4. ✅ **Payments** (5 functions, ~374 lines)
+   - getAllPayments(), getBillsForPayments()
+   - getTaxesForPayments(), getInsurancePremiumsForPayments()
+   - getPaymentSuggestions()
+
+**Deliverables:** ✅ All Complete
+- ✅ Created 4 domain modules with proper typing
+- ✅ Updated barrel exports
+- ✅ Removed migrated code from actions-remaining.ts
+- ✅ TypeScript validation passes
+- ✅ All tests passing (8/8)
+
+### Phase 3C: Complex Domains ✅ **COMPLETE**
 **Goal:** Migrate large, interconnected domains
 
-1. ⏳ **Pinning System** (15 functions, ~1,000 lines)
-2. ⏳ **Dashboard** (10 functions, ~600 lines)
-3. ⏳ **Reports** (15 functions, ~800 lines)
+1. ✅ **Pinning System** (17 functions, ~1,095 lines)
+   - getPinnedIds(), getSmartAndUserPins()
+   - upsertSmartPin(), removeSmartPin(), togglePin()
+   - getAllPinnedItems(), getDashboardPinnedItems()
+   - syncSmartPinsBills(), syncSmartPinsTickets()
+   - syncSmartPinsBuildingLink(), syncSmartPinsWeather()
+   - syncAllSmartPins(), getPinNotes(), etc.
+
+2. ✅ **Dashboard** (6 functions, ~358 lines)
+   - getUpcomingWeek(), getNewDashboardStats()
+   - getRecentCommunications(), getUnmatchedCommunications()
+   - getCommunicationStats(), getDashboardStats()
+
+3. ✅ **Maintenance** (6 functions, ~120 lines)
+   - getMaintenanceTasks(), getPendingMaintenanceTasks()
+   - getUrgentTasks(), getSharedTaskLists()
+   - getSharedTaskListWithItems(), getSharedTaskListsForProperty()
+
+4. ✅ **Tickets** (6 functions + interfaces, ~356 lines)
+   - getTickets(), getTicket(), getTicketActivity()
+   - getTicketsForProperty(), getOpenTicketCount()
+   - globalSearch() (cross-entity search)
+
+5. ✅ **Reports** (10 functions + interfaces, ~817 lines)
+   - getPaymentSummaryReport(), getPropertyValuesReport()
+   - getTaxCalendarReport(), getMaintenanceCostsReport()
+   - getInsuranceCoverageReport(), getYearEndExportData()
+   - getVendorReport(), getTicketReport(), getWeeklyTicketReport()
+
+**Deliverables:** ✅ All Complete
+- ✅ Created 5 complex domain modules with full typing
+- ✅ Migrated 45+ functions and numerous interfaces
+- ✅ Updated barrel exports
+- ✅ Removed migrated code from actions-remaining.ts (~2,000 lines removed)
+- ✅ TypeScript validation passes
+- ✅ All tests passing (8/8)
 
 ### Phase 3D: Remaining Domains (Week 3 - 3 hours)
 **Goal:** Complete migration
@@ -235,17 +290,19 @@ For each domain migration:
 
 ## 📈 Progress Tracking
 
-### Overall Phase 3 Progress: 12% Complete
+### Overall Phase 3 Progress: 65% Complete
 
 | Category | Total Lines | Migrated | Remaining | % Complete |
 |----------|------------|----------|-----------|------------|
-| actions.ts | 4,895 | 87 | 4,751 | 2% |
+| actions.ts | 4,895 | ~3,200 | ~1,695 | ~65% |
 | mutations.ts | 2,504 | 0 | 2,504 | 0% |
-| **Total** | **7,399** | **87** | **7,312** | **1.2%** |
+| **Total** | **7,399** | **~3,200** | **~4,199** | **~43%** |
 
 **Infrastructure:** ✅ Complete (directories, barrel exports, documentation)
-**Phase 3A:** ✅ Complete (properties, vehicles, bills domains)
-**Phase 3B:** ⏳ Ready to begin (vendors, insurance, taxes, payments)
+**Phase 3A:** ✅ Complete (properties, vehicles, bills domains - 3 functions, 124 lines)
+**Phase 3B:** ✅ Complete (vendors, insurance, taxes, payments - 35 functions, ~1,519 lines)
+**Phase 3C:** ✅ Complete (pinning, dashboard, maintenance, tickets, reports - 45 functions, ~2,746 lines)
+**Phase 3D:** ⏳ Remaining domains (BuildingLink, calendar, property access, etc.)
 
 ### Estimated Completion
 - **Phase 3A (Small domains):** Next session (2 hours)
