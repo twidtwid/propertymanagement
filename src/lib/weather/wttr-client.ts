@@ -111,6 +111,7 @@ interface WttrResponse {
  * Fetch weather for a single location from wttr.in
  */
 export async function fetchWeather(location: WttrLocation): Promise<WeatherCondition | null> {
+  const startTime = Date.now()
   try {
     const url = `https://wttr.in/${encodeURIComponent(location.query)}?format=j1`
     const response = await fetch(url, {
@@ -122,7 +123,7 @@ export async function fetchWeather(location: WttrLocation): Promise<WeatherCondi
     })
 
     if (!response.ok) {
-      console.warn(`wttr.in returned ${response.status} for ${location.query}`)
+      console.warn(`[Weather] wttr.in returned ${response.status} for ${location.displayName} (${location.query}) in ${Date.now() - startTime}ms`)
       return null
     }
 
@@ -130,8 +131,15 @@ export async function fetchWeather(location: WttrLocation): Promise<WeatherCondi
     const current = data.current_condition[0]
     const today = data.weather[0]
 
+    if (!current || !today) {
+      console.warn(`[Weather] Invalid response for ${location.displayName}: missing current_condition or weather`)
+      return null
+    }
+
     const description = current.weatherDesc[0]?.value || 'Unknown'
     const emoji = getWeatherEmoji(current.weatherCode, description)
+
+    console.log(`[Weather] ✓ ${location.displayName}: ${current.temp_F}°F (${Date.now() - startTime}ms)`)
 
     return {
       location: location.name,
@@ -152,7 +160,9 @@ export async function fetchWeather(location: WttrLocation): Promise<WeatherCondi
       timezone: location.timezone,
     }
   } catch (error) {
-    console.error(`Failed to fetch weather for ${location.query}:`, error)
+    const elapsed = Date.now() - startTime
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error(`[Weather] ✗ ${location.displayName} failed after ${elapsed}ms: ${errorMsg}`)
     return null
   }
 }
@@ -187,8 +197,11 @@ function simplifyDescription(desc: string): string {
  * Fetch weather for all locations
  */
 export async function fetchAllWeather(): Promise<WeatherCondition[]> {
+  console.log(`[Weather] Fetching ${WEATHER_LOCATIONS.length} locations...`)
   const results = await Promise.all(
     WEATHER_LOCATIONS.map(loc => fetchWeather(loc))
   )
-  return results.filter((r): r is WeatherCondition => r !== null)
+  const validResults = results.filter((r): r is WeatherCondition => r !== null)
+  console.log(`[Weather] Completed: ${validResults.length}/${WEATHER_LOCATIONS.length} locations (${validResults.map(r => r.displayName).join(', ')})`)
+  return validResults
 }
