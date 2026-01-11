@@ -1,0 +1,15 @@
+echo "Running pre-commit checks..."
+
+# TypeScript type checking
+echo "→ TypeScript validation..."
+npx tsc --noEmit || exit 1
+
+# Run tests
+echo "→ Running tests..."
+npm run test:run || exit 1
+
+# Lint (non-blocking for now - TODO: fix existing lint errors)
+echo "→ Running lint (warnings only)..."
+npm run lint || echo "⚠️  Lint errors found but not blocking commit"
+
+echo "✓ Pre-commit checks complete!"
