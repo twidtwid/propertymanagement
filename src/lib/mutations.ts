@@ -184,40 +184,6 @@ export async function updateProperty(id: string, formData: unknown): Promise<Act
   }
 }
 
-export async function deleteProperty(id: string): Promise<ActionResult> {
-  const log = getLogger("mutations.property")
-
-  // Authorization check
-  const hasAccess = await canAccessProperty(id)
-  if (!hasAccess) {
-    log.warn("Property delete access denied", { propertyId: id })
-    return { success: false, error: "Access denied" }
-  }
-
-  try {
-    // Get property details for audit before deletion
-    const property = await queryOne<Property>("SELECT * FROM properties WHERE id = $1", [id])
-
-    await query("DELETE FROM properties WHERE id = $1", [id])
-
-    if (property) {
-      await audit({
-        action: "delete",
-        entityType: "property",
-        entityId: id,
-        entityName: property.name,
-        metadata: { address: property.address, city: property.city },
-      })
-    }
-
-    revalidatePath("/properties")
-    log.info("Property deleted", { propertyId: id, name: property?.name })
-    return { success: true, data: undefined }
-  } catch (error) {
-    log.error("Failed to delete property", { propertyId: id, error: error instanceof Error ? error.message : "Unknown" })
-    return { success: false, error: "Failed to delete property" }
-  }
-}
 
 // ============================================
 // Vendors
@@ -617,38 +583,6 @@ export async function updateVehicle(id: string, formData: unknown): Promise<Acti
   }
 }
 
-export async function deleteVehicle(id: string): Promise<ActionResult> {
-  const log = getLogger("mutations.vehicle")
-
-  // Authorization check
-  const hasAccess = await canAccessVehicle(id)
-  if (!hasAccess) {
-    log.warn("Vehicle delete access denied", { vehicleId: id })
-    return { success: false, error: "Access denied" }
-  }
-
-  try {
-    const vehicle = await queryOne<Vehicle>("SELECT * FROM vehicles WHERE id = $1", [id])
-
-    await query("DELETE FROM vehicles WHERE id = $1", [id])
-
-    if (vehicle) {
-      await audit({
-        action: "delete",
-        entityType: "vehicle",
-        entityId: id,
-        entityName: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-      })
-    }
-
-    revalidatePath("/vehicles")
-    log.info("Vehicle deleted", { vehicleId: id })
-    return { success: true, data: undefined }
-  } catch (error) {
-    log.error("Failed to delete vehicle", { vehicleId: id, error: error instanceof Error ? error.message : "Unknown" })
-    return { success: false, error: "Failed to delete vehicle" }
-  }
-}
 
 // ============================================
 // Bills
@@ -950,32 +884,6 @@ export async function confirmPropertyTaxPayment(id: string, notes?: string): Pro
   }
 }
 
-export async function deleteBill(id: string): Promise<ActionResult> {
-  const log = getLogger("mutations.bill")
-  try {
-    // Get bill details for audit before deletion
-    const bill = await queryOne<Bill>("SELECT * FROM bills WHERE id = $1", [id])
-
-    await query("DELETE FROM bills WHERE id = $1", [id])
-
-    if (bill) {
-      await audit({
-        action: "delete",
-        entityType: "bill",
-        entityId: id,
-        entityName: bill.description || `Bill ${id}`,
-        metadata: { amount: bill.amount, dueDate: bill.due_date },
-      })
-    }
-
-    revalidatePath("/payments")
-    log.info("Bill deleted", { billId: id })
-    return { success: true, data: undefined }
-  } catch (error) {
-    log.error("Failed to delete bill", { billId: id, error: error instanceof Error ? error.message : "Unknown" })
-    return { success: false, error: "Failed to delete bill" }
-  }
-}
 
 // ============================================
 // Property Taxes

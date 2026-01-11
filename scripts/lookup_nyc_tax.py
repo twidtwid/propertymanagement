@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run python
 """
 NYC Property Tax Lookup via Property Information Portal
 

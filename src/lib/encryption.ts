@@ -61,11 +61,3 @@ export function decryptToken(encryptedBase64: string): string {
 
   return decrypted.toString("utf8")
 }
-
-/**
- * Generate a new random encryption key.
- * Use this to generate a TOKEN_ENCRYPTION_KEY for .env
- */
-export function generateEncryptionKey(): string {
-  return randomBytes(32).toString("hex")
-}

@@ -1,0 +1,14 @@
+[project]
+name = "propertymanagement-scripts"
+version = "0.8.17"
+description = "Property management Python utilities"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.42.0",
+    "playwright>=1.48.0",
+    "pymupdf>=1.25.1",
+    "psycopg2-binary>=2.9.10",
+]
+
+[dependency-groups]
+dev = []

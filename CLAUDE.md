@@ -56,6 +56,30 @@ docker compose exec app npm run build     # Types check?
 curl -s https://spmsystem.com/api/health | jq .version
 ```
 
+## Python Scripts
+
+**IMPORTANT:** Use `uv run` for all Python scripts, never use system Python.
+
+Python environment managed by uv (see `pyproject.toml`):
+- anthropic (Claude API)
+- playwright (browser automation)
+- pymupdf (PDF processing)
+- psycopg2-binary (PostgreSQL)
+
+```bash
+# Run any Python script with uv
+uv run python scripts/sync_all_taxes.py
+uv run python scripts/analyze-vendors-ai.py
+
+# Sync dependencies if pyproject.toml changes
+uv sync
+
+# Install playwright browsers (one-time)
+uv run playwright install chromium
+```
+
+**Never use:** `python3 scripts/...` or `./scripts/...` directly — always prefix with `uv run python`.
+
 ## Code Patterns
 
 **Server Components by default** — Only add `"use client"` when needed

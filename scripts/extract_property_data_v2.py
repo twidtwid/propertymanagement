@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run python
 """
 Extract property-related data from PDF files - Version 2
 More targeted extraction with cleaner results.

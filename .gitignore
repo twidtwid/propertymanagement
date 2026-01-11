@@ -25,6 +25,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env*.backup*
 
 # vercel
 .vercel
@@ -35,3 +36,4 @@ next-env.d.ts
 
 # database backups (too large for git)
 /backups/
+.venv

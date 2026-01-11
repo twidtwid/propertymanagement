@@ -131,26 +131,6 @@ export async function getVendorContacts(vendorId: string): Promise<VendorContact
   )
 }
 
-export async function getActiveVendors(): Promise<Vendor[]> {
-  const visibleIds = await getVisibleVendorIds()
-  if (visibleIds.length === 0) return []
-
-  return query<Vendor>(
-    `SELECT * FROM vendors WHERE is_active = TRUE AND id = ANY($1::uuid[]) ORDER BY name`,
-    [visibleIds]
-  )
-}
-
-export async function getVendorsBySpecialty(specialty: string): Promise<Vendor[]> {
-  const visibleIds = await getVisibleVendorIds()
-  if (visibleIds.length === 0) return []
-
-  return query<Vendor>(
-    `SELECT * FROM vendors WHERE $1 = ANY(specialties) AND is_active = TRUE AND id = ANY($2::uuid[]) ORDER BY rating DESC NULLS LAST, name`,
-    [specialty, visibleIds]
-  )
-}
-
 // Vendor with associated properties for location display
 export interface VendorWithLocations extends Vendor {
   locations: string[]
@@ -321,43 +301,6 @@ export async function getEmailById(emailId: string): Promise<VendorCommunication
     [emailId]
   )
   return results[0] || null
-}
-
-// Get user's starred vendor IDs
-export async function getStarredVendorIds(userId: string): Promise<Set<string>> {
-  const stars = await query<{ vendor_id: string }>(
-    `SELECT vendor_id FROM user_starred_vendors WHERE user_id = $1`,
-    [userId]
-  )
-  return new Set(stars.map(s => s.vendor_id))
-}
-
-// Toggle star on a vendor for a user
-export async function toggleVendorStar(
-  vendorId: string,
-  userId: string
-): Promise<boolean> {
-  // Check if already starred
-  const existing = await queryOne<{ id: string }>(
-    `SELECT id FROM user_starred_vendors WHERE vendor_id = $1 AND user_id = $2`,
-    [vendorId, userId]
-  )
-
-  if (existing) {
-    // Unstar
-    await query(
-      `DELETE FROM user_starred_vendors WHERE vendor_id = $1 AND user_id = $2`,
-      [vendorId, userId]
-    )
-    return false
-  } else {
-    // Star
-    await query(
-      `INSERT INTO user_starred_vendors (vendor_id, user_id) VALUES ($1, $2)`,
-      [vendorId, userId]
-    )
-    return true
-  }
 }
 
 // ============================================================================

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run python
 """
 Providence RI Property Tax Lookup via City Hall Systems
 

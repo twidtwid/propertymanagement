@@ -5,6 +5,8 @@ const nextConfig = {
   experimental: {
     // Turbopack for faster dev server (experimental)
     turbo: {},
+    // Enable instrumentation hook for startup validation
+    instrumentationHook: true,
   },
 }
 

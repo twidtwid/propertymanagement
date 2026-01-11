@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run python
 """
 Search Gmail for specific vendor names and A/V-related terms.
 """

@@ -559,18 +559,3 @@ export async function formatSummaryAsHtml(summary: DailySummaryData): Promise<st
 
   return html
 }
-
-// Generate dynamic subject line based on summary data
-export async function generateSubjectLine(summary: DailySummaryData): Promise<string> {
-  if (summary.overdueItems.length > 0 || summary.urgentItems.length > 0) {
-    const parts: string[] = []
-    if (summary.overdueItems.length > 0) {
-      parts.push(`${summary.overdueItems.length} overdue`)
-    }
-    if (summary.urgentItems.length > 0) {
-      parts.push(`${summary.urgentItems.length} due soon`)
-    }
-    return `⚠️ ${parts.join(', ')} - SPM Daily`
-  }
-  return `✅ All clear - SPM Daily Summary`
-}

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run python
 """
 Analyze unmatched email senders using Claude to identify potential property management vendors.
 """

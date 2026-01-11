@@ -132,14 +132,3 @@ export function isSameDateStr(date1: string, date2: string): boolean {
 }
 
 export const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-export const WEEKDAY_NAMES_FULL = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-]
-
-export const HOURS = Array.from({ length: 24 }, (_, i) => i)
