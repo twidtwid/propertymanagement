@@ -53,7 +53,7 @@ await closeTicket(id)
 await syncSmartPinsTickets()  // removes from smart pins
 ```
 
-**Also runs:** Hourly cron `/api/cron/sync-smart-pins`
+**Background sync:** Unified worker (`app-worker-1`) runs sync every 60 minutes via `/api/cron/sync-smart-pins`
 
 ## User Workflows
 

@@ -94,6 +94,95 @@ SELECT b.*, p.name FROM bills b LEFT JOIN properties p ON b.property_id = p.id
 **Feature implementation order:**
 1. Migration → 2. Types → 3. Zod → 4. Actions/Mutations → 5. `/build` → 6. `/test` → 7. `/deploy`
 
+## Operational Best Practices
+
+### Worker Patterns
+
+**Unified worker consolidation:**
+- Combine multiple cron-style workers into single service with loop-based scheduling
+- Use JSON state file for persistence (`.worker-state.json`)
+- Update `health_check_state` table after each task run
+- Implement graceful shutdown (SIGTERM/SIGINT handlers)
+
+**Environment variables:**
+- Always set `APP_HOST=app` explicitly in production (never rely on localhost default)
+- Set `APP_PORT=3000` explicitly
+- Use `TZ=America/New_York` for consistent timezone handling
+
+**Health monitoring:**
+```typescript
+await pool.query(`
+  INSERT INTO health_check_state (check_name, status, last_checked_at)
+  VALUES ($1, $2, NOW())
+  ON CONFLICT (check_name) DO UPDATE SET status = $2, last_checked_at = NOW()
+`, [taskName, 'ok']);
+```
+
+### Deployment Patterns
+
+**Post-deploy verification:**
+```bash
+# 1. Deploy
+./scripts/fast-deploy.sh
+
+# 2. Wait for services to stabilize (30s minimum)
+sleep 30
+
+# 3. Verify health endpoint
+curl -s https://spmsystem.com/api/health | jq '.checks.workers'
+
+# 4. Check worker logs if issues
+ssh root@143.110.229.185 "docker logs app-worker-1 --tail 50"
+```
+
+**Hotfix pattern:**
+1. Fix critical issue locally
+2. Bump patch version (`npm version patch`)
+3. Commit with descriptive message
+4. Deploy immediately (`./scripts/fast-deploy.sh`)
+5. Verify fix in production
+
+### Resource Management
+
+**Container memory limits:**
+```yaml
+deploy:
+  resources:
+    limits:
+      memory: 384M    # Hard limit
+    reservations:
+      memory: 256M    # Guaranteed allocation
+```
+
+**State file patterns:**
+- Store in `/app/scripts/.state-file.json` (persists across restarts)
+- Track last run timestamps, not intervals
+- Use `loadState()` / `saveState()` functions
+- Handle missing/corrupt files gracefully
+
+### Backup Verification
+
+**Weekly automated testing:**
+- Restore latest backup to test database
+- Verify row counts match production
+- Alert on failure via Pushover
+- Clean up test database automatically
+- Runs Sundays at 4 AM
+
+### Cron Job Best Practices
+
+**Structure:**
+```bash
+# Format: SCHEDULE SCRIPT >> LOG_FILE 2>&1
+0 4 * * 0 /root/app/scripts/verify-backup.sh >> /var/log/verify-backup.log 2>&1
+```
+
+**Patterns:**
+- Use full paths (`/root/app/scripts/...`)
+- Redirect stdout AND stderr to logs (`>> /var/log/...log 2>&1`)
+- Include authentication headers for API endpoints
+- Log rotation handled by Docker (`max-size: 10m`, `max-file: 3`)
+
 ## Common Fixes
 
 | Problem | Cause | Fix |
@@ -141,10 +230,19 @@ Context-specific rules auto-loaded from `.claude/rules/`:
 
 ## Production Cron Jobs
 
-| Schedule | Job | Purpose |
-|----------|-----|---------|
-| */15 | dropbox-sync | Sync Dropbox files |
-| */30 | weather-sync | Check severe weather alerts |
-| hourly | refresh-dropbox-token | Keep OAuth fresh |
-| 3 AM | run-backup.sh | Database backup |
-| 4 AM | docker prune | Clean old images |
+| Schedule | Job | Purpose | Log File |
+|----------|-----|---------|----------|
+| */15 min | dropbox-sync | Sync Dropbox files | /var/log/dropbox-sync.log |
+| */30 min | weather-sync | Check severe weather alerts | /var/log/weather-sync.log |
+| */15 min | health-check | Pushover alerts on failures | /var/log/health-check.log |
+| */5 min | analyze-autopays | Check payment confirmations | /var/log/autopay-analysis.log |
+| Hourly | refresh-dropbox-token | Keep OAuth fresh | /var/log/dropbox-refresh.log |
+| 3 AM daily | run-backup.sh | Database backup | /var/log/backup.log |
+| **4 AM Sundays** | **verify-backup.sh** | **Test backup restoration** | **/var/log/verify-backup.log** |
+| 4 AM daily | docker prune | Clean old images/containers | /var/log/docker-prune.log |
+| 6 AM daily | disk-check.sh | Alert if >80% full | /var/log/disk-check.log |
+
+**Background workers (container: app-worker-1):**
+- Email sync: Every 10 minutes
+- Smart pins sync: Every 60 minutes
+- Daily summary: 6:00 PM NYC time

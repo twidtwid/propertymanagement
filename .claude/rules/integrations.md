@@ -55,7 +55,9 @@ OAuth tokens encrypted in `gmail_oauth_tokens`.
 
 **Matching:** Email address/domain → vendor
 
-**Daily summary:** Sent via `app-daily-summary-1` container
+**Background sync:** Unified worker (`app-worker-1`) handles:
+- Email sync: Every 10 minutes
+- Daily summary email: 6:00 PM NYC time
 
 ## Tax Lookup System
 

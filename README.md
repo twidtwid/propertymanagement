@@ -81,8 +81,9 @@ ssh root@143.110.229.185 "docker exec app-db-1 pg_dump -U propman -d propertyman
 |-----------|---------|
 | app-app-1 | Next.js web application |
 | app-db-1 | PostgreSQL database |
-| app-daily-summary-1 | Daily email scheduler |
-| app-email-sync-1 | Gmail sync service |
+| app-worker-1 | Unified worker (email sync, daily summary, smart pins) |
+
+**Worker consolidation (v0.9.0):** Combined 3 separate containers into 1 unified service, reducing memory from 768MB to 384MB (50% savings).
 
 ---
 
@@ -221,12 +222,22 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### Production Cron Schedule
 
-| Schedule | Task |
-|----------|------|
-| Every 15 min | Dropbox sync (AI summaries) |
-| 3 AM daily | Database backup |
-| 6 AM daily | Disk space check |
-| Sunday 4 AM | Docker image cleanup |
+| Schedule | Task | Purpose |
+|----------|------|---------|
+| */15 min | Dropbox sync | Sync files, generate AI summaries |
+| */30 min | Weather sync | Check severe weather alerts |
+| */15 min | Health check | Pushover alerts on failures |
+| */5 min | Autopay analysis | Check payment confirmations |
+| Hourly | Dropbox token refresh | Keep OAuth fresh |
+| 3 AM daily | Database backup | Full PostgreSQL dump |
+| **4 AM Sundays** | **Backup verification** | **Test restore to ensure recoverability** |
+| 4 AM daily | Docker prune | Clean old images/containers |
+| 6 AM daily | Disk check | Alert if >80% full |
+
+**Background worker tasks:**
+- Email sync: Every 10 minutes
+- Smart pins sync: Every 60 minutes
+- Daily summary email: 6:00 PM NYC time
 
 ---
 
@@ -234,6 +245,9 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 | Version | Highlights |
 |---------|------------|
+| v0.9.x | Worker consolidation (3→1 containers, 50% memory savings), backup verification automation |
+| v0.8.x | Weather resilience, product pitch page, BuildingLink flags |
+| v0.7.x | Property access codes, trusted neighbors, renewal tracking |
 | v0.6.x | Dropbox integration with AI summaries, insurance document mapping, document section labels |
 | v0.5.x | Vendor contacts system, maintenance task actions, clickable notifications |
 | v0.4.x | Security hardening, testing infrastructure |

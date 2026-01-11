@@ -33,6 +33,61 @@ docker compose logs app --tail 20  # Look for "Ready in XXXms"
 | app-db-1 | PostgreSQL (user: propman) |
 | app-worker-1 | Unified worker (email sync, daily summary, smart pins) |
 
+## Unified Worker Architecture
+
+**File:** `scripts/unified-worker.js`
+**Memory:** 384MB (limit), 256MB (reserved)
+
+**Architecture:**
+- Single Node.js process with 60-second loop
+- JSON state file: `scripts/.unified-worker-state.json`
+- Updates `health_check_state` table after each task
+- Graceful shutdown handlers (SIGTERM/SIGINT)
+
+**Tasks:**
+| Task | Interval | Endpoint | Purpose |
+|------|----------|----------|---------|
+| Email Sync | 10 min | `/api/cron/sync-emails` | Sync Gmail to vendor_communications |
+| Smart Pins | 60 min | `/api/cron/sync-smart-pins` | Auto-pin urgent items |
+| Daily Summary | 6:00 PM NYC | `/api/cron/daily-summary` | Email summary to family |
+
+**Environment Variables:**
+```yaml
+APP_HOST=app                # Container hostname (not localhost!)
+APP_PORT=3000               # App port
+EMAIL_SYNC_INTERVAL=10      # Minutes between email syncs
+SMART_PINS_INTERVAL=60      # Minutes between smart pin syncs
+TZ=America/New_York         # Timezone for daily summary
+```
+
+**State Management:**
+```json
+{
+  "lastEmailSync": "2026-01-11T23:05:01.386Z",
+  "lastSmartPinsSync": "2026-01-11T22:43:22.726Z",
+  "lastDailySummary": "2026-01-11"
+}
+```
+
+**Logs:**
+```bash
+# Dev
+docker logs app-worker-1 --tail 50
+
+# Production
+ssh root@143.110.229.185 "docker logs app-worker-1 --tail 50"
+```
+
+**Health Check Integration:**
+Worker updates `health_check_state` table after each run:
+- ✅ Success: Sets status='ok', failure_count=0
+- ❌ Failure: Sets status='critical', increments failure_count
+
+**Why Unified?**
+- **Before:** 3 containers (768MB) with separate state management
+- **After:** 1 container (384MB) with centralized state
+- **Benefits:** 50% memory savings, simpler debugging, unified logs
+
 ## Python Environment
 
 **CRITICAL:** Always use `uv run python` for Python scripts. Never use system Python.
