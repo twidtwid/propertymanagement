@@ -31,8 +31,7 @@ docker compose logs app --tail 20  # Look for "Ready in XXXms"
 |-----------|---------|
 | app-app-1 | Next.js web application |
 | app-db-1 | PostgreSQL (user: propman) |
-| app-daily-summary-1 | Daily summary email scheduler |
-| app-email-sync-1 | Gmail sync service |
+| app-worker-1 | Unified worker (email sync, daily summary, smart pins) |
 
 ## Python Environment
 

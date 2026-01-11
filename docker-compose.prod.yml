@@ -67,7 +67,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  email-sync:
+  # Unified worker - combines email-sync, daily-summary, and smart-pins-sync
+  # Reduces 3 containers to 1 while maintaining all functionality
+  worker:
     image: ghcr.io/twidtwid/propertymanagement-worker:latest
     # Fallback: uncomment to build locally instead of pulling
     # build:
@@ -75,42 +77,14 @@ services:
     #   dockerfile: Dockerfile
     #   target: worker
     restart: always
-    command: node scripts/sync-emails.js --watch --interval=10
-    env_file:
-      - .env.production
-    environment:
-      - NODE_ENV=production
-    depends_on:
-      db:
-        condition: service_healthy
-      app:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  daily-summary:
-    image: ghcr.io/twidtwid/propertymanagement-worker:latest
-    # Fallback: uncomment to build locally instead of pulling
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
-    #   target: worker
-    restart: always
-    command: node scripts/daily-summary-scheduler.js
+    command: node scripts/unified-worker.js
     env_file:
       - .env.production
     environment:
       - NODE_ENV=production
       - TZ=America/New_York
+      - EMAIL_SYNC_INTERVAL=10
+      - SMART_PINS_INTERVAL=60
     depends_on:
       db:
         condition: service_healthy
@@ -119,9 +93,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 384M
         reservations:
-          memory: 128M
+          memory: 256M
     logging:
       driver: "json-file"
       options:

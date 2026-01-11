@@ -39,66 +39,30 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Email sync service - runs every 10 minutes
-  email-sync:
+  # Unified worker - combines email-sync, daily-summary, and smart-pins-sync
+  # Reduces 3 containers to 1 while maintaining all functionality
+  worker:
     build:
       context: .
       dockerfile: Dockerfile.dev
     environment:
       - TZ=America/New_York
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-propertymanagement}
+      - APP_HOST=app
+      - APP_PORT=3000
+      - EMAIL_SYNC_INTERVAL=10
+      - SMART_PINS_INTERVAL=60
     env_file:
       - .env.local
     volumes:
       - .:/app
       - /app/node_modules
     depends_on:
+      app:
+        condition: service_started
       db:
         condition: service_healthy
-    # Run sync every 10 minutes using watch mode
-    command: node scripts/sync-emails.js --watch --interval=10
-    restart: unless-stopped
-
-  # Daily summary scheduler - sends email at 6 PM NYC time
-  daily-summary:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    environment:
-      - TZ=America/New_York
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-propertymanagement}
-      - APP_HOST=app
-      - APP_PORT=3000
-    env_file:
-      - .env.local
-    volumes:
-      - .:/app
-      - /app/node_modules
-    depends_on:
-      - app
-      - db
-    command: node scripts/daily-summary-scheduler.js
-    restart: unless-stopped
-
-  # Smart pins sync - auto-pins urgent items every hour
-  smart-pins-sync:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    environment:
-      - TZ=America/New_York
-      - APP_HOST=app
-      - APP_PORT=3000
-    env_file:
-      - .env.local
-    volumes:
-      - .:/app
-      - /app/node_modules
-    depends_on:
-      - app
-      - db
-    # Run sync every 60 minutes using watch mode
-    command: node scripts/sync-smart-pins.js --watch --interval=60
+    command: node scripts/unified-worker.js
     restart: unless-stopped
 
 volumes:
