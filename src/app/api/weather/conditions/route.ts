@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { fetchAllWeather, type WeatherCondition } from '@/lib/weather'
+import { fetchAllWeather, getWeatherCacheStats, WEATHER_LOCATIONS, type WeatherCondition } from '@/lib/weather'
 import { notifyAll } from '@/lib/pushover'
 import {
   getWeatherHealth,
@@ -10,7 +10,7 @@ import {
   getFailureDurationMinutes,
 } from '@/lib/weather/health'
 
-// In-memory cache for weather data
+// In-memory cache for aggregated weather data (API-level cache)
 let cachedData: WeatherCondition[] | null = null
 let cacheTimestamp: number | null = null
 
@@ -24,11 +24,13 @@ export async function GET() {
 
     // Return cached data if still fresh
     if (cachedData && cacheTimestamp && (now - cacheTimestamp) < CACHE_TTL_MS) {
+      const staleCount = cachedData.filter(d => d.isStale).length
       return NextResponse.json({
         data: cachedData,
         cached: true,
         cachedAt: new Date(cacheTimestamp).toISOString(),
         expiresIn: Math.round((CACHE_TTL_MS - (now - cacheTimestamp)) / 1000 / 60), // minutes
+        staleLocations: staleCount,
         health: {
           isHealthy: health.isHealthy,
           consecutiveFailures: health.consecutiveFailures,
@@ -36,24 +38,33 @@ export async function GET() {
       })
     }
 
-    // Fetch fresh data
+    // Fetch fresh data (with per-location retry and cache fallback)
     const weather = await fetchAllWeather()
 
-    // Update cache
+    // Update API-level cache
     cachedData = weather
     cacheTimestamp = now
 
-    // Reset failure tracking on success
-    recordWeatherSuccess()
+    // Count fresh vs stale
+    const staleCount = weather.filter(d => d.isStale).length
+    const freshCount = weather.length - staleCount
+    const missingCount = WEATHER_LOCATIONS.length - weather.length
+
+    // Only record success if we got all locations fresh
+    if (freshCount === WEATHER_LOCATIONS.length) {
+      recordWeatherSuccess()
+    }
 
     return NextResponse.json({
       data: weather,
       cached: false,
       cachedAt: new Date(now).toISOString(),
       expiresIn: 10, // minutes
+      staleLocations: staleCount,
+      missingLocations: missingCount,
       health: {
-        isHealthy: true,
-        consecutiveFailures: 0,
+        isHealthy: missingCount === 0,
+        consecutiveFailures: health.consecutiveFailures,
       },
     })
   } catch (error) {

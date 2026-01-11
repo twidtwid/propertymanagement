@@ -1,6 +1,11 @@
 /**
  * wttr.in client for fetching current weather conditions.
  * Used for the dashboard weather card (separate from alert system).
+ *
+ * Resilience features:
+ * - Per-location caching with stale fallback
+ * - Retry with exponential backoff
+ * - Merge fresh data with stale cache for complete results
  */
 
 export interface WttrLocation {
@@ -28,7 +33,23 @@ export interface WeatherCondition {
   feelsLikeC: number
   useFahrenheit: boolean
   timezone: string
+  isStale?: boolean      // True if this data is from stale cache
+  fetchedAt?: number     // Timestamp when this data was fetched
 }
+
+// Per-location cache for resilience
+interface LocationCache {
+  data: WeatherCondition
+  fetchedAt: number
+}
+
+const locationCache = new Map<string, LocationCache>()
+const LOCATION_CACHE_TTL_MS = 30 * 60 * 1000  // 30 minutes - stale but usable
+const STALE_THRESHOLD_MS = 10 * 60 * 1000     // 10 minutes - after this, mark as stale
+
+// Retry configuration
+const MAX_RETRIES = 2
+const RETRY_DELAY_MS = 1000  // Base delay, doubles each retry
 
 // Locations for the weather card (ordered: Brooklyn, RI, VT, MAR, PAR)
 export const WEATHER_LOCATIONS: WttrLocation[] = [
@@ -108,63 +129,135 @@ interface WttrResponse {
 }
 
 /**
- * Fetch weather for a single location from wttr.in
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Attempt a single fetch for a location (no retry)
+ */
+async function attemptFetch(location: WttrLocation): Promise<WeatherCondition | null> {
+  const startTime = Date.now()
+  const url = `https://wttr.in/${encodeURIComponent(location.query)}?format=j1`
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'PropertyManagement/1.0',
+    },
+    signal: AbortSignal.timeout(8000),  // 8s timeout per attempt
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`)
+  }
+
+  const data: WttrResponse = await response.json()
+  const current = data.current_condition[0]
+  const today = data.weather[0]
+
+  if (!current || !today) {
+    throw new Error('Invalid response: missing current_condition or weather')
+  }
+
+  const description = current.weatherDesc[0]?.value || 'Unknown'
+  const emoji = getWeatherEmoji(current.weatherCode, description)
+  const now = Date.now()
+
+  console.log(`[Weather] ✓ ${location.displayName}: ${current.temp_F}°F (${now - startTime}ms)`)
+
+  return {
+    location: location.name,
+    displayName: location.displayName,
+    tempC: parseInt(current.temp_C, 10),
+    tempF: parseInt(current.temp_F, 10),
+    highC: parseInt(today.maxtempC, 10),
+    lowC: parseInt(today.mintempC, 10),
+    highF: parseInt(today.maxtempF, 10),
+    lowF: parseInt(today.mintempF, 10),
+    description: simplifyDescription(description),
+    emoji,
+    humidity: parseInt(current.humidity, 10),
+    windMph: parseInt(current.windspeedMiles, 10),
+    feelsLikeF: parseInt(current.FeelsLikeF, 10),
+    feelsLikeC: parseInt(current.FeelsLikeC, 10),
+    useFahrenheit: location.useFahrenheit,
+    timezone: location.timezone,
+    fetchedAt: now,
+  }
+}
+
+/**
+ * Get cached data for a location if available and not expired
+ */
+function getCachedLocation(locationName: string): WeatherCondition | null {
+  const cached = locationCache.get(locationName)
+  if (!cached) return null
+
+  const age = Date.now() - cached.fetchedAt
+  if (age > LOCATION_CACHE_TTL_MS) {
+    // Cache expired, remove it
+    locationCache.delete(locationName)
+    return null
+  }
+
+  // Return with stale flag if past threshold
+  return {
+    ...cached.data,
+    isStale: age > STALE_THRESHOLD_MS,
+    fetchedAt: cached.fetchedAt,
+  }
+}
+
+/**
+ * Update the per-location cache
+ */
+function updateLocationCache(data: WeatherCondition): void {
+  locationCache.set(data.location, {
+    data,
+    fetchedAt: data.fetchedAt || Date.now(),
+  })
+}
+
+/**
+ * Fetch weather for a single location with retry and fallback to cache
  */
 export async function fetchWeather(location: WttrLocation): Promise<WeatherCondition | null> {
   const startTime = Date.now()
-  try {
-    const url = `https://wttr.in/${encodeURIComponent(location.query)}?format=j1`
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'PropertyManagement/1.0',
-      },
-      // Allow some time for the free service
-      signal: AbortSignal.timeout(10000),
-    })
+  let lastError: string = ''
 
-    if (!response.ok) {
-      console.warn(`[Weather] wttr.in returned ${response.status} for ${location.displayName} (${location.query}) in ${Date.now() - startTime}ms`)
-      return null
+  // Try up to MAX_RETRIES + 1 times (initial + retries)
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = RETRY_DELAY_MS * Math.pow(2, attempt - 1)
+        console.log(`[Weather] Retry ${attempt}/${MAX_RETRIES} for ${location.displayName} after ${delay}ms`)
+        await sleep(delay)
+      }
+
+      const result = await attemptFetch(location)
+      if (result) {
+        // Success - update cache and return
+        updateLocationCache(result)
+        return result
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error)
+      // Continue to next retry
     }
-
-    const data: WttrResponse = await response.json()
-    const current = data.current_condition[0]
-    const today = data.weather[0]
-
-    if (!current || !today) {
-      console.warn(`[Weather] Invalid response for ${location.displayName}: missing current_condition or weather`)
-      return null
-    }
-
-    const description = current.weatherDesc[0]?.value || 'Unknown'
-    const emoji = getWeatherEmoji(current.weatherCode, description)
-
-    console.log(`[Weather] ✓ ${location.displayName}: ${current.temp_F}°F (${Date.now() - startTime}ms)`)
-
-    return {
-      location: location.name,
-      displayName: location.displayName,
-      tempC: parseInt(current.temp_C, 10),
-      tempF: parseInt(current.temp_F, 10),
-      highC: parseInt(today.maxtempC, 10),
-      lowC: parseInt(today.mintempC, 10),
-      highF: parseInt(today.maxtempF, 10),
-      lowF: parseInt(today.mintempF, 10),
-      description: simplifyDescription(description),
-      emoji,
-      humidity: parseInt(current.humidity, 10),
-      windMph: parseInt(current.windspeedMiles, 10),
-      feelsLikeF: parseInt(current.FeelsLikeF, 10),
-      feelsLikeC: parseInt(current.FeelsLikeC, 10),
-      useFahrenheit: location.useFahrenheit,
-      timezone: location.timezone,
-    }
-  } catch (error) {
-    const elapsed = Date.now() - startTime
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    console.error(`[Weather] ✗ ${location.displayName} failed after ${elapsed}ms: ${errorMsg}`)
-    return null
   }
+
+  // All retries failed - try to use cached data
+  const cached = getCachedLocation(location.name)
+  if (cached) {
+    const cacheAge = Math.round((Date.now() - (cached.fetchedAt || 0)) / 1000 / 60)
+    console.warn(`[Weather] ✗ ${location.displayName} failed after ${Date.now() - startTime}ms (${lastError}), using ${cacheAge}m old cache`)
+    return cached
+  }
+
+  console.error(`[Weather] ✗ ${location.displayName} failed after ${Date.now() - startTime}ms: ${lastError} (no cache available)`)
+  return null
 }
 
 /**
@@ -202,6 +295,41 @@ export async function fetchAllWeather(): Promise<WeatherCondition[]> {
     WEATHER_LOCATIONS.map(loc => fetchWeather(loc))
   )
   const validResults = results.filter((r): r is WeatherCondition => r !== null)
-  console.log(`[Weather] Completed: ${validResults.length}/${WEATHER_LOCATIONS.length} locations (${validResults.map(r => r.displayName).join(', ')})`)
+
+  const fresh = validResults.filter(r => !r.isStale)
+  const stale = validResults.filter(r => r.isStale)
+
+  if (stale.length > 0) {
+    console.log(`[Weather] Completed: ${fresh.length} fresh, ${stale.length} stale (${stale.map(r => r.displayName).join(', ')})`)
+  } else {
+    console.log(`[Weather] Completed: ${validResults.length}/${WEATHER_LOCATIONS.length} locations`)
+  }
+
   return validResults
+}
+
+/**
+ * Get cache statistics for monitoring
+ */
+export function getWeatherCacheStats(): {
+  cachedLocations: string[]
+  oldestCacheAge: number | null
+} {
+  const now = Date.now()
+  let oldestAge: number | null = null
+
+  const entries = Array.from(locationCache.entries())
+  const cachedLocations = entries.map(([name]) => name)
+
+  for (const [, cache] of entries) {
+    const age = now - cache.fetchedAt
+    if (oldestAge === null || age > oldestAge) {
+      oldestAge = age
+    }
+  }
+
+  return {
+    cachedLocations,
+    oldestCacheAge: oldestAge ? Math.round(oldestAge / 1000 / 60) : null,  // minutes
+  }
 }
