@@ -2,8 +2,11 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { VendorForm } from "@/components/vendors/vendor-form"
+import { getProperties } from "@/lib/actions"
 
-export default function NewVendorPage() {
+export default async function NewVendorPage() {
+  const properties = await getProperties()
+
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
@@ -20,7 +23,7 @@ export default function NewVendorPage() {
         </div>
       </div>
 
-      <VendorForm />
+      <VendorForm properties={properties} />
     </div>
   )
 }

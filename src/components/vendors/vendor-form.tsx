@@ -10,11 +10,11 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { FormField, FormSelect, FormTextarea, SubmitButton } from "@/components/forms"
 import { useToast } from "@/hooks/use-toast"
-import { createVendor, updateVendor, updateVendorProperties } from "@/lib/mutations"
+import { createVendor, updateVendor, updateVendorProperties, createVendorContact } from "@/lib/mutations"
 import { vendorSchema, type VendorFormData } from "@/lib/schemas"
 import { getVendorSpecialtyOptions } from "@/types/database"
 import type { Vendor, Property, VendorSpecialty } from "@/types/database"
-import { Star, Home } from "lucide-react"
+import { Star, Home, User } from "lucide-react"
 
 interface VendorFormProps {
   vendor?: Vendor
@@ -37,6 +37,17 @@ export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], 
   const { toast } = useToast()
   const isEditing = !!vendor
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>(assignedPropertyIds)
+  const [primaryContact, setPrimaryContact] = useState<{
+    name: string
+    title?: string
+    phone?: string
+    email?: string
+  }>({
+    name: "",
+    title: "",
+    phone: "",
+    email: "",
+  })
 
   const {
     register,
@@ -91,6 +102,26 @@ export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], 
           description: "Vendor saved but property associations failed to update.",
           variant: "destructive",
         })
+      }
+
+      // Create primary contact if provided (only when creating new vendor)
+      if (!isEditing && primaryContact.name.trim()) {
+        const contactResult = await createVendorContact(vendorId, {
+          name: primaryContact.name,
+          title: primaryContact.title || null,
+          phone: primaryContact.phone || null,
+          email: primaryContact.email || null,
+          is_primary: true,
+          notes: null,
+        })
+
+        if (!contactResult.success) {
+          toast({
+            title: "Warning",
+            description: "Vendor created but primary contact failed to save.",
+            variant: "destructive",
+          })
+        }
       }
 
       toast({
@@ -231,6 +262,61 @@ export function VendorForm({ vendor, properties = [], assignedPropertyIds = [], 
                 {selectedPropertyIds.length} propert{selectedPropertyIds.length === 1 ? 'y' : 'ies'} selected
               </p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Primary Contact (Optional) - Only show when creating new vendor */}
+      {!isEditing && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Primary Contact (Optional)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Add the main contact person for this vendor. Additional contacts can be added later.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                label="Name"
+                value={primaryContact.name}
+                onChange={(e) =>
+                  setPrimaryContact({ ...primaryContact, name: e.target.value })
+                }
+                placeholder="John Smith"
+              />
+              <FormField
+                label="Title"
+                value={primaryContact.title}
+                onChange={(e) =>
+                  setPrimaryContact({ ...primaryContact, title: e.target.value })
+                }
+                placeholder="Service Manager"
+              />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                label="Phone"
+                type="tel"
+                value={primaryContact.phone}
+                onChange={(e) =>
+                  setPrimaryContact({ ...primaryContact, phone: e.target.value })
+                }
+                placeholder="(555) 123-4567"
+              />
+              <FormField
+                label="Email"
+                type="email"
+                value={primaryContact.email}
+                onChange={(e) =>
+                  setPrimaryContact({ ...primaryContact, email: e.target.value })
+                }
+                placeholder="john@example.com"
+              />
+            </div>
           </CardContent>
         </Card>
       )}
