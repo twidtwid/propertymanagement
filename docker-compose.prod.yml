@@ -83,6 +83,8 @@ services:
     environment:
       - NODE_ENV=production
       - TZ=America/New_York
+      - APP_HOST=app
+      - APP_PORT=3000
       - EMAIL_SYNC_INTERVAL=10
       - SMART_PINS_INTERVAL=60
     depends_on:
