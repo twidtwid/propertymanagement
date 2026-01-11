@@ -60,25 +60,25 @@ export async function GET() {
     }
 
     // 3. Check OAuth token expiry
-    const dropboxToken = await queryOne<{ expires_at: Date | null }>(`
-      SELECT expires_at FROM dropbox_oauth_tokens WHERE id = 1
+    const dropboxToken = await queryOne<{ token_expiry: Date | null }>(`
+      SELECT token_expiry FROM dropbox_oauth_tokens LIMIT 1
     `)
 
-    const gmailToken = await queryOne<{ expires_at: Date | null }>(`
-      SELECT expires_at FROM gmail_oauth_tokens WHERE id = 1
+    const gmailToken = await queryOne<{ token_expiry: Date | null }>(`
+      SELECT token_expiry FROM gmail_oauth_tokens LIMIT 1
     `)
 
     healthChecks.tokens = {
-      dropbox: dropboxToken?.expires_at
+      dropbox: dropboxToken?.token_expiry
         ? {
-            expiresAt: dropboxToken.expires_at,
-            isValid: new Date(dropboxToken.expires_at) > now
+            expiresAt: dropboxToken.token_expiry,
+            isValid: new Date(dropboxToken.token_expiry) > now
           }
         : { status: 'not_configured' },
-      gmail: gmailToken?.expires_at
+      gmail: gmailToken?.token_expiry
         ? {
-            expiresAt: gmailToken.expires_at,
-            isValid: new Date(gmailToken.expires_at) > now
+            expiresAt: gmailToken.token_expiry,
+            isValid: new Date(gmailToken.token_expiry) > now
           }
         : { status: 'not_configured' }
     }
