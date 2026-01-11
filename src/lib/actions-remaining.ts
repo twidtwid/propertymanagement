@@ -35,9 +35,14 @@ import type {
   PropertyRenewal,
 } from "@/types/database"
 import type { VendorWithLocations, VendorCommunication } from "./actions/vendors"
+import { getPinnedIds } from "./actions/pinning"
 
 // Re-export from payments
 import { getUpcomingAutopays as _getUpcomingAutopays, type UpcomingAutopay } from "@/lib/payments/email-links"
+
+// ============================================================================
+// Functions
+// ============================================================================
 
 export async function getUpcomingAutopays(
   daysBack: number = 7,
@@ -54,44 +59,14 @@ export async function getUpcomingAutopays(
 
 // Vendors - migrated to src/lib/actions/vendors.ts
 
-// Equipment - TODO: Extract to equipment domain
 
-// ============================================
-// Property Renewals
-// ============================================
 
-export async function getPropertyRenewals(propertyId: string): Promise<PropertyRenewal[]> {
-  const ctx = await getVisibilityContext()
-  if (!ctx || !ctx.visiblePropertyIds.includes(propertyId)) return []
 
-  return query<PropertyRenewal>(
-    `SELECT pr.*, v.name as vendor_name, v.company as vendor_company
-     FROM property_renewals pr
-     LEFT JOIN vendors v ON pr.vendor_id = v.id
-     WHERE pr.property_id = $1 AND pr.is_active = TRUE
-     ORDER BY pr.due_date`,
-    [propertyId]
-  )
-}
+// Payments - migrated to src/lib/actions/payments.ts
 
-// Get upcoming renewals across all properties (for dashboard)
-export async function getUpcomingRenewals(daysAhead: number = 90): Promise<(PropertyRenewal & { property_name: string })[]> {
-  const ctx = await getVisibilityContext()
-  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
-
-  return query<PropertyRenewal & { property_name: string }>(
-    `SELECT pr.*, p.name as property_name, v.name as vendor_name, v.company as vendor_company
-     FROM property_renewals pr
-     JOIN properties p ON pr.property_id = p.id
-     LEFT JOIN vendors v ON pr.vendor_id = v.id
-     WHERE pr.property_id = ANY($1::uuid[])
-       AND pr.is_active = TRUE
-       AND pr.due_date <= CURRENT_DATE + ($2::INTEGER)
-       AND pr.due_date >= CURRENT_DATE - 30
-     ORDER BY pr.due_date`,
-    [ctx.visiblePropertyIds, daysAhead]
-  )
-}
+/**
+ * Get linked emails for multiple payments (batch)
+ */
 
 // Get weather conditions for dashboard SSR (avoids client-side fetch)
 export async function getWeatherConditions() {

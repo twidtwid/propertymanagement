@@ -9,7 +9,7 @@
 
 import { query, queryOne } from "../db"
 import { getVisibilityContext } from "../visibility"
-import type { Property } from "@/types/database"
+import type { Property, PropertyVendor, Vendor } from "@/types/database"
 
 export async function getProperties(): Promise<Property[]> {
   const ctx = await getVisibilityContext()
@@ -35,5 +35,37 @@ export async function getActiveProperties(): Promise<Property[]> {
   return query<Property>(
     `SELECT * FROM properties WHERE status = 'active' AND id = ANY($1::uuid[]) ORDER BY name`,
     [ctx.visiblePropertyIds]
+  )
+}
+
+// ============================================================================
+// Property Vendors
+// ============================================================================
+
+export async function getPropertyVendors(propertyId: string): Promise<(PropertyVendor & { vendor: Vendor })[]> {
+  return query<PropertyVendor & { vendor: Vendor }>(
+    `SELECT pv.*, row_to_json(v.*) as vendor
+     FROM property_vendors pv
+     JOIN vendors v ON pv.vendor_id = v.id
+     WHERE pv.property_id = $1
+     ORDER BY pv.is_primary DESC, v.name`,
+    [propertyId]
+  )
+}
+
+export async function findVendorForProperty(
+  propertyId: string,
+  specialty: string
+): Promise<Vendor | null> {
+  return queryOne<Vendor>(
+    `SELECT v.*
+     FROM property_vendors pv
+     JOIN vendors v ON pv.vendor_id = v.id
+     WHERE pv.property_id = $1
+       AND (pv.specialty_override = $2 OR $2 = ANY(v.specialties))
+       AND v.is_active = TRUE
+     ORDER BY pv.is_primary DESC
+     LIMIT 1`,
+    [propertyId, specialty]
   )
 }

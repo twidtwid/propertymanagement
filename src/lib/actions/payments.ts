@@ -372,3 +372,96 @@ export async function getPaymentSuggestionCount(): Promise<number> {
   `)
   return result ? parseInt(result.count, 10) : 0
 }
+
+/**
+ * Get linked emails for multiple payments (batch)
+ */
+export async function getPaymentEmailLinks(
+  paymentType: 'bill' | 'property_tax' | 'insurance_premium',
+  paymentIds: string[]
+): Promise<Map<string, Array<{
+  id: string
+  link_type: 'invoice' | 'confirmation' | 'reminder'
+  email_id: string
+  email_subject: string | null
+  email_snippet: string | null
+  email_received_at: string
+  vendor_name: string | null
+}>>> {
+  if (paymentIds.length === 0) return new Map()
+
+  const links = await query<{
+    payment_id: string
+    id: string
+    link_type: 'invoice' | 'confirmation' | 'reminder'
+    email_id: string
+    email_subject: string | null
+    email_snippet: string | null
+    email_received_at: string
+    vendor_name: string | null
+  }>(`
+    SELECT
+      pel.payment_id,
+      pel.id,
+      pel.link_type,
+      pel.email_id,
+      vc.subject as email_subject,
+      vc.body_snippet as email_snippet,
+      vc.received_at as email_received_at,
+      v.name as vendor_name
+    FROM payment_email_links pel
+    JOIN vendor_communications vc ON pel.email_id = vc.id
+    LEFT JOIN vendors v ON vc.vendor_id = v.id
+    WHERE pel.payment_type = $1 AND pel.payment_id = ANY($2)
+    ORDER BY vc.received_at DESC
+  `, [paymentType, paymentIds])
+
+  const map = new Map<string, typeof links>()
+  for (const link of links) {
+    const existing = map.get(link.payment_id) || []
+    existing.push(link)
+    map.set(link.payment_id, existing)
+  }
+  return map
+}
+
+/**
+ * Get recently processed auto-pay confirmations for dashboard
+ */
+export async function getRecentAutoPayConfirmations(
+  daysBack: number = 7,
+  limit: number = 10
+): Promise<Array<{
+  payment_id: string
+  payment_type: 'bill' | 'property_tax' | 'insurance_premium'
+  description: string
+  amount: number
+  property_name: string | null
+  vendor_name: string | null
+  confirmation_date: string
+  email_subject: string
+  email_snippet: string | null
+}>> {
+  return query(`
+    SELECT
+      b.id as payment_id,
+      'bill' as payment_type,
+      b.description,
+      b.amount,
+      p.name as property_name,
+      v.name as vendor_name,
+      vc.received_at as confirmation_date,
+      vc.subject as email_subject,
+      vc.body_snippet as email_snippet
+    FROM payment_email_links pel
+    JOIN bills b ON pel.payment_id = b.id AND pel.payment_type = 'bill'
+    JOIN vendor_communications vc ON pel.email_id = vc.id
+    LEFT JOIN properties p ON b.property_id = p.id
+    LEFT JOIN vendors v ON b.vendor_id = v.id
+    WHERE pel.link_type = 'confirmation'
+      AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
+      AND b.payment_method = 'auto_pay'
+    ORDER BY vc.received_at DESC
+    LIMIT $2
+  `, [daysBack, limit])
+}

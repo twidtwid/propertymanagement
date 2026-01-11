@@ -43,6 +43,9 @@ export * from "./dashboard"
 export * from "./maintenance"
 export * from "./tickets"
 export * from "./reports"
+export * from "./buildinglink"
+export * from "./calendar"
+export * from "./property-access"
 
 // Re-export remaining functions from monolithic file (now renamed to actions-remaining.ts)
 // (will be migrated incrementally in Phase 3D+)
