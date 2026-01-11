@@ -30,11 +30,15 @@
  * - reports.ts (10+ functions)
  */
 
-// Domain-based exports (Phase 3A migration complete)
+// Domain-based exports (Phase 3A & 3B migration complete)
 export * from "./properties"
 export * from "./vehicles"
 export * from "./bills"
+export * from "./vendors"
+export * from "./insurance"
+export * from "./taxes"
+export * from "./payments"
 
 // Re-export remaining functions from monolithic file (now renamed to actions-remaining.ts)
-// (will be migrated incrementally in future phases)
+// (will be migrated incrementally in Phase 3C/3D)
 export * from "../actions-remaining"

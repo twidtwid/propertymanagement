@@ -34,7 +34,6 @@ import type {
   TrustedNeighbor,
   PropertyRenewal,
 } from "@/types/database"
-import type { VendorWithLocations, VendorCommunication } from "./actions/vendors"
 
 // Re-export from payments
 import { getUpcomingAutopays as _getUpcomingAutopays, type UpcomingAutopay } from "@/lib/payments/email-links"
@@ -1494,6 +1493,442 @@ export async function findVendorForProperty(
 }
 
 
+// Insurance
+export async function getInsurancePolicies(): Promise<InsurancePolicy[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
+  return query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     WHERE (
+       (ip.property_id IS NULL AND ip.vehicle_id IS NULL) OR
+       (ip.property_id IS NOT NULL AND ip.property_id = ANY($1::uuid[])) OR
+       (ip.vehicle_id IS NOT NULL AND ip.vehicle_id = ANY($2::uuid[]))
+     )
+     ORDER BY ip.expiration_date`,
+    [ctx.visiblePropertyIds, visibleVehicleIds]
+  )
+}
+
+export async function getExpiringPolicies(days: number = 60): Promise<InsurancePolicy[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
+  return query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     WHERE ip.expiration_date <= CURRENT_DATE + ($1::INTEGER)
+       AND (
+         (ip.property_id IS NULL AND ip.vehicle_id IS NULL) OR
+         (ip.property_id IS NOT NULL AND ip.property_id = ANY($2::uuid[])) OR
+         (ip.vehicle_id IS NOT NULL AND ip.vehicle_id = ANY($3::uuid[]))
+       )
+     ORDER BY ip.expiration_date`,
+    [days, ctx.visiblePropertyIds, visibleVehicleIds]
+  )
+}
+
+export async function getInsurancePolicy(id: string): Promise<InsurancePolicy | null> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return null
+
+  const results = await query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     WHERE ip.id = $1`,
+    [id]
+  )
+  return results[0] || null
+}
+
+export async function getInsurancePoliciesForProperty(propertyId: string): Promise<InsurancePolicy[]> {
+  return query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     WHERE ip.property_id = $1
+     ORDER BY ip.expiration_date`,
+    [propertyId]
+  )
+}
+
+export async function getInsurancePoliciesForVehicle(vehicleId: string): Promise<InsurancePolicy[]> {
+  return query<InsurancePolicy>(
+    `SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
+     FROM insurance_policies ip
+     LEFT JOIN properties p ON ip.property_id = p.id
+     LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+     WHERE ip.vehicle_id = $1
+     ORDER BY ip.expiration_date`,
+    [vehicleId]
+  )
+}
+
+interface InsuranceFilters {
+  type?: string
+  carrier?: string
+  status?: string
+  search?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+export async function getInsurancePoliciesFiltered(filters: InsuranceFilters = {}): Promise<InsurancePolicy[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
+  let sql = `
+    SELECT ip.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle,
+           COALESCE(p.name, CONCAT(v.year, ' ', v.make, ' ', v.model)) as asset_name
+    FROM insurance_policies ip
+    LEFT JOIN properties p ON ip.property_id = p.id
+    LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+    WHERE (
+      (ip.property_id IS NULL AND ip.vehicle_id IS NULL) OR
+      (ip.property_id IS NOT NULL AND ip.property_id = ANY($1::uuid[])) OR
+      (ip.vehicle_id IS NOT NULL AND ip.vehicle_id = ANY($2::uuid[]))
+    )
+  `
+  const params: any[] = [ctx.visiblePropertyIds, visibleVehicleIds]
+  let paramIndex = 3
+
+  if (filters.type && filters.type !== 'all') {
+    sql += ` AND ip.policy_type = $${paramIndex}`
+    params.push(filters.type)
+    paramIndex++
+  }
+
+  if (filters.carrier && filters.carrier !== 'all') {
+    sql += ` AND ip.carrier_name = $${paramIndex}`
+    params.push(filters.carrier)
+    paramIndex++
+  }
+
+  if (filters.status && filters.status !== 'all') {
+    if (filters.status === 'active') {
+      sql += ` AND ip.expiration_date >= CURRENT_DATE`
+    } else if (filters.status === 'expiring') {
+      sql += ` AND ip.expiration_date >= CURRENT_DATE AND ip.expiration_date <= CURRENT_DATE + 60`
+    } else if (filters.status === 'expired') {
+      sql += ` AND ip.expiration_date < CURRENT_DATE`
+    }
+  }
+
+  if (filters.search) {
+    sql += ` AND (
+      ip.carrier_name ILIKE $${paramIndex} OR
+      ip.policy_number ILIKE $${paramIndex} OR
+      p.name ILIKE $${paramIndex} OR
+      CONCAT(v.year, ' ', v.make, ' ', v.model) ILIKE $${paramIndex}
+    )`
+    params.push(`%${filters.search}%`)
+    paramIndex++
+  }
+
+  // Sorting
+  const sortColumn = filters.sortBy || 'expiration_date'
+  const sortOrder = filters.sortOrder || 'asc'
+  const validColumns = ['carrier_name', 'policy_type', 'premium_amount', 'expiration_date', 'asset_name']
+  const column = validColumns.includes(sortColumn) ? sortColumn : 'expiration_date'
+
+  sql += ` ORDER BY ${column} ${sortOrder === 'desc' ? 'DESC' : 'ASC'} NULLS LAST`
+
+  return query<InsurancePolicy>(sql, params)
+}
+
+export async function getInsuranceCarriers(): Promise<string[]> {
+  const ctx = await getVisibilityContext()
+  if (!ctx) return []
+
+  const visibleVehicleIds = await getVisibleVehicleIds()
+
+  const result = await query<{ carrier_name: string }>(
+    `SELECT DISTINCT carrier_name
+     FROM insurance_policies ip
+     WHERE (
+       (ip.property_id IS NULL AND ip.vehicle_id IS NULL) OR
+       (ip.property_id IS NOT NULL AND ip.property_id = ANY($1::uuid[])) OR
+       (ip.vehicle_id IS NOT NULL AND ip.vehicle_id = ANY($2::uuid[]))
+     )
+     ORDER BY carrier_name`,
+    [ctx.visiblePropertyIds, visibleVehicleIds]
+  )
+  return result.map(r => r.carrier_name)
+}
+
+// Unified Payments - combines bills, property taxes, and insurance premiums
+export interface UnifiedPaymentFilters {
+  category?: string
+  status?: string
+  propertyId?: string
+  dateFrom?: string
+  dateTo?: string
+  search?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+export async function getAllPayments(filters?: UnifiedPaymentFilters): Promise<UnifiedPayment[]> {
+  // Build WHERE conditions based on filters
+  const conditions: string[] = []
+  const params: (string | number)[] = []
+  let paramIndex = 1
+
+  if (filters?.category && filters.category !== 'all') {
+    conditions.push(`category = $${paramIndex}`)
+    params.push(filters.category)
+    paramIndex++
+  }
+  if (filters?.status && filters.status !== 'all') {
+    conditions.push(`status = $${paramIndex}`)
+    params.push(filters.status)
+    paramIndex++
+  }
+  if (filters?.propertyId && filters.propertyId !== 'all') {
+    conditions.push(`property_id = $${paramIndex}`)
+    params.push(filters.propertyId)
+    paramIndex++
+  }
+  if (filters?.dateFrom) {
+    conditions.push(`due_date >= $${paramIndex}`)
+    params.push(filters.dateFrom)
+    paramIndex++
+  }
+  if (filters?.dateTo) {
+    conditions.push(`due_date <= $${paramIndex}`)
+    params.push(filters.dateTo)
+    paramIndex++
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+
+  const searchClause = filters?.search
+    ? `WHERE description ILIKE $${paramIndex}`
+    : ''
+  if (filters?.search) {
+    params.push(`%${filters.search}%`)
+  }
+
+  const sql = `
+    WITH unified AS (
+      -- Bills (excluding property_tax since those are in property_taxes table)
+      SELECT
+        b.id,
+        'bill'::text as source,
+        b.id as source_id,
+        b.bill_type as category,
+        COALESCE(b.description, b.bill_type::text) as description,
+        b.property_id,
+        p.name as property_name,
+        b.vehicle_id,
+        CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
+        b.vendor_id,
+        vn.name as vendor_name,
+        b.amount,
+        b.due_date::text,
+        b.status,
+        b.payment_method,
+        b.payment_date::text,
+        b.confirmation_date::text,
+        CASE
+          WHEN b.status = 'sent' AND b.payment_date IS NOT NULL AND b.confirmation_date IS NULL
+          THEN CURRENT_DATE - b.payment_date
+          ELSE NULL
+        END as days_waiting,
+        CASE
+          WHEN b.status = 'pending' AND b.due_date < CURRENT_DATE THEN true
+          ELSE false
+        END as is_overdue,
+        b.recurrence
+      FROM bills b
+      LEFT JOIN properties p ON b.property_id = p.id
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN vendors vn ON b.vendor_id = vn.id
+
+      UNION ALL
+
+      -- Property Taxes
+      SELECT
+        pt.id,
+        'property_tax'::text as source,
+        pt.id as source_id,
+        'property_tax'::bill_type as category,
+        pt.jurisdiction || ' ' || pt.tax_year || ' Q' || pt.installment as description,
+        pt.property_id,
+        p.name as property_name,
+        NULL as vehicle_id,
+        NULL as vehicle_name,
+        NULL as vendor_id,
+        NULL as vendor_name,
+        pt.amount,
+        pt.due_date::text,
+        pt.status,
+        NULL as payment_method,
+        pt.payment_date::text,
+        pt.confirmation_date::text,
+        CASE
+          WHEN pt.status = 'sent' AND pt.payment_date IS NOT NULL AND pt.confirmation_date IS NULL
+          THEN CURRENT_DATE - pt.payment_date
+          ELSE NULL
+        END as days_waiting,
+        CASE
+          WHEN pt.status = 'pending' AND pt.due_date < CURRENT_DATE THEN true
+          ELSE false
+        END as is_overdue,
+        'one_time'::recurrence as recurrence
+      FROM property_taxes pt
+      JOIN properties p ON pt.property_id = p.id
+
+      UNION ALL
+
+      -- Insurance Premiums (upcoming renewals)
+      SELECT
+        ip.id,
+        'insurance_premium'::text as source,
+        ip.id as source_id,
+        'insurance'::bill_type as category,
+        ip.carrier_name || ' - ' || ip.policy_type as description,
+        ip.property_id,
+        p.name as property_name,
+        ip.vehicle_id,
+        CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
+        NULL as vendor_id,
+        NULL as vendor_name,
+        COALESCE(ip.premium_amount, 0) as amount,
+        (ip.expiration_date - INTERVAL '30 days')::date::text as due_date,
+        CASE
+          WHEN ip.expiration_date < CURRENT_DATE THEN 'overdue'::payment_status
+          WHEN ip.expiration_date < CURRENT_DATE + 30 THEN 'pending'::payment_status
+          ELSE 'pending'::payment_status
+        END as status,
+        ip.payment_method,
+        NULL as payment_date,
+        NULL as confirmation_date,
+        NULL as days_waiting,
+        ip.expiration_date < CURRENT_DATE as is_overdue,
+        ip.premium_frequency as recurrence
+      FROM insurance_policies ip
+      LEFT JOIN properties p ON ip.property_id = p.id
+      LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+      WHERE ip.expiration_date >= CURRENT_DATE - 30  -- Only show if expiring soon or expired recently
+    )
+    SELECT * FROM unified
+    ${whereClause}
+    ${searchClause ? (whereClause ? ' AND ' + searchClause.replace('WHERE ', '') : searchClause) : ''}
+    ORDER BY ${getSortColumn(filters?.sortBy)} ${filters?.sortOrder === 'asc' ? 'ASC' : 'DESC'}
+  `
+
+  return query<UnifiedPayment>(sql, params)
+}
+
+function getSortColumn(sortBy?: string): string {
+  const validColumns: Record<string, string> = {
+    description: 'description',
+    property_name: 'property_name',
+    due_date: 'due_date',
+    amount: 'amount',
+    status: 'status',
+    category: 'category',
+  }
+  return validColumns[sortBy || 'due_date'] || 'due_date'
+}
+
+// Get payments needing attention (overdue, unconfirmed checks)
+export async function getPaymentsNeedingAttention(): Promise<UnifiedPayment[]> {
+  return query<UnifiedPayment>(`
+    SELECT * FROM (
+      -- Overdue bills
+      SELECT
+        b.id,
+        'bill'::text as source,
+        b.id as source_id,
+        b.bill_type as category,
+        COALESCE(b.description, b.bill_type::text) as description,
+        b.property_id,
+        p.name as property_name,
+        b.vehicle_id,
+        CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
+        b.vendor_id,
+        vn.name as vendor_name,
+        b.amount,
+        b.due_date::text,
+        b.status,
+        b.payment_method,
+        b.payment_date::text,
+        b.confirmation_date::text,
+        CASE
+          WHEN b.status = 'sent' AND b.payment_date IS NOT NULL AND b.confirmation_date IS NULL
+          THEN CURRENT_DATE - b.payment_date
+          ELSE NULL
+        END as days_waiting,
+        CASE
+          WHEN b.status = 'pending' AND b.due_date < CURRENT_DATE THEN true
+          ELSE false
+        END as is_overdue,
+        b.recurrence
+      FROM bills b
+      LEFT JOIN properties p ON b.property_id = p.id
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN vendors vn ON b.vendor_id = vn.id
+      WHERE (b.status = 'pending' AND b.due_date < CURRENT_DATE)
+         OR (b.status = 'sent' AND b.payment_date IS NOT NULL AND b.confirmation_date IS NULL
+             AND b.payment_date + b.days_to_confirm < CURRENT_DATE)
+
+      UNION ALL
+
+      -- Overdue property taxes
+      SELECT
+        pt.id,
+        'property_tax'::text as source,
+        pt.id as source_id,
+        'property_tax'::bill_type as category,
+        pt.jurisdiction || ' ' || pt.tax_year || ' Q' || pt.installment as description,
+        pt.property_id,
+        p.name as property_name,
+        NULL as vehicle_id,
+        NULL as vehicle_name,
+        NULL as vendor_id,
+        NULL as vendor_name,
+        pt.amount,
+        pt.due_date::text,
+        pt.status,
+        NULL as payment_method,
+        pt.payment_date::text,
+        pt.confirmation_date::text,
+        CASE
+          WHEN pt.status = 'sent' AND pt.payment_date IS NOT NULL AND pt.confirmation_date IS NULL
+          THEN CURRENT_DATE - pt.payment_date
+          ELSE NULL
+        END as days_waiting,
+        CASE
+          WHEN pt.status = 'pending' AND pt.due_date < CURRENT_DATE THEN true
+          ELSE false
+        END as is_overdue,
+        'one_time'::recurrence as recurrence
+      FROM property_taxes pt
+      JOIN properties p ON pt.property_id = p.id
+      WHERE pt.status = 'pending' AND pt.due_date < CURRENT_DATE
+    ) combined
+    ORDER BY
+      CASE WHEN days_waiting IS NOT NULL THEN 0 ELSE 1 END,
+      days_waiting DESC NULLS LAST,
+      due_date ASC
+  `)
+}
 
 // Maintenance Tasks
 export async function getMaintenanceTasks(): Promise<MaintenanceTask[]> {
@@ -3287,7 +3722,115 @@ export async function getCalendarEvents(
   return events
 }
 
-// Payments - migrated to src/lib/actions/payments.ts
+// Get all payments awaiting check confirmation (sent but not confirmed)
+export async function getPaymentsAwaitingConfirmation(): Promise<UnifiedPayment[]> {
+  return query<UnifiedPayment>(`
+    SELECT
+      b.id,
+      'bill'::text as source,
+      b.id as source_id,
+      b.bill_type as category,
+      COALESCE(b.description, b.bill_type::text) as description,
+      b.property_id,
+      p.name as property_name,
+      b.vehicle_id,
+      CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
+      b.vendor_id,
+      vn.name as vendor_name,
+      b.amount,
+      b.due_date::text,
+      b.status,
+      b.payment_method,
+      b.payment_date::text,
+      b.confirmation_date::text,
+      CURRENT_DATE - b.payment_date as days_waiting,
+      false as is_overdue,
+      b.recurrence
+    FROM bills b
+    LEFT JOIN properties p ON b.property_id = p.id
+    LEFT JOIN vehicles v ON b.vehicle_id = v.id
+    LEFT JOIN vendors vn ON b.vendor_id = vn.id
+    WHERE b.status = 'sent'
+      AND b.payment_date IS NOT NULL
+      AND b.confirmation_date IS NULL
+    ORDER BY b.payment_date ASC
+  `)
+}
+
+// ==================== Payment Suggestions ====================
+
+import type { PaymentSuggestion } from "@/types/database"
+
+/**
+ * Get pending payment suggestions (high/medium confidence only).
+ * Excludes invoice emails that already have a matching auto-pay bill
+ * (same vendor, similar amount, confirmed within 14 days).
+ */
+export async function getPendingPaymentSuggestions(): Promise<PaymentSuggestion[]> {
+  return query<PaymentSuggestion>(`
+    SELECT
+      ps.*,
+      v.name as vendor_name,
+      p.name as property_name
+    FROM payment_suggestions ps
+    LEFT JOIN vendors v ON ps.vendor_id = v.id
+    LEFT JOIN properties p ON ps.property_id = p.id
+    WHERE ps.status = 'pending_review'
+      AND ps.confidence IN ('high', 'medium')
+      AND ps.vendor_id IS NOT NULL
+      -- Exclude invoice emails that match an existing auto-pay bill
+      AND NOT EXISTS (
+        SELECT 1 FROM bills b
+        WHERE b.vendor_id = ps.vendor_id
+          AND b.payment_method = 'auto_pay'
+          AND b.status = 'confirmed'
+          -- Amount matches within $1 or 1%
+          AND (
+            ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < 1.00
+            OR ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < b.amount * 0.01
+          )
+          -- Bill confirmed within 14 days of the email
+          AND b.confirmation_date >= (ps.email_received_at::date - 14)
+          AND b.confirmation_date <= (ps.email_received_at::date + 14)
+      )
+    ORDER BY
+      CASE ps.confidence
+        WHEN 'high' THEN 1
+        WHEN 'medium' THEN 2
+        ELSE 3
+      END,
+      ps.email_received_at DESC
+    LIMIT 20
+  `)
+}
+
+/**
+ * Get count of pending payment suggestions.
+ * Excludes invoice emails that already have a matching auto-pay bill.
+ */
+export async function getPaymentSuggestionCount(): Promise<number> {
+  const result = await queryOne<{ count: string }>(`
+    SELECT COUNT(*) as count
+    FROM payment_suggestions ps
+    WHERE status = 'pending_review'
+      AND confidence IN ('high', 'medium')
+      AND vendor_id IS NOT NULL
+      -- Exclude invoice emails that match an existing auto-pay bill
+      AND NOT EXISTS (
+        SELECT 1 FROM bills b
+        WHERE b.vendor_id = ps.vendor_id
+          AND b.payment_method = 'auto_pay'
+          AND b.status = 'confirmed'
+          AND (
+            ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < 1.00
+            OR ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < b.amount * 0.01
+          )
+          AND b.confirmation_date >= (ps.email_received_at::date - 14)
+          AND b.confirmation_date <= (ps.email_received_at::date + 14)
+      )
+  `)
+  return result ? parseInt(result.count, 10) : 0
+}
 
 /**
  * Get linked emails for multiple payments (batch)

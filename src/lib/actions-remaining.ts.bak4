@@ -34,7 +34,6 @@ import type {
   TrustedNeighbor,
   PropertyRenewal,
 } from "@/types/database"
-import type { VendorWithLocations, VendorCommunication } from "./actions/vendors"
 
 // Re-export from payments
 import { getUpcomingAutopays as _getUpcomingAutopays, type UpcomingAutopay } from "@/lib/payments/email-links"
@@ -3287,7 +3286,115 @@ export async function getCalendarEvents(
   return events
 }
 
-// Payments - migrated to src/lib/actions/payments.ts
+// Get all payments awaiting check confirmation (sent but not confirmed)
+export async function getPaymentsAwaitingConfirmation(): Promise<UnifiedPayment[]> {
+  return query<UnifiedPayment>(`
+    SELECT
+      b.id,
+      'bill'::text as source,
+      b.id as source_id,
+      b.bill_type as category,
+      COALESCE(b.description, b.bill_type::text) as description,
+      b.property_id,
+      p.name as property_name,
+      b.vehicle_id,
+      CASE WHEN v.id IS NOT NULL THEN v.year || ' ' || v.make || ' ' || v.model ELSE NULL END as vehicle_name,
+      b.vendor_id,
+      vn.name as vendor_name,
+      b.amount,
+      b.due_date::text,
+      b.status,
+      b.payment_method,
+      b.payment_date::text,
+      b.confirmation_date::text,
+      CURRENT_DATE - b.payment_date as days_waiting,
+      false as is_overdue,
+      b.recurrence
+    FROM bills b
+    LEFT JOIN properties p ON b.property_id = p.id
+    LEFT JOIN vehicles v ON b.vehicle_id = v.id
+    LEFT JOIN vendors vn ON b.vendor_id = vn.id
+    WHERE b.status = 'sent'
+      AND b.payment_date IS NOT NULL
+      AND b.confirmation_date IS NULL
+    ORDER BY b.payment_date ASC
+  `)
+}
+
+// ==================== Payment Suggestions ====================
+
+import type { PaymentSuggestion } from "@/types/database"
+
+/**
+ * Get pending payment suggestions (high/medium confidence only).
+ * Excludes invoice emails that already have a matching auto-pay bill
+ * (same vendor, similar amount, confirmed within 14 days).
+ */
+export async function getPendingPaymentSuggestions(): Promise<PaymentSuggestion[]> {
+  return query<PaymentSuggestion>(`
+    SELECT
+      ps.*,
+      v.name as vendor_name,
+      p.name as property_name
+    FROM payment_suggestions ps
+    LEFT JOIN vendors v ON ps.vendor_id = v.id
+    LEFT JOIN properties p ON ps.property_id = p.id
+    WHERE ps.status = 'pending_review'
+      AND ps.confidence IN ('high', 'medium')
+      AND ps.vendor_id IS NOT NULL
+      -- Exclude invoice emails that match an existing auto-pay bill
+      AND NOT EXISTS (
+        SELECT 1 FROM bills b
+        WHERE b.vendor_id = ps.vendor_id
+          AND b.payment_method = 'auto_pay'
+          AND b.status = 'confirmed'
+          -- Amount matches within $1 or 1%
+          AND (
+            ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < 1.00
+            OR ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < b.amount * 0.01
+          )
+          -- Bill confirmed within 14 days of the email
+          AND b.confirmation_date >= (ps.email_received_at::date - 14)
+          AND b.confirmation_date <= (ps.email_received_at::date + 14)
+      )
+    ORDER BY
+      CASE ps.confidence
+        WHEN 'high' THEN 1
+        WHEN 'medium' THEN 2
+        ELSE 3
+      END,
+      ps.email_received_at DESC
+    LIMIT 20
+  `)
+}
+
+/**
+ * Get count of pending payment suggestions.
+ * Excludes invoice emails that already have a matching auto-pay bill.
+ */
+export async function getPaymentSuggestionCount(): Promise<number> {
+  const result = await queryOne<{ count: string }>(`
+    SELECT COUNT(*) as count
+    FROM payment_suggestions ps
+    WHERE status = 'pending_review'
+      AND confidence IN ('high', 'medium')
+      AND vendor_id IS NOT NULL
+      -- Exclude invoice emails that match an existing auto-pay bill
+      AND NOT EXISTS (
+        SELECT 1 FROM bills b
+        WHERE b.vendor_id = ps.vendor_id
+          AND b.payment_method = 'auto_pay'
+          AND b.status = 'confirmed'
+          AND (
+            ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < 1.00
+            OR ABS(b.amount - COALESCE(ps.amount_extracted, 0)) < b.amount * 0.01
+          )
+          AND b.confirmation_date >= (ps.email_received_at::date - 14)
+          AND b.confirmation_date <= (ps.email_received_at::date + 14)
+      )
+  `)
+  return result ? parseInt(result.count, 10) : 0
+}
 
 /**
  * Get linked emails for multiple payments (batch)
