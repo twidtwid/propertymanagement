@@ -45,61 +45,11 @@ export async function getUpcomingAutopays(
   return _getUpcomingAutopays(daysBack, limit)
 }
 
-// Properties
-export async function getProperties(): Promise<Property[]> {
-  const ctx = await getVisibilityContext()
-  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
+// Properties - migrated to src/lib/actions/properties.ts
 
-  return query<Property>(
-    `SELECT * FROM properties WHERE id = ANY($1::uuid[]) ORDER BY name`,
-    [ctx.visiblePropertyIds]
-  )
-}
+// Vehicles - migrated to src/lib/actions/vehicles.ts
 
-export async function getProperty(id: string): Promise<Property | null> {
-  const ctx = await getVisibilityContext()
-  if (!ctx || !ctx.visiblePropertyIds.includes(id)) return null
-
-  return queryOne<Property>("SELECT * FROM properties WHERE id = $1", [id])
-}
-
-export async function getActiveProperties(): Promise<Property[]> {
-  const ctx = await getVisibilityContext()
-  if (!ctx || ctx.visiblePropertyIds.length === 0) return []
-
-  return query<Property>(
-    `SELECT * FROM properties WHERE status = 'active' AND id = ANY($1::uuid[]) ORDER BY name`,
-    [ctx.visiblePropertyIds]
-  )
-}
-
-// Vehicles
-export async function getVehicles(): Promise<Vehicle[]> {
-  const visibleIds = await getVisibleVehicleIds()
-  if (visibleIds.length === 0) return []
-
-  return query<Vehicle>(
-    `SELECT * FROM vehicles WHERE id = ANY($1::uuid[]) ORDER BY year DESC, make, model`,
-    [visibleIds]
-  )
-}
-
-export async function getVehicle(id: string): Promise<Vehicle | null> {
-  const visibleIds = await getVisibleVehicleIds()
-  if (!visibleIds.includes(id)) return null
-
-  return queryOne<Vehicle>("SELECT * FROM vehicles WHERE id = $1", [id])
-}
-
-export async function getActiveVehicles(): Promise<Vehicle[]> {
-  const visibleIds = await getVisibleVehicleIds()
-  if (visibleIds.length === 0) return []
-
-  return query<Vehicle>(
-    `SELECT * FROM vehicles WHERE is_active = TRUE AND id = ANY($1::uuid[]) ORDER BY year DESC, make, model`,
-    [visibleIds]
-  )
-}
+// Bills - migrated to src/lib/actions/bills.ts (further down in file)
 
 // Vendors
 export async function getVendors(): Promise<Vendor[]> {
@@ -1737,43 +1687,6 @@ export async function findVendorForProperty(
      ORDER BY pv.is_primary DESC
      LIMIT 1`,
     [propertyId, specialty]
-  )
-}
-
-// Bills
-export async function getBills(): Promise<Bill[]> {
-  return query<Bill>(
-    `SELECT b.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
-     FROM bills b
-     LEFT JOIN properties p ON b.property_id = p.id
-     LEFT JOIN vehicles v ON b.vehicle_id = v.id
-     ORDER BY b.due_date`
-  )
-}
-
-export async function getUpcomingBills(days: number = 30): Promise<Bill[]> {
-  return query<Bill>(
-    `SELECT b.*, row_to_json(p.*) as property, row_to_json(v.*) as vehicle
-     FROM bills b
-     LEFT JOIN properties p ON b.property_id = p.id
-     LEFT JOIN vehicles v ON b.vehicle_id = v.id
-     WHERE b.status IN ('pending', 'sent')
-       AND b.due_date <= CURRENT_DATE + ($1::INTEGER)
-     ORDER BY b.due_date`,
-    [days]
-  )
-}
-
-export async function getBillsNeedingConfirmation(): Promise<Bill[]> {
-  return query<Bill>(
-    `SELECT b.*, row_to_json(p.*) as property
-     FROM bills b
-     LEFT JOIN properties p ON b.property_id = p.id
-     WHERE b.status = 'sent'
-       AND b.payment_date IS NOT NULL
-       AND b.confirmation_date IS NULL
-       AND b.payment_date + b.days_to_confirm < CURRENT_DATE
-     ORDER BY b.payment_date`
   )
 }
 

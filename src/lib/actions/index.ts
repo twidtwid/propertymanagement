@@ -30,16 +30,11 @@
  * - reports.ts (10+ functions)
  */
 
-// For now, re-export everything from the monolithic file
-// This maintains 100% backward compatibility
-export * from "../actions"
+// Domain-based exports (Phase 3A migration complete)
+export * from "./properties"
+export * from "./vehicles"
+export * from "./bills"
 
-// When ready to migrate a domain:
-// 1. Uncomment the domain export below
-// 2. Remove those functions from ../actions.ts
-// 3. Test thoroughly
-
-// export * from "./properties"
-// export * from "./vehicles"
-// export * from "./vendors"
-// ... etc
+// Re-export remaining functions from monolithic file (now renamed to actions-remaining.ts)
+// (will be migrated incrementally in future phases)
+export * from "../actions-remaining"
