@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather API Resilience - v0.8.15</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .hero .version {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            opacity: 0.95;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .feature-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .stats {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            margin-bottom: 40px;
+        }
+
+        .stats h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            text-align: center;
+        }
+
+        .stat-item {
+            padding: 20px;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.95rem;
+            margin-top: 5px;
+        }
+
+        .how-it-works {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            margin-bottom: 40px;
+        }
+
+        .how-it-works h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 25px;
+            padding-left: 25px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 5px;
+            width: 14px;
+            height: 14px;
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 50%;
+        }
+
+        .timeline-item h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .timeline-item p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .footer {
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            padding: 20px;
+        }
+
+        .footer a {
+            color: white;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .comparison-card {
+            padding: 25px;
+            border-radius: 12px;
+        }
+
+        .comparison-card.before {
+            background: #fee2e2;
+            border: 2px solid #fca5a5;
+        }
+
+        .comparison-card.after {
+            background: #d1fae5;
+            border: 2px solid #6ee7b7;
+        }
+
+        .comparison-card h4 {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .comparison-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .comparison-card li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            font-size: 0.95rem;
+        }
+
+        .comparison-card li:last-child {
+            border-bottom: none;
+        }
+
+        @media (max-width: 600px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="hero">
+            <span class="version">v0.8.15 - January 2026</span>
+            <h1>Weather API Resilience</h1>
+            <p>Never miss a forecast again. Smart retries, intelligent caching, and graceful degradation for rock-solid weather data.</p>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Smart Retry Logic</h3>
+                <p>Automatic retries with exponential backoff. If wttr.in hiccups, we try again at 1s, then 2s delays before giving up.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h3>Per-Location Cache</h3>
+                <p>Each location cached independently. Brooklyn going down doesn't affect Paris. Stale data served for up to 30 minutes.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Graceful Degradation</h3>
+                <p>Failed locations fall back to cached data automatically. Users always see weather, even if slightly stale.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Transparent Status</h3>
+                <p>API responses include stale and missing location counts. Know exactly what's fresh and what's from cache.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Detailed Logging</h3>
+                <p>Every fetch logged with timing, retry attempts, and cache age. Debug issues instantly with clear visibility.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🌍</div>
+                <h3>5 Global Locations</h3>
+                <p>Brooklyn, Rhode Island, Vermont, Martinique, and Paris. All fetched in parallel for maximum speed.</p>
+            </div>
+        </div>
+
+        <div class="stats">
+            <h2>By The Numbers</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number">3x</div>
+                    <div class="stat-label">Fetch Attempts</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">30m</div>
+                    <div class="stat-label">Stale Cache TTL</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">8s</div>
+                    <div class="stat-label">Timeout Per Try</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">5</div>
+                    <div class="stat-label">Locations Tracked</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="how-it-works">
+            <h2>How It Works</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <h4>1. Parallel Fetch <span class="badge badge-info">Fast</span></h4>
+                    <p>All 5 locations fetched simultaneously from wttr.in API</p>
+                </div>
+                <div class="timeline-item">
+                    <h4>2. Retry on Failure <span class="badge badge-warning">Resilient</span></h4>
+                    <p>Failed locations retry up to 2 more times with 1s → 2s backoff</p>
+                </div>
+                <div class="timeline-item">
+                    <h4>3. Cache Fallback <span class="badge badge-success">Reliable</span></h4>
+                    <p>If all retries fail, serve cached data (marked as stale after 10 min)</p>
+                </div>
+                <div class="timeline-item">
+                    <h4>4. Update Per-Location Cache</h4>
+                    <p>Successful fetches update individual location caches for future fallback</p>
+                </div>
+                <div class="timeline-item">
+                    <h4>5. Return Complete Data</h4>
+                    <p>Response merges fresh + stale data, reports counts for monitoring</p>
+                </div>
+            </div>
+
+            <div class="comparison">
+                <div class="comparison-card before">
+                    <h4>❌ Before v0.8.15</h4>
+                    <ul>
+                        <li>Single fetch attempt per location</li>
+                        <li>One global cache for all locations</li>
+                        <li>Failed location = missing for 10 min</li>
+                        <li>Partial results cached as-is</li>
+                        <li>No visibility into failures</li>
+                    </ul>
+                </div>
+                <div class="comparison-card after">
+                    <h4>✅ After v0.8.15</h4>
+                    <ul>
+                        <li>3 attempts with exponential backoff</li>
+                        <li>Independent cache per location</li>
+                        <li>Failed location = stale data fallback</li>
+                        <li>Fresh + stale merged intelligently</li>
+                        <li>Clear stale/missing counts in API</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Built with ☕ by Claude Code for <a href="https://spmsystem.com">PropManager</a></p>
+        </div>
+    </div>
+</body>
+</html>

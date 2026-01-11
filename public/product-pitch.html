@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PropManager - Property Management Simplified</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; color: #333; font-size: 14px; }
+
+        .hero {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            color: white; padding: 40px 20px; text-align: center;
+        }
+        .hero h1 { font-size: 2.2rem; margin-bottom: 8px; }
+        .hero .tagline { opacity: 0.9; margin-bottom: 6px; }
+        .hero .subtitle { opacity: 0.7; font-size: 0.85rem; margin-bottom: 20px; font-style: italic; }
+        .hero-stats { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }
+        .hero-stat-number { font-size: 2rem; font-weight: 700; }
+        .hero-stat-label { font-size: 0.8rem; opacity: 0.8; }
+
+        section { padding: 30px 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h2 { font-size: 1.5rem; color: #1e3a5f; margin-bottom: 20px; text-align: center; }
+        .alt { background: #f8fafc; }
+
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+
+        .card {
+            background: white; border-radius: 10px; padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #eee;
+        }
+        .card h3 { font-size: 1rem; color: #1e3a5f; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .card p { color: #666; font-size: 0.85rem; margin-bottom: 10px; }
+        .card ul { list-style: none; font-size: 0.8rem; color: #555; }
+        .card ul li { padding: 3px 0; }
+        .card ul li::before { content: '✓ '; color: #2d5a87; font-weight: bold; }
+
+        .integrations { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .integration { text-align: center; padding: 12px 20px; background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .integration-icon { font-size: 1.5rem; }
+        .integration-name { font-weight: 600; color: #1e3a5f; font-size: 0.85rem; }
+
+        .locations { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 15px; }
+        .location { background: white; padding: 10px 16px; border-radius: 8px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .location-flag { font-size: 1.3rem; }
+        .location-name { font-size: 0.75rem; font-weight: 600; color: #1e3a5f; }
+
+        .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .role { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .role h4 { font-size: 0.95rem; color: #1e3a5f; margin-bottom: 8px; }
+        .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 600; margin-right: 6px; }
+        .badge.owner { background: #dbeafe; color: #1e40af; }
+        .badge.bookkeeper { background: #fef3c7; color: #92400e; }
+
+        .tech { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+        .tech span { background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 500; color: #1e3a5f; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+        .cta {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            color: white; text-align: center; padding: 30px 20px;
+        }
+        .cta h2 { color: white; margin-bottom: 8px; }
+        .cta p { opacity: 0.9; margin-bottom: 15px; }
+        .cta a {
+            display: inline-block; background: white; color: #1e3a5f;
+            padding: 10px 30px; border-radius: 6px; font-weight: 600; text-decoration: none;
+        }
+
+        footer { background: #0f1f2e; color: rgba(255,255,255,0.6); padding: 15px; text-align: center; font-size: 0.8rem; }
+        footer a { color: white; }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <h1>PropManager</h1>
+        <p class="tagline">One dashboard for all your properties, vehicles, vendors, and finances.</p>
+        <p class="subtitle">Because someone had to organize this empire.</p>
+        <div class="hero-stats">
+            <div><div class="hero-stat-number">10</div><div class="hero-stat-label">Properties</div></div>
+            <div><div class="hero-stat-number">7</div><div class="hero-stat-label">Vehicles</div></div>
+            <div><div class="hero-stat-number">70+</div><div class="hero-stat-label">Vendors</div></div>
+            <div><div class="hero-stat-number">6</div><div class="hero-stat-label">Locations</div></div>
+        </div>
+    </section>
+
+    <section>
+        <div class="container">
+            <h2>Core Features</h2>
+            <div class="grid-3">
+                <div class="card">
+                    <h3>🏠 Properties</h3>
+                    <p>Track all properties with tax info and documents. Yes, all of them.</p>
+                    <ul><li>Multi-jurisdiction taxes</li><li>Access codes & neighbors</li><li>Equipment inventory</li></ul>
+                </div>
+                <div class="card">
+                    <h3>💰 Payments</h3>
+                    <p>Smart bill tracking so nothing falls through the cracks (again).</p>
+                    <ul><li>Status workflow</li><li>Payment suggestions</li><li>Check confirmation alerts</li></ul>
+                </div>
+                <div class="card">
+                    <h3>👷 Vendors</h3>
+                    <p>36 specialties. Who knew we needed a forester AND a septic guy?</p>
+                    <ul><li>Contact management</li><li>Gmail sync</li><li>Property assignments</li></ul>
+                </div>
+                <div class="card">
+                    <h3>🛡️ Insurance</h3>
+                    <p>Policies across all assets. Sleep better at night.</p>
+                    <ul><li>Multi-asset policies</li><li>Renewal reminders</li><li>Coverage details</li></ul>
+                </div>
+                <div class="card">
+                    <h3>🔧 Maintenance</h3>
+                    <p>Tickets and seasonal tasks. The gutters won't clean themselves.</p>
+                    <ul><li>Ticket workflow</li><li>Priority levels</li><li>Seasonal reminders</li></ul>
+                </div>
+                <div class="card">
+                    <h3>🚗 Vehicles</h3>
+                    <p>Registration and inspection tracking. No more surprise tickets.</p>
+                    <ul><li>Expiration alerts</li><li>Insurance linking</li><li>Document storage</li></ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="alt">
+        <div class="container">
+            <h2>Integrations</h2>
+            <div class="integrations">
+                <div class="integration"><div class="integration-icon">📧</div><div class="integration-name">Gmail</div></div>
+                <div class="integration"><div class="integration-icon">📁</div><div class="integration-name">Dropbox</div></div>
+                <div class="integration"><div class="integration-icon">🔔</div><div class="integration-name">Pushover</div></div>
+                <div class="integration"><div class="integration-icon">🏢</div><div class="integration-name">BuildingLink</div></div>
+                <div class="integration"><div class="integration-icon">🤖</div><div class="integration-name">Claude AI</div></div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="container">
+            <h2>Weather & Alerts</h2>
+            <div class="grid-3">
+                <div class="card">
+                    <h3>🌤️ Live Conditions</h3>
+                    <p>Current weather for all regions. Know if you need a jacket in Paris or sunscreen in Martinique.</p>
+                </div>
+                <div class="card">
+                    <h3>🌪️ NWS Alerts</h3>
+                    <p>Severe weather alerts pushed to your phone. Mother Nature doesn't give advance notice, but we do.</p>
+                </div>
+                <div class="card">
+                    <h3>🇫🇷 Météo-France</h3>
+                    <p>European alerts for Paris and Martinique. Oui, we speak météo.</p>
+                </div>
+            </div>
+            <div class="locations">
+                <div class="location"><div class="location-flag">🗽</div><div class="location-name">Brooklyn</div></div>
+                <div class="location"><div class="location-flag">⛵</div><div class="location-name">Rhode Island</div></div>
+                <div class="location"><div class="location-flag">🍁</div><div class="location-name">Vermont</div></div>
+                <div class="location"><div class="location-flag">🌴</div><div class="location-name">Martinique</div></div>
+                <div class="location"><div class="location-flag">🗼</div><div class="location-name">Paris</div></div>
+                <div class="location"><div class="location-flag">🌉</div><div class="location-name">California</div></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="alt">
+        <div class="container">
+            <h2>Multi-User Access</h2>
+            <div class="roles">
+                <div class="role">
+                    <h4><span class="badge owner">Family</span> Full Access</h4>
+                    <ul><li>All properties & vehicles</li><li>Financial management</li><li>Vendor management</li><li>Documents & settings</li></ul>
+                </div>
+                <div class="role">
+                    <h4><span class="badge bookkeeper">Barbara</span> Bill Wrangler</h4>
+                    <ul><li>Bill management</li><li>Payment tracking</li><li>Tax records</li><li>View-only vendor info</li></ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="container">
+            <h2>Built for Reliability</h2>
+            <div class="tech">
+                <span>Next.js 14</span><span>TypeScript</span><span>PostgreSQL</span>
+                <span>OAuth 2.0</span><span>AES-256</span><span>Daily Backups</span>
+            </div>
+            <div class="grid-3">
+                <div class="card"><h3>🔐 Secure</h3><p>OAuth tokens encrypted. Role-based access. Fort Knox, but for property data.</p></div>
+                <div class="card"><h3>💾 Backed Up</h3><p>Automated database backups at 3 AM. Because disasters don't keep business hours.</p></div>
+                <div class="card"><h3>🔄 Real-Time</h3><p>Dropbox syncs every 15 min. Email hourly. Weather every 30 min. We're always watching.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <h2>Your Properties, Under Control</h2>
+        <p>Stop juggling spreadsheets. Start managing smarter. Or just let Todd handle it.</p>
+        <a href="https://spmsystem.com">Visit PropManager →</a>
+    </section>
+
+    <footer>PropManager v0.8.15 · Built with Claude Code · <a href="https://spmsystem.com">spmsystem.com</a></footer>
+</body>
+</html>
