@@ -23,31 +23,7 @@ import { PinnedSection } from "@/components/ui/pinned-section"
 import { InsuranceFilters } from "./insurance-filters"
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils"
 import type { InsurancePolicy, PinNote } from "@/types/database"
-
-const INSURANCE_TYPE_LABELS: Record<string, string> = {
-  homeowners: "Homeowners",
-  auto: "Auto",
-  umbrella: "Umbrella",
-  flood: "Flood",
-  earthquake: "Earthquake",
-  liability: "Liability",
-  health: "Health",
-  travel: "Travel",
-  other: "Other",
-}
-
-// Short labels for mobile
-const INSURANCE_TYPE_SHORT_LABELS: Record<string, string> = {
-  homeowners: "Home",
-  auto: "Auto",
-  umbrella: "Umbrella",
-  flood: "Flood",
-  earthquake: "Quake",
-  liability: "Liab.",
-  health: "Health",
-  travel: "Travel",
-  other: "Other",
-}
+import { INSURANCE_TYPE_LABELS, INSURANCE_TYPE_SHORT_LABELS } from "@/types/database"
 
 interface InsuranceWithPinsProps {
   policies: InsurancePolicy[]

@@ -39,15 +39,7 @@ import {
   type ActionResult,
 } from "./schemas"
 import { getUser } from "./auth"
-
-/**
- * Convert empty strings to null for database fields.
- * PostgreSQL doesn't accept "" for date, numeric, or foreign key fields.
- */
-function emptyToNull<T>(value: T): T | null {
-  if (value === "" || value === undefined) return null
-  return value
-}
+import { emptyToNull } from "./utils/transforms"
 
 // ============================================
 // Properties

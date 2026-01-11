@@ -21,18 +21,7 @@ import {
   ReportCard,
   ExportButton,
 } from "@/components/reports"
-
-const INSURANCE_TYPE_LABELS: Record<string, string> = {
-  homeowners: "Homeowners",
-  auto: "Auto",
-  umbrella: "Umbrella",
-  flood: "Flood",
-  earthquake: "Earthquake",
-  liability: "Liability",
-  health: "Health",
-  travel: "Travel",
-  other: "Other",
-}
+import { INSURANCE_TYPE_LABELS } from "@/types/database"
 
 export default async function InsuranceCoveragePage() {
   const report = await getInsuranceCoverageReport()
@@ -40,7 +29,7 @@ export default async function InsuranceCoveragePage() {
   // Transform data for charts
   const byTypePremiumData = Object.entries(report.byType)
     .map(([type, data]) => ({
-      name: INSURANCE_TYPE_LABELS[type] || type,
+      name: INSURANCE_TYPE_LABELS[type as keyof typeof INSURANCE_TYPE_LABELS] || type,
       value: data.premium,
     }))
     .filter((d) => d.value > 0)
@@ -48,7 +37,7 @@ export default async function InsuranceCoveragePage() {
 
   const byTypeCoverageData = Object.entries(report.byType)
     .map(([type, data]) => ({
-      name: INSURANCE_TYPE_LABELS[type] || type,
+      name: INSURANCE_TYPE_LABELS[type as keyof typeof INSURANCE_TYPE_LABELS] || type,
       value: data.coverage,
     }))
     .filter((d) => d.value > 0)

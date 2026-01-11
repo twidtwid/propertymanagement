@@ -587,6 +587,19 @@ export const INSURANCE_TYPE_LABELS: Record<InsuranceType, string> = {
   other: 'Other',
 }
 
+// Short labels for mobile/compact views
+export const INSURANCE_TYPE_SHORT_LABELS: Record<InsuranceType, string> = {
+  homeowners: 'Home',
+  auto: 'Auto',
+  umbrella: 'Umbrella',
+  flood: 'Flood',
+  earthquake: 'Quake',
+  liability: 'Liab.',
+  health: 'Health',
+  travel: 'Travel',
+  other: 'Other',
+}
+
 export const RECURRENCE_LABELS: Record<Recurrence, string> = {
   one_time: 'One-Time',
   monthly: 'Monthly',
