@@ -107,7 +107,7 @@ Only include properties you're reasonably confident about. If no clear matches a
 
   try {
     const response = await client.messages.create({
-      model: "claude-3-haiku-20240307",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     })

@@ -260,12 +260,18 @@ docker compose logs app -f        # Follow logs
 
 ## Claude Model Selection
 
-When using Claude API in this codebase:
+**Current Policy: Haiku 4.5 Only**
+
+All Claude API calls use `claude-haiku-4-5-20251001` for cost optimization:
 
 ```typescript
-'claude-haiku-4-5-20251001'     // Fast/cheap (Dropbox summaries)
-'claude-sonnet-4-5-20250929'    // Balanced (vendor analysis)
-'claude-opus-4-5-20251101'      // Best (tax PDF extraction)
+'claude-haiku-4-5-20251001'     // Used everywhere (summaries, email analysis, vendor matching, etc.)
+```
+
+If you need higher-quality models for specific use cases, consider:
+```typescript
+'claude-sonnet-4-5-20250929'    // Balanced (complex analysis)
+'claude-opus-4-5-20251101'      // Best (difficult PDFs)
 ```
 
 ---
