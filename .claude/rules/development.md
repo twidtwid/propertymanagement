@@ -204,3 +204,108 @@ Location: `scripts/migrations/`
 - 038: Health monitoring state
 
 **Running migrations:** Use `/migrate` skill for production.
+
+---
+
+## Feature Implementation Order
+
+**Always follow this sequence:**
+
+1. **Migration** - Create `scripts/migrations/XXX_description.sql`
+2. **Types** - Update `src/types/database.ts` with new types
+3. **Zod** - Add validation schemas in `src/lib/schemas/index.ts`
+4. **Actions/Mutations** - Implement data layer in `actions.ts` or `mutations.ts`
+5. **Build** - Run `/build` to catch TypeScript errors
+6. **Test** - Run `/test` to verify logic
+7. **Deploy** - Use `/deploy` skill for production
+
+---
+
+## Code Patterns
+
+### SQL with Optional Foreign Keys
+
+```sql
+-- Use LEFT JOIN when FK can be NULL
+SELECT b.*, p.name as property_name, v.name as vendor_name
+FROM bills b
+LEFT JOIN properties p ON b.property_id = p.id
+LEFT JOIN vendors v ON b.vendor_id = v.id
+WHERE b.due_date <= CURRENT_DATE + ($1::INTEGER)  -- Note the cast!
+```
+
+### Integer Casting for Date Arithmetic
+
+```sql
+-- WRONG: "operator is not unique" error
+WHERE due_date <= CURRENT_DATE + $1
+
+-- CORRECT: explicit cast
+WHERE due_date <= CURRENT_DATE + ($1::INTEGER)
+```
+
+### Enum Label Display
+
+```typescript
+// Always use label maps from database.ts
+import { billTypeLabels } from '@/types/database'
+
+<span>{billTypeLabels[bill.bill_type]}</span>  // "Property Tax" not "property_tax"
+```
+
+### Hydration-Safe Date Display
+
+```typescript
+'use client'
+import { useState, useEffect } from 'react'
+
+export function DateDisplay({ date }: { date: Date }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  if (!mounted) return <span suppressHydrationWarning>{date.toISOString()}</span>
+  return <span>{date.toLocaleDateString()}</span>
+}
+```
+
+### UUID Generation
+
+```sql
+-- Use gen_random_uuid() (built-in), not uuid_generate_v4() (requires extension)
+INSERT INTO properties (id, name) VALUES (gen_random_uuid(), 'Test')
+```
+
+---
+
+## Architectural Patterns
+
+### Server Components by Default
+
+Only add `"use client"` when you need client-side interactivity. Server components can directly query the database via Server Actions.
+
+### Server Actions for Mutations
+
+- `src/lib/actions.ts` - Read operations (queries)
+- `src/lib/mutations.ts` - Write operations (insert, update, delete)
+- No API routes for CRUD operations (use Server Actions instead)
+
+### Type Flow
+
+```
+PostgreSQL Schema (scripts/init.sql)
+    ↓
+TypeScript Types (src/types/database.ts)
+    ↓
+Zod Schemas (src/lib/schemas/index.ts)
+    ↓
+Server Actions (validation)
+    ↓
+UI Components
+```
+
+### When to Use What
+
+- Queries → `actions.ts` → Server Components
+- Mutations → `mutations.ts` → Form actions or client events
+- Background jobs → `unified-worker.js` → Cron endpoints
+- External scripts → Python with `uv run` → POST to callback API

@@ -1,6 +1,6 @@
 {
   "name": "property-management",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -18,6 +18,8 @@
     "tax:sync:vermont": "uv run python scripts/lookup_vermont_tax.py",
     "dropbox:sync": "npx tsx scripts/dropbox_sync.ts",
     "dropbox:sync:force": "npx tsx scripts/dropbox_sync.ts --force",
+    "nest:check-token": "node scripts/check-nest-token-expiration.js",
+    "nest:update-token": "node scripts/update-nest-token-manual.js",
     "prepare": "husky"
   },
   "dependencies": {

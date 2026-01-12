@@ -101,6 +101,76 @@ export async function fetchHikvisionSnapshot(
 }
 
 /**
+ * Fetch snapshot from legacy Nest camera via Dropcam API
+ * Uses the snapshot endpoint we've already implemented
+ */
+export async function fetchNestLegacySnapshot(
+  cameraId: string,
+  externalId: string
+): Promise<SnapshotResult> {
+  try {
+    const creds = await getNestLegacyCredentials()
+
+    // Fetch snapshot directly from Dropcam API
+    const response = await fetch(
+      `https://nexusapi-us1.camera.home.nest.com/get_image?uuid=${externalId}&width=1920`,
+      {
+        headers: {
+          Cookie: `user_token=${creds.access_token}`,
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          Referer: 'https://home.nest.com/',
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Dropcam API error (${response.status}): ${errorText.substring(0, 200)}`)
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('image')) {
+      throw new Error(`Unexpected content-type: ${contentType}`)
+    }
+
+    const imageBuffer = Buffer.from(await response.arrayBuffer())
+
+    return {
+      imageBuffer,
+      timestamp: new Date(),
+      success: true,
+    }
+  } catch (error) {
+    console.error(`Error fetching Nest Legacy snapshot for ${externalId}:`, error)
+    return {
+      imageBuffer: Buffer.from(''),
+      timestamp: new Date(),
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Get Nest Legacy credentials from database
+ */
+async function getNestLegacyCredentials(): Promise<{ access_token: string }> {
+  const rows = await query<{ credentials_encrypted: string }>(
+    'SELECT credentials_encrypted FROM camera_credentials WHERE provider = $1',
+    ['nest_legacy']
+  )
+
+  if (rows.length === 0) {
+    throw new Error('Nest Legacy credentials not configured')
+  }
+
+  const encrypted = rows[0].credentials_encrypted
+  const creds = JSON.parse(decryptToken(encrypted))
+
+  return creds
+}
+
+/**
  * Placeholder for SecuritySpy (Phase 3)
  */
 export async function fetchSecuritySpySnapshot(

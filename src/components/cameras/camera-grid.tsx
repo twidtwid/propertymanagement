@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Video, MapPin, Wifi, WifiOff } from 'lucide-react'
+import { Video, MapPin, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 import { CameraFullscreenViewer } from './camera-fullscreen-viewer'
 import { CAMERA_PROVIDER_LABELS, CAMERA_STATUS_LABELS } from '@/types/database'
 import type { CamerasByProperty } from '@/lib/actions/cameras'
@@ -17,7 +17,20 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
     id: string
     name: string
     location: string | null
+    provider: string
   } | null>(null)
+
+  // Track refresh counter for nest_legacy cameras (force image reload)
+  const [refreshCounter, setRefreshCounter] = useState(0)
+
+  // Auto-refresh snapshots every 10 minutes for nest_legacy cameras
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshCounter((prev) => prev + 1)
+    }, 10 * 60 * 1000) // 10 minutes
+
+    return () => clearInterval(interval)
+  }, [])
 
   if (camerasGrouped.length === 0) {
     return (
@@ -59,6 +72,7 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
                       id: camera.id,
                       name: camera.name,
                       location: camera.location,
+                      provider: camera.provider,
                     })
                   }
                 >
@@ -78,7 +92,20 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
                   <CardContent className="space-y-3">
                     {/* Snapshot preview or placeholder */}
                     <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 rounded-md flex flex-col items-center justify-center overflow-hidden relative">
-                      {camera.snapshot_url ? (
+                      {camera.provider === 'nest_legacy' ? (
+                        <>
+                          {/* Live snapshot from API endpoint - auto-refreshes via refreshCounter */}
+                          <img
+                            src={`/api/cameras/${camera.id}/snapshot?t=${refreshCounter}`}
+                            alt={camera.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                            <RefreshCw className="h-3 w-3" />
+                            <span>Live</span>
+                          </div>
+                        </>
+                      ) : camera.snapshot_url ? (
                         <>
                           <img
                             src={camera.snapshot_url}

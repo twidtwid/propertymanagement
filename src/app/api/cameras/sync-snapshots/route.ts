@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { decryptToken } from '@/lib/encryption'
-import { fetchNestSnapshot } from '@/lib/cameras/snapshot-fetcher'
+import { fetchNestSnapshot, fetchNestLegacySnapshot } from '@/lib/cameras/snapshot-fetcher'
 import { Dropbox } from 'dropbox'
 
 export async function POST(request: NextRequest) {
@@ -54,6 +54,9 @@ export async function POST(request: NextRequest) {
         switch (camera.provider) {
           case 'nest':
             snapshotResult = await fetchNestSnapshot(camera.external_id)
+            break
+          case 'nest_legacy':
+            snapshotResult = await fetchNestLegacySnapshot(camera.id, camera.external_id)
             break
           case 'hikvision':
             // TODO: Phase 2

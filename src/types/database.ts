@@ -45,7 +45,7 @@ export type RenewalType =
   | 'building_permit' | 'other'
 
 // Camera types
-export type CameraProvider = 'nest' | 'hikvision' | 'securityspy'
+export type CameraProvider = 'nest' | 'nest_legacy' | 'hikvision' | 'securityspy'
 export type CameraStatus = 'online' | 'offline' | 'error' | 'unknown'
 
 export interface Profile {
@@ -917,6 +917,7 @@ export const RENEWAL_TYPE_LABELS: Record<RenewalType, string> = {
 // Camera provider labels
 export const CAMERA_PROVIDER_LABELS: Record<CameraProvider, string> = {
   nest: 'Google Nest',
+  nest_legacy: 'Nest (Legacy)',
   hikvision: 'Hikvision',
   securityspy: 'SecuritySpy',
 }

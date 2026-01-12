@@ -10,6 +10,7 @@ interface CameraFullscreenViewerProps {
     id: string
     name: string
     location: string | null
+    provider: string
   }
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -21,14 +22,31 @@ export function CameraFullscreenViewer({ camera, open, onOpenChange }: CameraFul
   const videoRef = useRef<HTMLVideoElement>(null)
   const pcRef = useRef<RTCPeerConnection | null>(null)
 
+  // For nest_legacy: snapshot polling
+  const [snapshotKey, setSnapshotKey] = useState(0)
+
+  // Snapshot polling for nest_legacy cameras
   useEffect(() => {
-    if (!open) {
-      // Clean up when dialog closes
-      if (pcRef.current) {
-        pcRef.current.close()
-        pcRef.current = null
-      }
-      return
+    if (!open || camera.provider !== 'nest_legacy') return
+
+    setLoading(false) // Snapshots load immediately
+
+    // Refresh every 2 seconds for "live" view
+    const interval = setInterval(() => {
+      setSnapshotKey((prev) => prev + 1)
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [open, camera.provider])
+
+  // WebRTC streaming for official Nest cameras
+  useEffect(() => {
+    if (!open || camera.provider !== 'nest') return
+
+    // Clean up when dialog closes
+    if (pcRef.current) {
+      pcRef.current.close()
+      pcRef.current = null
     }
 
     let mounted = true
@@ -145,13 +163,22 @@ export function CameraFullscreenViewer({ camera, open, onOpenChange }: CameraFul
             </div>
           )}
 
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-contain"
-            style={{ display: loading || error ? 'none' : 'block' }}
-          />
+          {camera.provider === 'nest_legacy' ? (
+            <img
+              src={`/api/cameras/${camera.id}/snapshot?t=${snapshotKey}`}
+              alt={camera.name}
+              className="w-full h-full object-contain"
+              style={{ display: error ? 'none' : 'block' }}
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-contain"
+              style={{ display: loading || error ? 'none' : 'block' }}
+            />
+          )}
         </div>
 
         <div className="flex justify-end gap-2">

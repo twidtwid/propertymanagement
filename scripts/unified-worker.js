@@ -87,6 +87,7 @@ function loadState() {
     lastSmartPinsSync: null,
     lastCameraSync: null,
     lastDailySummary: null,
+    lastNestTokenCheck: null,
   };
 }
 
@@ -260,6 +261,58 @@ async function runDailySummary() {
 }
 
 // ============================================================================
+// Task 5: Nest Token Refresh Check
+// ============================================================================
+
+async function runNestTokenCheck() {
+  console.log('\n' + '='.repeat(60));
+  console.log('  NEST TOKEN CHECK - Daily at 3 AM');
+  console.log('='.repeat(60));
+
+  try {
+    const { spawn } = require('child_process');
+
+    // Run the Node.js monitoring script (not Python automation)
+    const script = spawn('node', ['scripts/check-nest-token-expiration.js'], {
+      cwd: path.join(__dirname, '..'),
+      env: process.env,
+    });
+
+    let output = '';
+
+    script.stdout.on('data', (data) => {
+      const str = data.toString();
+      output += str;
+      console.log(str.trim());
+    });
+
+    script.stderr.on('data', (data) => {
+      console.error(data.toString().trim());
+    });
+
+    const exitCode = await new Promise((resolve) => {
+      script.on('close', (code) => resolve(code));
+    });
+
+    const state = loadState();
+    state.lastNestTokenCheck = getNYCTime().date;
+    saveState(state);
+
+    // Exit code 1 means token needs action (expiring or expired)
+    if (exitCode === 1) {
+      await updateHealthCheckState('nest_token_check', 'warning');
+      console.log('[Nest Token] Action needed - Pushover alert sent');
+    } else {
+      await updateHealthCheckState('nest_token_check', 'ok');
+      console.log('[Nest Token] Check completed - token is valid');
+    }
+  } catch (error) {
+    console.error('[Nest Token] Check failed:', error.message);
+    await updateHealthCheckState('nest_token_check', 'critical');
+  }
+}
+
+// ============================================================================
 // Health Check State Updates
 // ============================================================================
 
@@ -328,6 +381,16 @@ async function mainLoop() {
   if (isTimeToSend && !alreadySentToday) {
     await runDailySummary();
   }
+
+  // Task 5: Nest Token Check (once at 3 AM NYC)
+  const NEST_TOKEN_HOUR = 3;
+  const NEST_TOKEN_MINUTE = 0;
+  const isTimeToCheckToken = nyc.hour === NEST_TOKEN_HOUR && nyc.minute >= NEST_TOKEN_MINUTE && nyc.minute < NEST_TOKEN_MINUTE + 5;
+  const alreadyCheckedToday = state.lastNestTokenCheck === nyc.date;
+
+  if (isTimeToCheckToken && !alreadyCheckedToday) {
+    await runNestTokenCheck();
+  }
 }
 
 // ============================================================================
@@ -341,6 +404,7 @@ console.log(`  Email Sync: Every ${EMAIL_SYNC_INTERVAL} minutes`);
 console.log(`  Smart Pins: Every ${SMART_PINS_INTERVAL} minutes`);
 console.log(`  Camera Sync: Every ${CAMERA_SYNC_INTERVAL} minutes`);
 console.log(`  Daily Summary: ${DAILY_SUMMARY_HOUR}:${String(DAILY_SUMMARY_MINUTE).padStart(2, '0')} ${TIMEZONE}`);
+console.log(`  Nest Token Check: 3:00 ${TIMEZONE} (daily)`);
 console.log(`  Target: http://${APP_HOST}:${APP_PORT}`);
 console.log('='.repeat(60));
 
@@ -349,6 +413,7 @@ console.log(`\n[State] Last email sync: ${state.lastEmailSync || 'never'}`);
 console.log(`[State] Last smart pins sync: ${state.lastSmartPinsSync || 'never'}`);
 console.log(`[State] Last camera sync: ${state.lastCameraSync || 'never'}`);
 console.log(`[State] Last daily summary: ${state.lastDailySummary || 'never'}`);
+console.log(`[State] Last nest token check: ${state.lastNestTokenCheck || 'never'}`);
 console.log(`[State] Current NYC time: ${getNYCTime().formatted}\n`);
 
 // Run immediately on startup, then every minute
