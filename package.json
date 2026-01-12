@@ -20,6 +20,8 @@
     "dropbox:sync:force": "npx tsx scripts/dropbox_sync.ts --force",
     "nest:check-token": "node scripts/check-nest-token-expiration.js",
     "nest:update-token": "node scripts/update-nest-token-manual.js",
+    "nest:setup-refresh": "node scripts/nest-setup-refresh-auth.js",
+    "nest:monitor": "bash scripts/nest-monitor-hourly.sh",
     "prepare": "husky"
   },
   "dependencies": {
@@ -44,6 +46,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "digest-fetch": "^3.1.1",
     "dropbox": "^10.34.0",
     "google-auth-library": "^10.5.0",
     "googleapis": "^169.0.0",

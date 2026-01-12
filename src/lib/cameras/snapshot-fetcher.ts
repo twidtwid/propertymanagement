@@ -3,6 +3,7 @@
 
 import { query } from '@/lib/db'
 import { decryptToken } from '@/lib/encryption'
+import DigestFetch from 'digest-fetch'
 
 export interface SnapshotResult {
   imageBuffer: Buffer  // Raw image data
@@ -91,13 +92,90 @@ async function getNestCredentials(): Promise<{ access_token: string; refresh_tok
 }
 
 /**
- * Placeholder for Hikvision (Phase 2)
+ * Fetch snapshot from HikVision camera via ISAPI
+ * External ID format: "1" through "10" (camera number)
+ * Snapshot channel: {id}01 (e.g., Camera 1 → Channel 101)
  */
 export async function fetchHikvisionSnapshot(
   externalId: string,
   propertyId: string
 ): Promise<SnapshotResult> {
-  throw new Error('Hikvision not yet implemented - Phase 2')
+  try {
+    const creds = await getHikvisionCredentials(propertyId)
+
+    // Calculate snapshot channel ID (e.g., "1" → "101")
+    const cameraNum = parseInt(externalId, 10)
+    if (isNaN(cameraNum) || cameraNum < 1 || cameraNum > 10) {
+      throw new Error(`Invalid camera ID: ${externalId}`)
+    }
+    const snapshotChannel = cameraNum * 100 + 1 // 101, 201, 301, etc.
+
+    // Build snapshot URL
+    const snapshotUrl = `${creds.base_url}/ISAPI/Streaming/channels/${snapshotChannel}/picture`
+
+    console.log(`[HikVision] Fetching snapshot for camera ${externalId} (channel ${snapshotChannel})`)
+
+    // Fetch with Digest Auth using digest-fetch
+    const client = new DigestFetch(creds.username, creds.password)
+
+    const response = await client.fetch(snapshotUrl, {
+      method: 'GET',
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`ISAPI error (${response.status}): ${errorText.substring(0, 200)}`)
+    }
+
+    // Verify content type
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('image')) {
+      throw new Error(`Unexpected content-type: ${contentType}`)
+    }
+
+    // Return image buffer
+    const imageBuffer = Buffer.from(await response.arrayBuffer())
+
+    console.log(`[HikVision] Successfully fetched snapshot for camera ${externalId} (${imageBuffer.length} bytes)`)
+
+    return {
+      imageBuffer,
+      timestamp: new Date(),
+      success: true,
+    }
+  } catch (error) {
+    console.error(`[HikVision] Error fetching snapshot for camera ${externalId}:`, error)
+    return {
+      imageBuffer: Buffer.from(''),
+      timestamp: new Date(),
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Get HikVision credentials for a property
+ */
+async function getHikvisionCredentials(propertyId: string): Promise<{
+  base_url: string
+  rtsp_base_url: string
+  username: string
+  password: string
+}> {
+  const rows = await query<{ credentials_encrypted: string }>(
+    'SELECT credentials_encrypted FROM camera_credentials WHERE provider = $1 AND property_id = $2',
+    ['hikvision', propertyId]
+  )
+
+  if (rows.length === 0) {
+    throw new Error('HikVision credentials not configured for this property')
+  }
+
+  const encrypted = rows[0].credentials_encrypted
+  const creds = JSON.parse(decryptToken(encrypted))
+
+  return creds
 }
 
 /**

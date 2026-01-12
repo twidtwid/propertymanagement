@@ -25,9 +25,9 @@ export function CameraFullscreenViewer({ camera, open, onOpenChange }: CameraFul
   // For nest_legacy: snapshot polling
   const [snapshotKey, setSnapshotKey] = useState(0)
 
-  // Snapshot polling for nest_legacy cameras
+  // Snapshot polling for nest_legacy and hikvision cameras
   useEffect(() => {
-    if (!open || camera.provider !== 'nest_legacy') return
+    if (!open || (camera.provider !== 'nest_legacy' && camera.provider !== 'hikvision')) return
 
     setLoading(false) // Snapshots load immediately
 
@@ -38,6 +38,105 @@ export function CameraFullscreenViewer({ camera, open, onOpenChange }: CameraFul
 
     return () => clearInterval(interval)
   }, [open, camera.provider])
+
+  // WebRTC streaming for HikVision cameras (via MediaMTX WHEP)
+  // DISABLED: RTSP port 554 is not accessible externally at spalter.osess.online
+  // Using snapshot polling instead (every 2 seconds)
+  // To re-enable WebRTC: uncomment this code and enable RTSP port forwarding on NVR
+  /*
+  useEffect(() => {
+    if (!open || camera.provider !== 'hikvision') return
+
+    // Clean up when dialog closes
+    if (pcRef.current) {
+      pcRef.current.close()
+      pcRef.current = null
+    }
+
+    let mounted = true
+
+    async function initHikvisionStream() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Get MediaMTX WHEP endpoint
+        const response = await fetch(`/api/cameras/${camera.id}/stream-hikvision`)
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to get stream')
+        }
+
+        const data = await response.json()
+
+        // Create WebRTC peer connection
+        const pc = new RTCPeerConnection({
+          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        })
+        pcRef.current = pc
+
+        // Handle incoming stream
+        pc.ontrack = (event) => {
+          console.log('[HikVision] Received track:', event.track.kind)
+          if (videoRef.current && event.streams[0]) {
+            videoRef.current.srcObject = event.streams[0]
+            if (mounted) {
+              setLoading(false)
+            }
+          }
+        }
+
+        // Add transceivers for receive-only
+        pc.addTransceiver('video', { direction: 'recvonly' })
+        pc.addTransceiver('audio', { direction: 'recvonly' })
+
+        // Create offer
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+
+        console.log('[HikVision] Sending WHEP request to:', data.whepUrl)
+
+        // Send offer to MediaMTX via WHEP protocol
+        const whepResponse = await fetch(data.whepUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/sdp' },
+          body: offer.sdp,
+        })
+
+        if (!whepResponse.ok) {
+          throw new Error(`WHEP failed: ${whepResponse.status} ${whepResponse.statusText}`)
+        }
+
+        const answerSdp = await whepResponse.text()
+
+        // Set remote description (answer from MediaMTX)
+        await pc.setRemoteDescription({
+          type: 'answer',
+          sdp: answerSdp,
+        })
+
+        console.log('[HikVision] WebRTC stream connected')
+      } catch (err) {
+        console.error('[HikVision] Stream error:', err)
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Failed to load stream')
+          setLoading(false)
+        }
+      }
+    }
+
+    initHikvisionStream()
+
+    return () => {
+      mounted = false
+      if (pcRef.current) {
+        pcRef.current.close()
+        pcRef.current = null
+      }
+    }
+  }, [camera.id, camera.provider, open])
+  */
 
   // WebRTC streaming for official Nest cameras
   useEffect(() => {
@@ -163,9 +262,9 @@ export function CameraFullscreenViewer({ camera, open, onOpenChange }: CameraFul
             </div>
           )}
 
-          {camera.provider === 'nest_legacy' ? (
+          {camera.provider === 'nest_legacy' || camera.provider === 'hikvision' ? (
             <img
-              src={`/api/cameras/${camera.id}/snapshot?t=${snapshotKey}`}
+              src={`/api/cameras/${camera.id}/snapshot?live=true&t=${snapshotKey}`}
               alt={camera.name}
               className="w-full h-full object-contain"
               style={{ display: error ? 'none' : 'block' }}

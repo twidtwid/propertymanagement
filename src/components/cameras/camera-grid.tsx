@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Video, MapPin, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Video, MapPin, Wifi, WifiOff, RefreshCw, Grid3x3, LayoutGrid } from 'lucide-react'
 import { CameraFullscreenViewer } from './camera-fullscreen-viewer'
 import { CAMERA_PROVIDER_LABELS, CAMERA_STATUS_LABELS } from '@/types/database'
 import type { CamerasByProperty } from '@/lib/actions/cameras'
@@ -12,7 +13,10 @@ interface CameraGridProps {
   camerasGrouped: CamerasByProperty[]
 }
 
+type ViewMode = 'spacious' | 'condensed'
+
 export function CameraGrid({ camerasGrouped }: CameraGridProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('spacious')
   const [selectedCamera, setSelectedCamera] = useState<{
     id: string
     name: string
@@ -23,11 +27,23 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
   // Track refresh counter for nest_legacy cameras (force image reload)
   const [refreshCounter, setRefreshCounter] = useState(0)
 
-  // Auto-refresh snapshots every 10 minutes for nest_legacy cameras
+  // Track current time for live timestamp display
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Auto-refresh snapshots every 10 minutes for nest_legacy and hikvision cameras
   useEffect(() => {
     const interval = setInterval(() => {
       setRefreshCounter((prev) => prev + 1)
     }, 10 * 60 * 1000) // 10 minutes
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Update current time every second for Security Grid timestamps
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000) // 1 second
 
     return () => clearInterval(interval)
   }, [])
@@ -46,9 +62,101 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
     )
   }
 
+  // Flatten all cameras for condensed view
+  const allCameras = camerasGrouped.flatMap((group) =>
+    group.cameras.map((camera) => ({
+      ...camera,
+      propertyName: group.property.name,
+    }))
+  )
+
   return (
     <>
-      <div className="space-y-8">
+      {/* View toggle button */}
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setViewMode(viewMode === 'spacious' ? 'condensed' : 'spacious')}
+          className="gap-2"
+        >
+          {viewMode === 'spacious' ? (
+            <>
+              <Grid3x3 className="h-4 w-4" />
+              Security Grid
+            </>
+          ) : (
+            <>
+              <LayoutGrid className="h-4 w-4" />
+              Spacious View
+            </>
+          )}
+        </Button>
+      </div>
+
+      {viewMode === 'condensed' ? (
+        /* Condensed Security Grid View - All cameras in tight grid */
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {allCameras.map((camera) => (
+            <div
+              key={camera.id}
+              className="relative aspect-video bg-black rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+              onClick={() =>
+                setSelectedCamera({
+                  id: camera.id,
+                  name: camera.name,
+                  location: camera.location,
+                  provider: camera.provider,
+                })
+              }
+            >
+              {/* Camera snapshot */}
+              {camera.provider === 'nest_legacy' || camera.provider === 'hikvision' ? (
+                <img
+                  src={`/api/cameras/${camera.id}/snapshot?t=${refreshCounter}`}
+                  alt={camera.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : camera.snapshot_url ? (
+                <img
+                  src={camera.snapshot_url}
+                  alt={camera.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Video className="h-8 w-8 text-gray-400" />
+                </div>
+              )}
+
+              {/* Camera name overlay */}
+              <div className="absolute top-2 left-2 bg-black/80 text-white text-xs px-2 py-1 rounded font-semibold">
+                {camera.name.toUpperCase()}
+              </div>
+
+              {/* Timestamp overlay */}
+              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                {currentTime.toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </div>
+
+              {/* Status indicator */}
+              <div className="absolute bottom-2 right-2">
+                {camera.status === 'online' ? (
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-gray-500"></div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Spacious View - Original layout */
+        <div className="space-y-8">
         {camerasGrouped.map(({ property, cameras }) => (
           <div key={property.id} className="space-y-4">
             <div className="flex items-center gap-2">
@@ -92,7 +200,7 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
                   <CardContent className="space-y-3">
                     {/* Snapshot preview or placeholder */}
                     <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 rounded-md flex flex-col items-center justify-center overflow-hidden relative">
-                      {camera.provider === 'nest_legacy' ? (
+                      {camera.provider === 'nest_legacy' || camera.provider === 'hikvision' ? (
                         <>
                           {/* Live snapshot from API endpoint - auto-refreshes via refreshCounter */}
                           <img
@@ -145,7 +253,8 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {selectedCamera && (
         <CameraFullscreenViewer

@@ -116,13 +116,16 @@ async function updateToken(newToken) {
 
     const encryptedCreds = encryptToken(JSON.stringify(newCreds));
 
-    // Upsert credentials
-    await pool.query(`
-      INSERT INTO camera_credentials (provider, credentials_encrypted)
-      VALUES ('nest_legacy', $1)
-      ON CONFLICT (provider)
-      DO UPDATE SET credentials_encrypted = $1
+    // Update existing credentials (don't use UPSERT since there's no unique constraint on provider)
+    const updateResult = await pool.query(`
+      UPDATE camera_credentials
+      SET credentials_encrypted = $1, updated_at = NOW()
+      WHERE provider = 'nest_legacy'
     `, [encryptedCreds]);
+
+    if (updateResult.rowCount === 0) {
+      throw new Error('No nest_legacy credentials found in database. Run migration first.');
+    }
 
     console.log('✓ Token updated successfully');
     console.log(`Token expires: ${expiresAt.toISOString()}`);
