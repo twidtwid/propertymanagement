@@ -18,6 +18,7 @@ import {
   BarChart3,
   Settings,
   Landmark,
+  Video,
 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { GlobalSearch } from "@/components/shared/global-search"
@@ -26,6 +27,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Calendar", href: "/calendar", icon: CalendarDays },
   { name: "Properties", href: "/properties", icon: Building2 },
+  { name: "Cameras", href: "/cameras", icon: Video },
   { name: "BuildingLink", href: "/buildinglink", icon: Building },
   { name: "Vehicles", href: "/vehicles", icon: Car },
   { name: "Vendors", href: "/vendors", icon: Users },

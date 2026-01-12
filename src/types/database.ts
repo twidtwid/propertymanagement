@@ -44,6 +44,10 @@ export type RenewalType =
   | 'hvac_service' | 'pool_inspection' | 'uva_renewal' | 'rental_license'
   | 'building_permit' | 'other'
 
+// Camera types
+export type CameraProvider = 'nest' | 'hikvision' | 'securityspy'
+export type CameraStatus = 'online' | 'offline' | 'error' | 'unknown'
+
 export interface Profile {
   id: string
   email: string
@@ -112,6 +116,23 @@ export interface Vehicle {
   agreed_value: number | null  // Insurance agreed value
   notes: string | null
   is_active: boolean
+  created_at: string
+  updated_at: string
+  // Joined fields
+  property?: Property
+}
+
+export interface Camera {
+  id: string
+  property_id: string
+  provider: CameraProvider
+  external_id: string  // Provider's device ID
+  name: string
+  location: string | null  // "Front Door", "Driveway", etc.
+  status: CameraStatus
+  snapshot_url: string | null  // Dropbox public link to cached snapshot
+  snapshot_captured_at: string | null
+  last_online: string | null
   created_at: string
   updated_at: string
   // Joined fields
@@ -891,6 +912,21 @@ export const RENEWAL_TYPE_LABELS: Record<RenewalType, string> = {
   rental_license: 'Rental License',
   building_permit: 'Building Permit',
   other: 'Other',
+}
+
+// Camera provider labels
+export const CAMERA_PROVIDER_LABELS: Record<CameraProvider, string> = {
+  nest: 'Google Nest',
+  hikvision: 'Hikvision',
+  securityspy: 'SecuritySpy',
+}
+
+// Camera status labels
+export const CAMERA_STATUS_LABELS: Record<CameraStatus, string> = {
+  online: 'Online',
+  offline: 'Offline',
+  error: 'Error',
+  unknown: 'Unknown',
 }
 
 // Health monitoring

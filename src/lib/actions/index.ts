@@ -46,6 +46,7 @@ export * from "./reports"
 export * from "./buildinglink"
 export * from "./calendar"
 export * from "./property-access"
+export * from "./cameras"
 
 // Re-export remaining functions from monolithic file (now renamed to actions-remaining.ts)
 // (will be migrated incrementally in Phase 3D+)

@@ -8,7 +8,8 @@
  * Tasks:
  * 1. Email Sync: Every 10 minutes (syncs Gmail messages)
  * 2. Smart Pins Sync: Every 60 minutes (auto-pins urgent items)
- * 3. Daily Summary: Once per day at 6 PM NYC (sends email summary)
+ * 3. Camera Sync: Every 5 minutes (fetches camera snapshots)
+ * 4. Daily Summary: Once per day at 6 PM NYC (sends email summary)
  *
  * Usage:
  *   node scripts/unified-worker.js
@@ -19,6 +20,7 @@
  *   CRON_SECRET - Authentication secret for cron endpoints
  *   EMAIL_SYNC_INTERVAL - Minutes between email syncs (default: 10)
  *   SMART_PINS_INTERVAL - Minutes between smart pins syncs (default: 60)
+ *   CAMERA_SYNC_INTERVAL - Minutes between camera syncs (default: 5)
  */
 
 const http = require('http');
@@ -35,6 +37,7 @@ const APP_HOST = process.env.APP_HOST || 'localhost';
 const APP_PORT = process.env.APP_PORT || 3000;
 const EMAIL_SYNC_INTERVAL = parseInt(process.env.EMAIL_SYNC_INTERVAL || '10', 10);
 const SMART_PINS_INTERVAL = parseInt(process.env.SMART_PINS_INTERVAL || '60', 10);
+const CAMERA_SYNC_INTERVAL = parseInt(process.env.CAMERA_SYNC_INTERVAL || '5', 10);
 const DAILY_SUMMARY_HOUR = 18; // 6 PM
 const DAILY_SUMMARY_MINUTE = 0;
 const TIMEZONE = 'America/New_York';
@@ -82,6 +85,7 @@ function loadState() {
   return {
     lastEmailSync: null,
     lastSmartPinsSync: null,
+    lastCameraSync: null,
     lastDailySummary: null,
   };
 }
@@ -203,7 +207,36 @@ async function runSmartPinsSync() {
 }
 
 // ============================================================================
-// Task 3: Daily Summary
+// Task 3: Camera Sync
+// ============================================================================
+
+async function runCameraSync() {
+  console.log('\n' + '='.repeat(60));
+  console.log('  CAMERA SYNC');
+  console.log('='.repeat(60));
+
+  try {
+    const result = await makeRequest('/api/cameras/sync-snapshots', 'Camera Sync', 'POST');
+
+    const state = loadState();
+    state.lastCameraSync = new Date().toISOString();
+    saveState(state);
+
+    // Update health check state
+    await updateHealthCheckState('camera_sync', 'ok');
+
+    console.log(`[Camera Sync] Updated ${result.updated}/${result.total} cameras`);
+    if (result.errors && result.errors.length > 0) {
+      console.log(`[Camera Sync] Errors: ${result.errors.join(', ')}`);
+    }
+  } catch (error) {
+    console.error('[Camera Sync] Failed:', error.message);
+    await updateHealthCheckState('camera_sync', 'warning');
+  }
+}
+
+// ============================================================================
+// Task 4: Daily Summary
 // ============================================================================
 
 async function runDailySummary() {
@@ -280,7 +313,15 @@ async function mainLoop() {
     await runSmartPinsSync();
   }
 
-  // Task 3: Daily Summary (once at 6 PM NYC)
+  // Task 3: Camera Sync (every 5 minutes)
+  const lastCameraSync = state.lastCameraSync ? new Date(state.lastCameraSync) : null;
+  const minutesSinceCameraSync = lastCameraSync ? (now - lastCameraSync) / 1000 / 60 : Infinity;
+
+  if (minutesSinceCameraSync >= CAMERA_SYNC_INTERVAL) {
+    await runCameraSync();
+  }
+
+  // Task 4: Daily Summary (once at 6 PM NYC)
   const isTimeToSend = nyc.hour === DAILY_SUMMARY_HOUR && nyc.minute >= DAILY_SUMMARY_MINUTE && nyc.minute < DAILY_SUMMARY_MINUTE + 5;
   const alreadySentToday = state.lastDailySummary === nyc.date;
 
@@ -298,6 +339,7 @@ console.log('  UNIFIED WORKER');
 console.log('='.repeat(60));
 console.log(`  Email Sync: Every ${EMAIL_SYNC_INTERVAL} minutes`);
 console.log(`  Smart Pins: Every ${SMART_PINS_INTERVAL} minutes`);
+console.log(`  Camera Sync: Every ${CAMERA_SYNC_INTERVAL} minutes`);
 console.log(`  Daily Summary: ${DAILY_SUMMARY_HOUR}:${String(DAILY_SUMMARY_MINUTE).padStart(2, '0')} ${TIMEZONE}`);
 console.log(`  Target: http://${APP_HOST}:${APP_PORT}`);
 console.log('='.repeat(60));
@@ -305,6 +347,7 @@ console.log('='.repeat(60));
 const state = loadState();
 console.log(`\n[State] Last email sync: ${state.lastEmailSync || 'never'}`);
 console.log(`[State] Last smart pins sync: ${state.lastSmartPinsSync || 'never'}`);
+console.log(`[State] Last camera sync: ${state.lastCameraSync || 'never'}`);
 console.log(`[State] Last daily summary: ${state.lastDailySummary || 'never'}`);
 console.log(`[State] Current NYC time: ${getNYCTime().formatted}\n`);
 
