@@ -18,11 +18,44 @@ Deploy local changes to production. This is the ONE AND ONLY way to deploy.
 
 **IMPORTANT:** Follow these steps IN ORDER. Do not skip steps.
 
+### Step 0: PRE-FLIGHT CHECKS (CRITICAL!)
+Run automated pre-deployment checks:
+```bash
+./scripts/pre-deploy-check.sh
+```
+
+This script verifies:
+1. ✅ Environment variable parity (dev vs prod)
+2. ✅ No uncommitted changes
+3. ✅ Build succeeds
+4. ✅ Tests pass
+5. ✅ Critical env vars present in production
+6. ✅ Production health status
+
+**If pre-flight checks FAIL:**
+- ❌ DO NOT proceed with deployment
+- Fix all errors reported by the script
+- Re-run pre-flight checks until they pass
+
+**If pre-flight checks show new environment variables:**
+1. Review what each new variable does
+2. Add them to production `.env.production`:
+   ```bash
+   ssh root@143.110.229.185 "echo 'NEW_VAR=value' >> /root/app/.env.production"
+   ```
+3. Verify they're added:
+   ```bash
+   ssh root@143.110.229.185 "grep NEW_VAR /root/app/.env.production"
+   ```
+4. Re-run pre-flight checks to confirm
+
 ### Step 1: Run Tests
 ```bash
 docker compose exec app npm run test:run
 ```
 If tests fail, STOP and fix them before deploying.
+
+**Note:** If you ran Step 0 pre-flight checks, tests were already run. You can skip this step.
 
 ### Step 2: Check Git Status
 ```bash
@@ -73,9 +106,35 @@ This script:
 - Runs health check
 
 ### Step 7: Verify Deployment
-The fast-deploy.sh script includes a health check, but also verify:
+The fast-deploy.sh script includes a health check, but perform additional verification:
+
 ```bash
+# 1. Wait for services to stabilize
+sleep 30
+
+# 2. Check health endpoint
 curl -s https://spmsystem.com/api/health | python3 -m json.tool
+
+# 3. CRITICAL: Verify environment variables loaded in container
+ssh root@143.110.229.185 "docker exec app-app-1 printenv | grep -E 'NEST_|GOOGLE_|DROPBOX_' | head -3"
+
+# 4. Check for application errors in logs
+ssh root@143.110.229.185 "docker logs app-app-1 --tail 50 | grep -i error || echo 'No errors found'"
+
+# 5. Test critical functionality (if applicable)
+# For camera deployment: Open https://spmsystem.com/cameras and test streaming
+# For payments: Verify /payments page loads
+# For integrations: Check relevant endpoints
+```
+
+**If environment variables are NOT showing in container:**
+```bash
+# Full container restart required
+ssh root@143.110.229.185 "cd /root/app && docker compose -f docker-compose.prod.yml --env-file .env.production down app && docker compose -f docker-compose.prod.yml --env-file .env.production up -d app"
+
+# Wait and verify again
+sleep 30
+ssh root@143.110.229.185 "docker exec app-app-1 printenv | grep -E 'NEST_|GOOGLE_'"
 ```
 
 ## After Deployment
@@ -83,6 +142,8 @@ Report to the user:
 1. New version number
 2. What was deployed (summary of changes)
 3. Health check status
+4. **Confirmation that environment variables are loaded** (if new vars were added)
+5. Any critical functionality tested
 
 ## If Migrations Are Needed
 Ask the user which migration to run, then:

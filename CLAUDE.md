@@ -6,17 +6,63 @@ Personal property management app: 10 properties, 7 vehicles, 70+ vendors across 
 
 **MUST follow these in every session:**
 
-1. **Deploy via `/deploy` ONLY** — Never run docker/ssh/git push manually
-2. **Cast integers in SQL date arithmetic** — `CURRENT_DATE + ($1::INTEGER)` not `+ $1`
-3. **Sync enums in both places** — PostgreSQL (`scripts/init.sql`) AND Zod (`src/lib/schemas/index.ts`)
-4. **Run `/build` before `/deploy`** — Catches TypeScript errors early
-5. **Use gen_random_uuid()** — Not `uuid_generate_v4()` (no extension needed)
+1. **Check environment variable parity BEFORE every deploy** — New vars in `.env.local` must be added to prod `.env.production` first
+2. **Deploy via `/deploy` ONLY** — Never run docker/ssh/git push manually
+3. **Cast integers in SQL date arithmetic** — `CURRENT_DATE + ($1::INTEGER)` not `+ $1`
+4. **Sync enums in both places** — PostgreSQL (`scripts/init.sql`) AND Zod (`src/lib/schemas/index.ts`)
+5. **Run `/build` before `/deploy`** — Catches TypeScript errors early
+6. **Use gen_random_uuid()** — Not `uuid_generate_v4()` (no extension needed)
 
 ## Tech Stack
 
 ```
 Next.js 14 (App Router) | TypeScript | Tailwind + shadcn/ui | PostgreSQL
 Production: spmsystem.com (143.110.229.185)
+```
+
+## Environment Variables
+
+**CRITICAL:** All environment variables must exist in BOTH `.env.local` (dev) and `.env.production` (prod).
+
+### Core Application
+- `DATABASE_URL` - PostgreSQL connection string
+- `NEXTAUTH_URL` - Application URL (http://localhost:3000 dev, https://spmsystem.com prod)
+- `NEXTAUTH_SECRET` - NextAuth.js secret for session encryption
+- `CRON_SECRET` - Shared secret for cron job authentication
+- `TOKEN_ENCRYPTION_KEY` - AES-256-GCM key for OAuth token encryption (32-byte hex)
+
+### Google OAuth (Gmail + Nest)
+- `GOOGLE_CLIENT_ID` - Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
+- `GOOGLE_REDIRECT_URI` - OAuth callback URL (localhost:3000 dev, spmsystem.com prod)
+
+### Google Nest Cameras
+- `NEST_PROJECT_ID` - Device Access Console project ID
+
+### Dropbox
+- `DROPBOX_APP_KEY` - Dropbox OAuth app key
+- `DROPBOX_APP_SECRET` - Dropbox OAuth app secret
+- `DROPBOX_REDIRECT_URI` - Dropbox OAuth callback URL
+
+### External Services
+- `PUSHOVER_TOKEN` - Pushover API token for notifications
+- `PUSHOVER_USER` - Pushover user key
+
+### Playwright (Tax Scraping)
+- `PLAYWRIGHT_BROWSERS_PATH` - Browser installation path (`.playwright` in project root)
+
+**Verification Command:**
+```bash
+# Check dev has all required vars
+grep -o '^[A-Z_]*=' .env.local | sort
+
+# Check prod has all required vars
+ssh root@143.110.229.185 "grep -o '^[A-Z_]*=' /root/app/.env.production" | sort
+
+# Find differences
+comm -13 \
+  <(ssh root@143.110.229.185 "grep -o '^[A-Z_]*=' /root/app/.env.production" | sort) \
+  <(grep -o '^[A-Z_]*=' .env.local | sort)
 ```
 
 ## File Map
@@ -120,6 +166,42 @@ await pool.query(`
 
 ### Deployment Patterns
 
+**CRITICAL PRE-FLIGHT CHECKS** (run BEFORE every deployment):
+
+```bash
+# 1. Environment Variable Parity Check
+echo "=== Checking for new environment variables ==="
+comm -13 \
+  <(ssh root@143.110.229.185 "grep -o '^[A-Z_]*=' /root/app/.env.production 2>/dev/null || echo ''" | sort) \
+  <(grep -o '^[A-Z_]*=' .env.local | sort)
+
+# If output shows NEW variables, ADD THEM to production .env.production:
+# ssh root@143.110.229.185 "echo 'NEW_VAR=value' >> /root/app/.env.production"
+
+# 2. Verify Production Environment Variables Match
+ssh root@143.110.229.185 "cat /root/app/.env.production" | grep "NEST_PROJECT_ID\|GOOGLE_CLIENT_ID"
+
+# 3. Test Build
+docker compose exec app npm run test:run
+docker compose exec app npm run build
+
+# 4. Check for uncommitted changes
+git status --porcelain
+```
+
+**Deployment Checklist** (use `/deploy` skill):
+
+1. ✅ **Pre-flight checks** (above)
+2. ✅ **Bump version** (`npm version patch` or `minor`)
+3. ✅ **Commit all changes** with descriptive message
+4. ✅ **Push to GitHub**
+5. ✅ **Deploy** (`./scripts/fast-deploy.sh`)
+6. ✅ **Wait 30s** for services to stabilize
+7. ✅ **Verify health** (`curl https://spmsystem.com/api/health`)
+8. ✅ **Check logs** for errors
+9. ✅ **Test critical paths** (login, cameras, etc.)
+10. ✅ **Monitor for 5 minutes** (check `/prod-logs`)
+
 **Post-deploy verification:**
 ```bash
 # 1. Deploy
@@ -131,16 +213,33 @@ sleep 30
 # 3. Verify health endpoint
 curl -s https://spmsystem.com/api/health | jq '.checks.workers'
 
-# 4. Check worker logs if issues
+# 4. Verify environment variables loaded
+ssh root@143.110.229.185 "docker exec app-app-1 printenv | grep -E 'NEST_|GOOGLE_|DROPBOX_'"
+
+# 5. Check application logs for errors
+ssh root@143.110.229.185 "docker logs app-app-1 --tail 100 | grep -i error"
+
+# 6. Check worker logs
 ssh root@143.110.229.185 "docker logs app-worker-1 --tail 50"
 ```
+
+**Environment Variable Sync Protocol:**
+
+When adding new environment variables:
+1. Add to `.env.local` for development
+2. Test locally thoroughly
+3. **BEFORE deploying:** Add to production `.env.production`
+4. Document in this file under "Environment Variables" section
+5. If container running, do full restart: `docker compose down && docker compose up -d`
 
 **Hotfix pattern:**
 1. Fix critical issue locally
 2. Bump patch version (`npm version patch`)
-3. Commit with descriptive message
-4. Deploy immediately (`./scripts/fast-deploy.sh`)
-5. Verify fix in production
+3. **Check environment parity** (see pre-flight checks)
+4. Commit with descriptive message
+5. Deploy immediately (`./scripts/fast-deploy.sh`)
+6. Verify fix in production
+7. Monitor logs for 5 minutes
 
 ### Resource Management
 
