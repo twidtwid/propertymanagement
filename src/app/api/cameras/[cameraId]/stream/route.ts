@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { getUser } from '@/lib/auth'
-import { decryptToken } from '@/lib/encryption'
+import { getValidNestToken, refreshNestToken } from '@/lib/cameras/nest-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,24 +49,16 @@ export async function GET(
       return NextResponse.json({ error: 'No access to this camera' }, { status: 403 })
     }
 
-    // Get Nest credentials
-    const credRows = await query<{ credentials_encrypted: string }>(
-      `SELECT credentials_encrypted FROM camera_credentials WHERE provider = 'nest' LIMIT 1`
-    )
-
-    if (credRows.length === 0) {
-      return NextResponse.json({ error: 'Nest credentials not configured' }, { status: 500 })
-    }
-
-    const credentials = JSON.parse(decryptToken(credRows[0].credentials_encrypted))
+    // Get valid Nest access token (refreshes if expired)
+    let accessToken = await getValidNestToken()
 
     // Generate live stream from Nest API
-    const response = await fetch(
+    let response = await fetch(
       `https://smartdevicemanagement.googleapis.com/v1/enterprises/${process.env.NEST_PROJECT_ID}/devices/${camera.external_id}:executeCommand`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${credentials.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -77,6 +69,29 @@ export async function GET(
         }),
       }
     )
+
+    // If 401, refresh token and retry once
+    if (response.status === 401) {
+      console.log('Nest API returned 401, refreshing token and retrying...')
+      accessToken = await refreshNestToken()
+
+      response = await fetch(
+        `https://smartdevicemanagement.googleapis.com/v1/enterprises/${process.env.NEST_PROJECT_ID}/devices/${camera.external_id}:executeCommand`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            command: 'sdm.devices.commands.CameraLiveStream.GenerateWebRtcStream',
+            params: {
+              offerSdp: request.nextUrl.searchParams.get('offer') || ''
+            }
+          }),
+        }
+      )
+    }
 
     if (!response.ok) {
       const error = await response.text()

@@ -68,6 +68,35 @@ export async function GET() {
       SELECT token_expiry FROM gmail_oauth_tokens LIMIT 1
     `)
 
+    // Check Nest OAuth token from camera_credentials (encrypted storage)
+    let nestTokenStatus: any = { status: 'not_configured' }
+    try {
+      const { getNestCredentials } = await import('@/lib/cameras/nest-auth')
+      const nestCreds = await getNestCredentials()
+      const expiresAt = new Date(nestCreds.expires_at)
+      const minutesUntilExpiry = (expiresAt.getTime() - now.getTime()) / 1000 / 60
+
+      nestTokenStatus = {
+        expiresAt: expiresAt.toISOString(),
+        isValid: expiresAt > now,
+        minutesUntilExpiry: Math.round(minutesUntilExpiry),
+        needsRefresh: minutesUntilExpiry < 5
+      }
+
+      // Mark as degraded if token expires in less than 5 minutes (shouldn't happen with auto-refresh)
+      if (minutesUntilExpiry < 5 && overallStatus === 'ok') {
+        overallStatus = 'degraded'
+      }
+    } catch (error) {
+      nestTokenStatus = {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+      if (overallStatus === 'ok') {
+        overallStatus = 'degraded'
+      }
+    }
+
     healthChecks.tokens = {
       dropbox: dropboxToken?.token_expiry
         ? {
@@ -80,7 +109,8 @@ export async function GET() {
             expiresAt: gmailToken.token_expiry,
             isValid: new Date(gmailToken.token_expiry) > now
           }
-        : { status: 'not_configured' }
+        : { status: 'not_configured' },
+      nest: nestTokenStatus
     }
 
     // 4. Check disk space (only on Node.js runtime)
