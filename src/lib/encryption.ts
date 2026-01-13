@@ -20,6 +20,58 @@ function getEncryptionKey(): Buffer {
 }
 
 /**
+ * Validate encryption key at startup (fail fast).
+ * Call this during app initialization to catch configuration errors early.
+ */
+export function validateEncryptionKey(): void {
+  const key = process.env.TOKEN_ENCRYPTION_KEY
+
+  if (!key) {
+    throw new Error(
+      "CRITICAL STARTUP ERROR: TOKEN_ENCRYPTION_KEY not set!\n" +
+      "All OAuth tokens (Gmail, Dropbox, Nest) will fail to decrypt.\n" +
+      "Set TOKEN_ENCRYPTION_KEY in your environment variables."
+    )
+  }
+
+  if (key.length !== 64) {
+    throw new Error(
+      `CRITICAL STARTUP ERROR: TOKEN_ENCRYPTION_KEY invalid length ${key.length} (expected 64 hex chars)\n` +
+      "The encryption key must be exactly 64 hexadecimal characters (32 bytes).\n" +
+      "Generate a new key with: openssl rand -hex 32"
+    )
+  }
+
+  try {
+    Buffer.from(key, "hex")
+  } catch (error) {
+    throw new Error(
+      "CRITICAL STARTUP ERROR: TOKEN_ENCRYPTION_KEY is not valid hexadecimal\n" +
+      "The key must contain only characters 0-9 and a-f.\n" +
+      "Generate a new key with: openssl rand -hex 32"
+    )
+  }
+
+  // Test encryption/decryption to ensure key works
+  try {
+    const testData = "startup-validation-test"
+    const encrypted = encryptToken(testData)
+    const decrypted = decryptToken(encrypted)
+    if (decrypted !== testData) {
+      throw new Error("Decryption produced wrong result")
+    }
+  } catch (error) {
+    throw new Error(
+      `CRITICAL STARTUP ERROR: TOKEN_ENCRYPTION_KEY failed validation\n` +
+      `Encryption/decryption test failed: ${error instanceof Error ? error.message : String(error)}\n` +
+      "The encryption key may be corrupted or invalid."
+    )
+  }
+
+  console.log("✓ TOKEN_ENCRYPTION_KEY validated successfully")
+}
+
+/**
  * Encrypt a string using AES-256-GCM.
  * Returns a base64-encoded string containing: IV + ciphertext + auth tag
  */

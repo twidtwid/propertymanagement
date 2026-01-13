@@ -153,6 +153,48 @@ else
     log_step "SKIPPING BUILD (using existing images)"
 fi
 
+log_step "PRE-DEPLOYMENT VALIDATION"
+
+if [[ "${DRY_RUN}" == "false" ]]; then
+    # Check 1: Environment variable parity
+    log "Checking environment variable parity..."
+    MISSING_VARS=$(comm -13 \
+        <(ssh ${PROD_SERVER} "grep -o '^[A-Z_]*=' ${PROD_DIR}/.env.production 2>/dev/null" | sort) \
+        <(grep -o '^[A-Z_]*=' .env.local | sort))
+
+    if [ -n "$MISSING_VARS" ]; then
+        log_error "Missing environment variables in production .env.production:"
+        echo "$MISSING_VARS" | sed 's/^/  - /'
+        echo ""
+        log_error "Add these to production before deploying:"
+        echo "  ssh ${PROD_SERVER} \"echo 'VAR_NAME=value' >> ${PROD_DIR}/.env.production\""
+        exit 1
+    fi
+    log_success "Environment variables in sync"
+
+    # Check 2: TOKEN_ENCRYPTION_KEY must match (critical for encrypted tokens)
+    log "Verifying TOKEN_ENCRYPTION_KEY..."
+    PROD_KEY=$(ssh ${PROD_SERVER} "grep TOKEN_ENCRYPTION_KEY ${PROD_DIR}/.env.production 2>/dev/null | cut -d= -f2")
+    LOCAL_KEY=$(grep TOKEN_ENCRYPTION_KEY .env.local | cut -d= -f2)
+
+    if [ -z "$PROD_KEY" ]; then
+        log_error "TOKEN_ENCRYPTION_KEY not found in production .env.production!"
+        log_error "This will break all encrypted OAuth tokens (Gmail, Dropbox, Nest)"
+        exit 1
+    fi
+
+    if [ "$PROD_KEY" != "$LOCAL_KEY" ]; then
+        log_error "TOKEN_ENCRYPTION_KEY mismatch!"
+        log_error "Production: ${PROD_KEY:0:20}..."
+        log_error "Local:      ${LOCAL_KEY:0:20}..."
+        log_error ""
+        log_error "Changing this key will break all encrypted tokens!"
+        log_error "All OAuth tokens (Gmail, Dropbox, Nest) will become unreadable."
+        exit 1
+    fi
+    log_success "TOKEN_ENCRYPTION_KEY verified"
+fi
+
 log_step "DEPLOYING TO PRODUCTION"
 
 if [[ "${DRY_RUN}" == "true" ]]; then

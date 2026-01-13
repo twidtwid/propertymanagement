@@ -10,12 +10,17 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { validateEnv } = await import('./lib/env')
+    const { validateEncryptionKey } = await import('./lib/encryption')
 
     try {
       validateEnv()
       console.log('✅ Environment variables validated successfully')
+
+      validateEncryptionKey()
+      console.log('✅ Encryption key validated successfully')
     } catch (error) {
-      // Error already logged by validateEnv()
+      // Error already logged by validateEnv() or validateEncryptionKey()
+      console.error('\n🛑 CRITICAL STARTUP ERROR - Application cannot start')
       // Exit with error code to prevent startup with invalid config
       process.exit(1)
     }

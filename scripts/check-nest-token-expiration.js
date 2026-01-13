@@ -26,7 +26,8 @@ if (fs.existsSync(envPath)) {
 const DATABASE_URL = process.env.DATABASE_URL || envVars.DATABASE_URL;
 const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY || envVars.TOKEN_ENCRYPTION_KEY;
 const PUSHOVER_TOKEN = process.env.PUSHOVER_TOKEN || envVars.PUSHOVER_TOKEN;
-const PUSHOVER_USER = process.env.PUSHOVER_USER || envVars.PUSHOVER_USER;
+const PUSHOVER_USER_TODD = process.env.PUSHOVER_USER_TODD || envVars.PUSHOVER_USER_TODD;
+const PUSHOVER_USER_ANNE = process.env.PUSHOVER_USER_ANNE || envVars.PUSHOVER_USER_ANNE;
 
 function decryptToken(encryptedBase64) {
   const key = Buffer.from(TOKEN_ENCRYPTION_KEY, 'hex');
@@ -41,11 +42,34 @@ function decryptToken(encryptedBase64) {
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
 }
 
-function sendPushoverAlert(title, message, priority = 0) {
+async function sendPushoverAlert(title, message, priority = 0) {
+  // Send to both Todd and Anne for camera alerts
+  const users = [PUSHOVER_USER_TODD, PUSHOVER_USER_ANNE].filter(Boolean);
+
+  if (users.length === 0) {
+    console.log('⚠️  No Pushover users configured - skipping alert');
+    return;
+  }
+
+  const results = await Promise.allSettled(
+    users.map(user => sendToUser(user, title, message, priority))
+  );
+
+  const successful = results.filter(r => r.status === 'fulfilled').length;
+  const failed = results.filter(r => r.status === 'rejected').length;
+
+  if (failed > 0) {
+    console.log(`⚠️  Sent to ${successful}/${users.length} users (${failed} failed)`);
+  } else {
+    console.log(`✓ Sent to ${successful} user(s)`);
+  }
+}
+
+function sendToUser(user, title, message, priority) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
       token: PUSHOVER_TOKEN,
-      user: PUSHOVER_USER,
+      user: user,
       title: title,
       message: message,
       priority: priority,
@@ -106,7 +130,7 @@ async function checkTokenExpiration() {
     if (expiresAt < now) {
       console.log('⚠️  TOKEN EXPIRED - cameras are broken!');
 
-      if (PUSHOVER_TOKEN && PUSHOVER_USER) {
+      if (PUSHOVER_TOKEN && (PUSHOVER_USER_TODD || PUSHOVER_USER_ANNE)) {
         await sendPushoverAlert(
           '🚨 NEST LEGACY TOKEN EXPIRED - CAMERAS BROKEN',
           `CRITICAL: Nest Legacy cameras are NOT WORKING!\n\nThe token has EXPIRED.\n\nFIX THIS NOW:\n1. Open home.nest.com in browser\n2. Press F12 → Application → Cookies\n3. Copy "user_token" cookie value\n4. SSH to prod: ssh root@143.110.229.185\n5. Run: cd /root/app && npm run nest:update-token <token>\n\nCameras will work again immediately after update.`,
@@ -122,7 +146,7 @@ async function checkTokenExpiration() {
     if (daysUntilExpiry <= 7) {
       console.log(`⚠️  Token expires in ${daysUntilExpiry} days - action needed soon`);
 
-      if (PUSHOVER_TOKEN && PUSHOVER_USER) {
+      if (PUSHOVER_TOKEN && (PUSHOVER_USER_TODD || PUSHOVER_USER_ANNE)) {
         const funnyMessages = {
           7: {
             title: '🎯 Nest Legacy Token Expires in 7 Days',

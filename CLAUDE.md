@@ -17,6 +17,12 @@ Personal property management application managing 10 properties, 7 vehicles, and
 4. **Sync Enums Everywhere** — Update PostgreSQL (`scripts/init.sql`) AND Zod (`src/lib/schemas/index.ts`) simultaneously
 5. **Build Before Deploy** — Run `/build` skill before `/deploy` to catch TypeScript errors early
 6. **Use gen_random_uuid()** — PostgreSQL built-in, not `uuid_generate_v4()` (no extension required)
+7. **⚠️ TOKEN_ENCRYPTION_KEY Immutability** — The TOKEN_ENCRYPTION_KEY must NEVER change once set
+   - All encrypted tokens (Gmail, Dropbox, Nest) become permanently unreadable if key changes
+   - The key is 64 hex characters (32 bytes) and must be identical in local and production
+   - Fast-deploy.sh now validates key parity before every deployment (blocks deploy if mismatch)
+   - App startup validates key format and encryption/decryption functionality (fails fast if broken)
+   - **NEVER** modify TOKEN_ENCRYPTION_KEY in production without backing up all encrypted tokens first
 
 ---
 
