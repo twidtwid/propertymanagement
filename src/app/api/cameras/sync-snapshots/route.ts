@@ -8,10 +8,16 @@ import { fetchNestSnapshot, fetchNestLegacySnapshot } from '@/lib/cameras/snapsh
 import { Dropbox } from 'dropbox'
 
 export async function POST(request: NextRequest) {
-  // Authenticate with cron secret
-  const authHeader = request.headers.get('x-cron-secret')
+  // Authenticate with cron secret (same as other cron endpoints)
+  const authHeader = request.headers.get('authorization')
+  const cronSecret = process.env.CRON_SECRET
 
-  if (authHeader !== process.env.CRON_SECRET) {
+  if (!cronSecret) {
+    console.error('[Camera Sync] CRON_SECRET not configured')
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
