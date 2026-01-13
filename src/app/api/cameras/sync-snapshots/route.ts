@@ -1,6 +1,9 @@
 // Camera snapshot sync endpoint
 // Called by unified worker every 5 minutes to update all camera snapshots
 
+// Import fetch polyfill first (fixes Dropbox SDK issues in production)
+import 'isomorphic-fetch'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { decryptToken } from '@/lib/encryption'
