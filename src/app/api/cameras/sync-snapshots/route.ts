@@ -101,8 +101,8 @@ export async function POST(request: NextRequest) {
           autorename: false,
         })
 
-        // Get public sharing link
-        let sharedLink: string
+        // Get public sharing link (optional - graceful failure)
+        let sharedLink: string | null = null
 
         try {
           // Try to create a new sharing link
@@ -117,21 +117,25 @@ export async function POST(request: NextRequest) {
         } catch (err: any) {
           // If link already exists, list existing links
           if (err.error?.error?.['.tag'] === 'shared_link_already_exists') {
-            const linksResponse = await dbx.sharingListSharedLinks({
-              path: uploadResponse.result.path_display!,
-            })
+            try {
+              const linksResponse = await dbx.sharingListSharedLinks({
+                path: uploadResponse.result.path_display!,
+              })
 
-            if (linksResponse.result.links.length > 0) {
-              sharedLink = linksResponse.result.links[0].url.replace('?dl=0', '?raw=1')
-            } else {
-              throw new Error('Shared link exists but could not retrieve it')
+              if (linksResponse.result.links.length > 0) {
+                sharedLink = linksResponse.result.links[0].url.replace('?dl=0', '?raw=1')
+              }
+            } catch (linkError) {
+              console.warn(`[Camera Sync] Failed to retrieve existing link for ${camera.name}:`, linkError)
+              // Continue without sharing link - snapshot was uploaded successfully
             }
           } else {
-            throw err
+            console.warn(`[Camera Sync] Failed to create sharing link for ${camera.name}:`, err)
+            // Continue without sharing link - snapshot was uploaded successfully
           }
         }
 
-        // Update camera record
+        // Update camera record (snapshot uploaded successfully even if sharing link failed)
         await query(
           `UPDATE cameras
            SET snapshot_url = $1,
