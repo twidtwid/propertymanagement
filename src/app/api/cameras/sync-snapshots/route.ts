@@ -94,48 +94,18 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Camera Sync] Uploading snapshot to Dropbox: ${dropboxPath}`)
 
-        const uploadResponse = await dbx.filesUpload({
+        await dbx.filesUpload({
           path: dropboxPath,
           contents: snapshotResult.imageBuffer,
           mode: { '.tag': 'add' },
           autorename: false,
         })
 
-        // Get public sharing link (optional - graceful failure)
-        let sharedLink: string | null = null
+        // Store Dropbox path as snapshot_url (sharing links have issues in production)
+        // Format: dropbox://{path} so we can retrieve via Dropbox API later
+        const snapshotUrl = `dropbox://${dropboxPath}`
 
-        try {
-          // Try to create a new sharing link
-          const shareLinkResponse = await dbx.sharingCreateSharedLinkWithSettings({
-            path: uploadResponse.result.path_display!,
-            settings: {
-              requested_visibility: { '.tag': 'public' },
-            },
-          })
-
-          sharedLink = shareLinkResponse.result.url.replace('?dl=0', '?raw=1') // Force raw image
-        } catch (err: any) {
-          // If link already exists, list existing links
-          if (err.error?.error?.['.tag'] === 'shared_link_already_exists') {
-            try {
-              const linksResponse = await dbx.sharingListSharedLinks({
-                path: uploadResponse.result.path_display!,
-              })
-
-              if (linksResponse.result.links.length > 0) {
-                sharedLink = linksResponse.result.links[0].url.replace('?dl=0', '?raw=1')
-              }
-            } catch (linkError) {
-              console.warn(`[Camera Sync] Failed to retrieve existing link for ${camera.name}:`, linkError)
-              // Continue without sharing link - snapshot was uploaded successfully
-            }
-          } else {
-            console.warn(`[Camera Sync] Failed to create sharing link for ${camera.name}:`, err)
-            // Continue without sharing link - snapshot was uploaded successfully
-          }
-        }
-
-        // Update camera record (snapshot uploaded successfully even if sharing link failed)
+        // Update camera record
         await query(
           `UPDATE cameras
            SET snapshot_url = $1,
@@ -144,7 +114,7 @@ export async function POST(request: NextRequest) {
                last_online = NOW(),
                updated_at = NOW()
            WHERE id = $3`,
-          [sharedLink, snapshotResult.timestamp, camera.id]
+          [snapshotUrl, snapshotResult.timestamp, camera.id]
         )
 
         console.log(`[Camera Sync] Successfully updated ${camera.name}`)
