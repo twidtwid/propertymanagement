@@ -10,18 +10,21 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const error = searchParams.get("error")
 
+  // Use NEXT_PUBLIC_APP_URL for redirects (request.url uses HOSTNAME=0.0.0.0 in Docker)
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+
   // Handle errors from Google
   if (error) {
     console.error("OAuth error from Google:", error)
     return NextResponse.redirect(
-      new URL(`/settings/gmail?error=${encodeURIComponent(error)}`, request.url)
+      new URL(`/settings/gmail?error=${encodeURIComponent(error)}`, baseUrl)
     )
   }
 
   // Validate code parameter
   if (!code) {
     return NextResponse.redirect(
-      new URL("/settings/gmail?error=missing_code", request.url)
+      new URL("/settings/gmail?error=missing_code", baseUrl)
     )
   }
 
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     // Redirect to settings page with success
     return NextResponse.redirect(
-      new URL(`/settings/gmail?success=true&email=${encodeURIComponent(userEmail)}`, request.url)
+      new URL(`/settings/gmail?success=true&email=${encodeURIComponent(userEmail)}`, baseUrl)
     )
   } catch (error) {
     console.error("Error handling Gmail OAuth callback:", error)
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         `/settings/gmail?error=${encodeURIComponent(errorMessage)}`,
-        request.url
+        baseUrl
       )
     )
   }
