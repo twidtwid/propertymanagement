@@ -89,7 +89,7 @@ echo ""
 echo "🔑 Check 5: Critical Production Environment Variables"
 echo "----------------------------------------"
 
-CRITICAL_VARS=("NEST_PROJECT_ID" "GOOGLE_CLIENT_ID" "DATABASE_URL" "NEXTAUTH_SECRET" "TOKEN_ENCRYPTION_KEY")
+CRITICAL_VARS=("NEST_PROJECT_ID" "GOOGLE_CLIENT_ID" "DATABASE_URL" "AUTH_SECRET" "TOKEN_ENCRYPTION_KEY")
 MISSING_VARS=()
 
 for var in "${CRITICAL_VARS[@]}"; do

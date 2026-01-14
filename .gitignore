@@ -41,3 +41,4 @@ next-env.d.ts
 # Playwright browser profiles (contains session data)
 scripts/.playwright-nest-profile/
 public/camera-snapshots/
+scripts/.unified-worker-state.json
