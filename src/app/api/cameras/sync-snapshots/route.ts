@@ -1,10 +1,17 @@
 // Camera snapshot sync endpoint
-// Called by unified worker every 5 minutes to update camera status
-// Snapshots are fetched on-demand via /api/cameras/[id]/snapshot (not stored)
+// Called by unified worker every 5 minutes to fetch and store snapshots
+// Snapshots stored in public/camera-snapshots/ and served statically
 
 import { NextRequest, NextResponse } from 'next/server'
+import { writeFile } from 'fs/promises'
+import { join } from 'path'
 import { query } from '@/lib/db'
-import { getValidNestLegacyToken } from '@/lib/cameras/nest-legacy-auth'
+import {
+  fetchNestSnapshot,
+  fetchNestLegacySnapshot,
+  fetchHikvisionSnapshot,
+  type SnapshotResult
+} from '@/lib/cameras/snapshot-fetcher'
 
 export async function POST(request: NextRequest) {
   // Authenticate with cron secret (same as other cron endpoints)
@@ -21,83 +28,80 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Fetch all cameras
-    const cameras = await query<{ id: string; external_id: string; name: string; provider: string }>(
-      `SELECT id, external_id, name, provider FROM cameras ORDER BY name`
+    // Fetch all cameras with property info for HikVision
+    const cameras = await query<{
+      id: string
+      property_id: string
+      external_id: string
+      name: string
+      provider: string
+    }>(
+      `SELECT id, property_id, external_id, name, provider
+       FROM cameras
+       ORDER BY name`
     )
 
     let updated = 0
     const errors: string[] = []
 
-    console.log(`[Camera Sync] Checking ${cameras.length} cameras for connectivity`)
+    console.log(`[Camera Sync] Starting snapshot fetch for ${cameras.length} cameras`)
 
-    // Process each camera - just test connectivity, don't store snapshots
+    // Process each camera
     for (const camera of cameras) {
       try {
-        console.log(`[Camera Sync] Checking ${camera.name} (${camera.provider})`)
+        console.log(`[Camera Sync] Fetching snapshot for ${camera.name} (${camera.provider})`)
 
-        let isOnline = false
-
-        // Test camera connectivity
+        // Fetch snapshot based on provider
+        let snapshotResult: SnapshotResult
         switch (camera.provider) {
-          case 'nest_legacy':
-            // Test if Nest Legacy token is valid
-            try {
-              await getValidNestLegacyToken()
-              // Token valid, test actual camera access with small fetch
-              const response = await fetch(
-                `https://nexusapi-us1.camera.home.nest.com/get_image?uuid=${camera.external_id}&width=320`,
-                {
-                  method: 'HEAD', // Just check if accessible
-                  headers: {
-                    'Cookie': `user_token=${await getValidNestLegacyToken()}`,
-                    'User-Agent': 'Mozilla/5.0',
-                    'Referer': 'https://home.nest.com/'
-                  }
-                }
-              )
-              isOnline = response.ok
-            } catch {
-              isOnline = false
-            }
-            break
-
-          case 'hikvision':
-            // Hikvision cameras are always marked online (checked via local network)
-            isOnline = true
-            break
-
           case 'nest':
-            // Modern Nest - just mark as online if credentials exist
-            isOnline = true
+            snapshotResult = await fetchNestSnapshot(camera.external_id)
             break
-
+          case 'nest_legacy':
+            snapshotResult = await fetchNestLegacySnapshot(camera.id, camera.external_id)
+            break
+          case 'hikvision':
+            snapshotResult = await fetchHikvisionSnapshot(camera.external_id, camera.property_id)
+            break
           default:
             console.log(`[Camera Sync] Unknown provider ${camera.provider}, skipping`)
             continue
         }
 
-        // Update camera status
-        const newStatus = isOnline ? 'online' : 'offline'
+        if (!snapshotResult.success) {
+          console.error(`[Camera Sync] Failed to fetch snapshot for ${camera.name}:`, snapshotResult.error)
+          errors.push(`${camera.name}: ${snapshotResult.error}`)
+
+          // Mark camera as error status
+          await query(
+            `UPDATE cameras SET status = 'error'::camera_status, updated_at = NOW() WHERE id = $1`,
+            [camera.id]
+          )
+          continue
+        }
+
+        // Save snapshot to public directory
+        const snapshotPath = join(process.cwd(), 'public', 'camera-snapshots', `${camera.id}.jpg`)
+        await writeFile(snapshotPath, snapshotResult.imageBuffer)
+
+        // Update camera record with public URL
+        const snapshotUrl = `/camera-snapshots/${camera.id}.jpg`
         await query(
           `UPDATE cameras
-           SET status = $1::camera_status,
-               last_online = CASE WHEN $1::camera_status = 'online'::camera_status THEN NOW() ELSE last_online END,
+           SET snapshot_url = $1,
+               snapshot_captured_at = $2,
+               status = 'online'::camera_status,
+               last_online = NOW(),
                updated_at = NOW()
-           WHERE id = $2`,
-          [newStatus, camera.id]
+           WHERE id = $3`,
+          [snapshotUrl, snapshotResult.timestamp, camera.id]
         )
 
-        if (isOnline) {
-          console.log(`[Camera Sync] ✓ ${camera.name} is online`)
-          updated++
-        } else {
-          console.log(`[Camera Sync] ✗ ${camera.name} is offline`)
-          errors.push(`${camera.name}: offline`)
-        }
+        console.log(`[Camera Sync] ✓ Updated ${camera.name}`)
+        updated++
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-        console.error(`[Camera Sync] Error checking ${camera.name}:`, errorMsg)
+        console.error(`[Camera Sync] Error processing ${camera.name}:`, errorMsg)
         errors.push(`${camera.name}: ${errorMsg}`)
 
         // Mark camera as error
@@ -107,11 +111,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[Camera Sync] Complete: ${updated}/${cameras.length} cameras online`)
+    console.log(`[Camera Sync] Complete: ${updated}/${cameras.length} cameras updated`)
 
     return NextResponse.json({
       success: true,
-      online: updated,
+      updated,
       total: cameras.length,
       errors: errors.length > 0 ? errors : undefined,
     })

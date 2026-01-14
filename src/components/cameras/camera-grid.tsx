@@ -111,15 +111,9 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
               }
             >
               {/* Camera snapshot */}
-              {camera.provider === 'nest_legacy' || camera.provider === 'hikvision' ? (
+              {camera.snapshot_url ? (
                 <img
-                  src={`/api/cameras/${camera.id}/snapshot?t=${refreshCounter}`}
-                  alt={camera.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : camera.snapshot_url ? (
-                <img
-                  src={camera.snapshot_url}
+                  src={`${camera.snapshot_url}?t=${refreshCounter}`}
                   alt={camera.name}
                   className="w-full h-full object-cover"
                 />
@@ -200,23 +194,10 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
                   <CardContent className="space-y-3">
                     {/* Snapshot preview or placeholder */}
                     <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 rounded-md flex flex-col items-center justify-center overflow-hidden relative">
-                      {camera.provider === 'nest_legacy' || camera.provider === 'hikvision' ? (
-                        <>
-                          {/* Live snapshot from API endpoint - auto-refreshes via refreshCounter */}
-                          <img
-                            src={`/api/cameras/${camera.id}/snapshot?t=${refreshCounter}`}
-                            alt={camera.name}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                            <RefreshCw className="h-3 w-3" />
-                            <span>Live</span>
-                          </div>
-                        </>
-                      ) : camera.snapshot_url ? (
+                      {camera.snapshot_url ? (
                         <>
                           <img
-                            src={camera.snapshot_url}
+                            src={`${camera.snapshot_url}?t=${refreshCounter}`}
                             alt={camera.name}
                             className="w-full h-full object-cover"
                           />
@@ -231,7 +212,7 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
                       ) : (
                         <>
                           <Video className="h-12 w-12 text-gray-400 mb-2" />
-                          <p className="text-sm text-gray-300">Click to view live</p>
+                          <p className="text-sm text-gray-300">No snapshot available</p>
                         </>
                       )}
                     </div>
