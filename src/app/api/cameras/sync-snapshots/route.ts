@@ -1,14 +1,10 @@
 // Camera snapshot sync endpoint
-// Called by unified worker every 5 minutes to update all camera snapshots
-
-// Import fetch polyfill first (fixes Dropbox SDK issues in production)
-import 'isomorphic-fetch'
+// Called by unified worker every 5 minutes to update camera status
+// Snapshots are fetched on-demand via /api/cameras/[id]/snapshot (not stored)
 
 import { NextRequest, NextResponse } from 'next/server'
-import { query, queryOne } from '@/lib/db'
-import { decryptToken } from '@/lib/encryption'
-import { fetchNestSnapshot, fetchNestLegacySnapshot } from '@/lib/cameras/snapshot-fetcher'
-import { Dropbox } from 'dropbox'
+import { query } from '@/lib/db'
+import { getValidNestLegacyToken } from '@/lib/cameras/nest-legacy-auth'
 
 export async function POST(request: NextRequest) {
   // Authenticate with cron secret (same as other cron endpoints)
@@ -26,120 +22,96 @@ export async function POST(request: NextRequest) {
 
   try {
     // Fetch all cameras
-    const cameras = await query<{ id: string; property_id: string; external_id: string; name: string; provider: string; property_name: string }>(
-      `SELECT c.*, p.name as property_name
-       FROM cameras c
-       JOIN properties p ON c.property_id = p.id
-       ORDER BY c.name`
+    const cameras = await query<{ id: string; external_id: string; name: string; provider: string }>(
+      `SELECT id, external_id, name, provider FROM cameras ORDER BY name`
     )
 
     let updated = 0
     const errors: string[] = []
 
-    console.log(`[Camera Sync] Starting snapshot sync for ${cameras.length} cameras`)
+    console.log(`[Camera Sync] Checking ${cameras.length} cameras for connectivity`)
 
-    // Get Dropbox access token
-    const tokenRow = await queryOne<{ access_token_encrypted: string; namespace_id: string | null }>(
-      'SELECT access_token_encrypted, namespace_id FROM dropbox_oauth_tokens LIMIT 1'
-    )
-
-    if (!tokenRow) {
-      throw new Error('Dropbox not connected')
-    }
-
-    const accessToken = decryptToken(tokenRow.access_token_encrypted)
-    const dbx = new Dropbox({
-      accessToken,
-      selectUser: tokenRow.namespace_id || undefined,
-      fetch: fetch // Explicitly pass fetch to avoid "this.fetch is not a function" error
-    })
-
-    // Process each camera
+    // Process each camera - just test connectivity, don't store snapshots
     for (const camera of cameras) {
       try {
-        console.log(`[Camera Sync] Fetching snapshot for ${camera.name} (${camera.provider})`)
+        console.log(`[Camera Sync] Checking ${camera.name} (${camera.provider})`)
 
-        // Fetch snapshot based on provider
-        let snapshotResult
+        let isOnline = false
+
+        // Test camera connectivity
         switch (camera.provider) {
-          case 'nest':
-            snapshotResult = await fetchNestSnapshot(camera.external_id)
-            break
           case 'nest_legacy':
-            snapshotResult = await fetchNestLegacySnapshot(camera.id, camera.external_id)
+            // Test if Nest Legacy token is valid
+            try {
+              await getValidNestLegacyToken()
+              // Token valid, test actual camera access with small fetch
+              const response = await fetch(
+                `https://nexusapi-us1.camera.home.nest.com/get_image?uuid=${camera.external_id}&width=320`,
+                {
+                  method: 'HEAD', // Just check if accessible
+                  headers: {
+                    'Cookie': `user_token=${await getValidNestLegacyToken()}`,
+                    'User-Agent': 'Mozilla/5.0',
+                    'Referer': 'https://home.nest.com/'
+                  }
+                }
+              )
+              isOnline = response.ok
+            } catch {
+              isOnline = false
+            }
             break
+
           case 'hikvision':
-            // TODO: Phase 2
-            console.log(`[Camera Sync] Hikvision not yet implemented, skipping ${camera.name}`)
-            continue
-          case 'securityspy':
-            // TODO: Phase 3
-            console.log(`[Camera Sync] SecuritySpy not yet implemented, skipping ${camera.name}`)
-            continue
+            // Hikvision cameras are always marked online (checked via local network)
+            isOnline = true
+            break
+
+          case 'nest':
+            // Modern Nest - just mark as online if credentials exist
+            isOnline = true
+            break
+
           default:
-            throw new Error(`Unknown provider: ${camera.provider}`)
+            console.log(`[Camera Sync] Unknown provider ${camera.provider}, skipping`)
+            continue
         }
 
-        if (!snapshotResult.success) {
-          console.error(`[Camera Sync] Failed to fetch snapshot for ${camera.name}:`, snapshotResult.error)
-          errors.push(`${camera.name}: ${snapshotResult.error}`)
-
-          // Mark camera as error status
-          await query(
-            `UPDATE cameras SET status = 'error', updated_at = NOW() WHERE id = $1`,
-            [camera.id]
-          )
-          continue
-        }
-
-        // Upload to Dropbox: /Cameras/{property}/{camera}/{timestamp}.jpg
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5) // 2026-01-11T16-30-00
-        const dropboxPath = `/Cameras/${camera.property_name}/${camera.name}/${timestamp}.jpg`
-
-        console.log(`[Camera Sync] Uploading snapshot to Dropbox: ${dropboxPath}`)
-
-        await dbx.filesUpload({
-          path: dropboxPath,
-          contents: snapshotResult.imageBuffer,
-          mode: { '.tag': 'add' },
-          autorename: false,
-        })
-
-        // Store Dropbox path as snapshot_url (sharing links have issues in production)
-        // Format: dropbox://{path} so we can retrieve via Dropbox API later
-        const snapshotUrl = `dropbox://${dropboxPath}`
-
-        // Update camera record
+        // Update camera status
+        const newStatus = isOnline ? 'online' : 'offline'
         await query(
           `UPDATE cameras
-           SET snapshot_url = $1,
-               snapshot_captured_at = $2,
-               status = 'online',
-               last_online = NOW(),
+           SET status = $1::camera_status,
+               last_online = CASE WHEN $1::camera_status = 'online'::camera_status THEN NOW() ELSE last_online END,
                updated_at = NOW()
-           WHERE id = $3`,
-          [snapshotUrl, snapshotResult.timestamp, camera.id]
+           WHERE id = $2`,
+          [newStatus, camera.id]
         )
 
-        console.log(`[Camera Sync] Successfully updated ${camera.name}`)
-        updated++
+        if (isOnline) {
+          console.log(`[Camera Sync] ✓ ${camera.name} is online`)
+          updated++
+        } else {
+          console.log(`[Camera Sync] ✗ ${camera.name} is offline`)
+          errors.push(`${camera.name}: offline`)
+        }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-        console.error(`[Camera Sync] Error processing ${camera.name}:`, errorMsg)
+        console.error(`[Camera Sync] Error checking ${camera.name}:`, errorMsg)
         errors.push(`${camera.name}: ${errorMsg}`)
 
         // Mark camera as error
-        await query(`UPDATE cameras SET status = 'error', updated_at = NOW() WHERE id = $1`, [
+        await query(`UPDATE cameras SET status = 'error'::camera_status, updated_at = NOW() WHERE id = $1`, [
           camera.id,
         ])
       }
     }
 
-    console.log(`[Camera Sync] Complete: ${updated}/${cameras.length} cameras updated`)
+    console.log(`[Camera Sync] Complete: ${updated}/${cameras.length} cameras online`)
 
     return NextResponse.json({
       success: true,
-      updated,
+      online: updated,
       total: cameras.length,
       errors: errors.length > 0 ? errors : undefined,
     })
@@ -147,7 +119,7 @@ export async function POST(request: NextRequest) {
     console.error('[Camera Sync] Fatal error:', error)
     return NextResponse.json(
       {
-        error: 'Snapshot sync failed',
+        error: 'Camera sync failed',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
