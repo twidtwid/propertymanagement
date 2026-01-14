@@ -1,6 +1,6 @@
 {
   "name": "property-management",
-  "version": "0.10.11",
+  "version": "0.10.12",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -20,6 +20,7 @@
     "dropbox:sync:force": "npx tsx scripts/dropbox_sync.ts --force",
     "nest:check-token": "node scripts/check-nest-token-expiration.js",
     "nest:update-token": "node scripts/update-nest-token-manual.js",
+    "nest:auto-refresh": "uv run python scripts/nest-auto-refresh-token.py",
     "nest:setup-refresh": "node scripts/nest-setup-refresh-auth.js",
     "nest:monitor": "bash scripts/nest-monitor-hourly.sh",
     "prepare": "husky"

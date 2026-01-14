@@ -37,3 +37,6 @@ next-env.d.ts
 # database backups (too large for git)
 /backups/
 .venv
+
+# Playwright browser profiles (contains session data)
+scripts/.playwright-nest-profile/

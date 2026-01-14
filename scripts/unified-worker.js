@@ -10,6 +10,8 @@
  * 2. Smart Pins Sync: Every 60 minutes (auto-pins urgent items)
  * 3. Camera Sync: Every 5 minutes (fetches camera snapshots)
  * 4. Daily Summary: Once per day at 6 PM NYC (sends email summary)
+ * 5. Nest Auto-Refresh: Once per day at 2:30 AM NYC (refreshes Nest Legacy tokens)
+ * 6. Nest Token Check: Once per day at 3 AM NYC (checks token expiration)
  *
  * Usage:
  *   node scripts/unified-worker.js
@@ -88,6 +90,7 @@ function loadState() {
     lastCameraSync: null,
     lastDailySummary: null,
     lastNestTokenCheck: null,
+    lastNestAutoRefresh: null,
   };
 }
 
@@ -261,7 +264,61 @@ async function runDailySummary() {
 }
 
 // ============================================================================
-// Task 5: Nest Token Refresh Check
+// Task 5: Nest Auto Token Refresh
+// ============================================================================
+
+async function runNestAutoRefresh() {
+  console.log('\n' + '='.repeat(60));
+  console.log('  NEST AUTO REFRESH - Daily at 2:30 AM');
+  console.log('='.repeat(60));
+
+  try {
+    const { spawn } = require('child_process');
+
+    // Run the Python automation script (automated mode)
+    const script = spawn('npm', ['run', 'nest:auto-refresh'], {
+      cwd: path.join(__dirname, '..'),
+      env: process.env,
+      shell: true
+    });
+
+    let output = '';
+
+    script.stdout.on('data', (data) => {
+      const str = data.toString();
+      output += str;
+      console.log(str.trim());
+    });
+
+    script.stderr.on('data', (data) => {
+      console.error(data.toString().trim());
+    });
+
+    const exitCode = await new Promise((resolve) => {
+      script.on('close', (code) => resolve(code));
+    });
+
+    const state = loadState();
+    state.lastNestAutoRefresh = getNYCTime().date;
+    saveState(state);
+
+    if (exitCode === 0) {
+      await updateHealthCheckState('nest_auto_refresh', 'ok');
+      console.log('[Nest Auto-Refresh] ✓ Token refreshed successfully');
+    } else {
+      await updateHealthCheckState('nest_auto_refresh', 'warning');
+      console.log('[Nest Auto-Refresh] ✗ Refresh failed - see logs above');
+    }
+  } catch (error) {
+    console.error('[Nest Auto-Refresh] ✗ Error:', error.message);
+    await updateHealthCheckState('nest_auto_refresh', 'critical', {
+      error: error.message
+    });
+  }
+}
+
+// ============================================================================
+// Task 6: Nest Token Refresh Check
 // ============================================================================
 
 async function runNestTokenCheck() {
@@ -382,7 +439,17 @@ async function mainLoop() {
     await runDailySummary();
   }
 
-  // Task 5: Nest Token Check (once at 3 AM NYC)
+  // Task 5: Nest Auto-Refresh (once at 2:30 AM NYC)
+  const NEST_AUTO_REFRESH_HOUR = 2;
+  const NEST_AUTO_REFRESH_MINUTE = 30;
+  const isTimeToAutoRefresh = nyc.hour === NEST_AUTO_REFRESH_HOUR && nyc.minute >= NEST_AUTO_REFRESH_MINUTE && nyc.minute < NEST_AUTO_REFRESH_MINUTE + 5;
+  const alreadyRefreshedToday = state.lastNestAutoRefresh === nyc.date;
+
+  if (isTimeToAutoRefresh && !alreadyRefreshedToday) {
+    await runNestAutoRefresh();
+  }
+
+  // Task 6: Nest Token Check (once at 3 AM NYC)
   const NEST_TOKEN_HOUR = 3;
   const NEST_TOKEN_MINUTE = 0;
   const isTimeToCheckToken = nyc.hour === NEST_TOKEN_HOUR && nyc.minute >= NEST_TOKEN_MINUTE && nyc.minute < NEST_TOKEN_MINUTE + 5;
