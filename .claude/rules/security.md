@@ -1,147 +1,42 @@
 ---
-paths: src/middleware.ts, src/lib/auth*, src/app/api/**
+paths: src/middleware.ts, src/lib/auth*
 ---
 
-# Security & Authorization Rules
+# Security
 
-## User Roles
+## Roles
 
-| Role | Description | Users |
-|------|-------------|-------|
-| owner | Full access to all features | Anne, Todd, Michael, Amelia |
-| bookkeeper | Limited to bills and payments | Barbara Brady (CBIZ) |
+| Role | Users | Access |
+|------|-------|--------|
+| owner | Anne, Todd, Michael, Amelia | Full |
+| bookkeeper | Barbara Brady (CBIZ) | `/`, `/payments/**`, `/settings` only |
 
-## Route Access Control
+## Bookkeeper Restrictions
 
-Middleware enforces route restrictions. See `src/middleware.ts`.
+**Allowed:** Dashboard (filtered), all payments pages, profile settings
 
-### Bookkeeper Allowed Routes
-```
-/                    # Dashboard (filtered view)
-/payments            # All payments pages
-/payments/taxes
-/payments/recurring
-/settings            # Profile settings only
-```
+**Blocked:** Properties, vehicles, vendors (edit), insurance, maintenance, documents, reports, Gmail settings
 
-### Bookkeeper Blocked Routes
-```
-/properties/**       # No property management
-/vehicles/**         # No vehicle management
-/vendors/**          # No vendor editing (view-only API)
-/insurance/**        # No policy management
-/maintenance/**      # No maintenance tasks
-/documents/**        # No document access
-/reports/**          # No analytics
-/settings/gmail      # No email integration
-/buildinglink/**     # No building communications
-```
+**Data level:** Full CRUD on bills, read-only on vendors/properties/vehicles
 
-## Data-Level Restrictions
+## Session
 
-Beyond route blocking, bookkeeper access is enforced at the data level:
+Cookie-based (`session`), contains `{ userId, email, role }`. No JWT.
 
-### Bills & Payments
-- Full CRUD on bills table
-- Can mark payments as sent/confirmed
-- Can add payment references and notes
-- Can view (not edit) vendor information on bills
+## OAuth Tokens
 
-### Read-Only Access
-- Vendors: Can view to see who bills are from
-- Properties: Can see names in dropdowns (no details)
-- Vehicles: Can see names in dropdowns (no details)
+Encrypted with AES-256-GCM using `TOKEN_ENCRYPTION_KEY` (32-byte hex).
 
-### No Access
-- Equipment
-- Maintenance tasks/history
-- Documents
-- Insurance claims
-- Seasonal tasks
-- Shared task lists
+| Service | Table |
+|---------|-------|
+| Gmail | `gmail_oauth_tokens` |
+| Dropbox | `dropbox_oauth_tokens` |
+| Nest | `camera_credentials` |
 
-## Session Management
+## API Protection
 
-Simple cookie-based session (no external auth provider):
-- Session stored in cookie: `session`
-- Contains: `{ userId, email, role }`
-- No JWT, no refresh tokens
-- Session persists until browser close or explicit logout
-
-## API Route Protection
-
-All API routes should check authentication:
 ```typescript
-import { getCurrentUser } from "@/lib/auth"
-
-export async function GET() {
-  const user = await getCurrentUser()
-  if (!user) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  // For owner-only routes
-  if (user.role !== 'owner') {
-    return Response.json({ error: "Forbidden" }, { status: 403 })
-  }
-}
-```
-
-## OAuth Security
-
-### Gmail
-- Tokens encrypted with AES-256-GCM before storage
-- `TOKEN_ENCRYPTION_KEY` must be 32-byte hex string
-- Refresh tokens rotated on use
-- Tokens stored in `gmail_oauth_tokens` table
-
-### Dropbox
-- Tokens encrypted same as Gmail (AES-256-GCM)
-- Tokens stored in `dropbox_oauth_tokens` table
-- `namespace_id` stored for shared folder access
-- Scopes: files.metadata.read, files.content.read, files.content.write, sharing.read, account_info.read
-
-## Sensitive Data Handling
-
-### Never Log
-- OAuth tokens (access or refresh)
-- TOKEN_ENCRYPTION_KEY
-- User passwords (none stored - simple auth)
-
-### Encrypt at Rest
-- Gmail OAuth tokens
-- Dropbox OAuth tokens
-- Vendor login_info field (if used)
-
-### Display Masking
-- Show last 4 digits of account numbers
-- Mask email addresses in logs
-
-## Audit Trail
-
-For sensitive actions, log to `payment_audit_log`:
-- Bill creation
-- Payment status changes
-- Confirmation actions
-
-Include: `performed_by`, `performed_at`, `old_status`, `new_status`
-
-## Row Level Security (PostgreSQL)
-
-RLS is enabled but currently uses simplified policies:
-- All authenticated users have access
-- Bookkeeper restrictions enforced at application layer
-
-Future enhancement: Implement proper RLS policies based on user role.
-
-## Error Handling
-
-Never expose internal errors to users:
-```typescript
-try {
-  // database operation
-} catch (error) {
-  console.error("Database error:", error)  // Log full error
-  return Response.json({ error: "Operation failed" }, { status: 500 })  // Generic response
-}
+const user = await getCurrentUser()
+if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 })
+if (user.role !== 'owner') return Response.json({ error: "Forbidden" }, { status: 403 })
 ```
