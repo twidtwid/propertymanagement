@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
     const accessToken = decryptToken(tokenRow.access_token_encrypted)
     const dbx = new Dropbox({
       accessToken,
-      selectUser: tokenRow.namespace_id || undefined
+      selectUser: tokenRow.namespace_id || undefined,
+      fetch: fetch // Explicitly pass fetch to avoid "this.fetch is not a function" error
     })
 
     // Process each camera
