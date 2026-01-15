@@ -27,8 +27,8 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
   // Track refresh counter for nest_legacy cameras (force image reload)
   const [refreshCounter, setRefreshCounter] = useState(0)
 
-  // Track current time for live timestamp display
-  const [currentTime, setCurrentTime] = useState(new Date())
+  // Track current time for live timestamp display (client-only to avoid hydration mismatch)
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
 
   // Auto-refresh snapshots every 10 minutes for nest_legacy and hikvision cameras
   useEffect(() => {
@@ -39,8 +39,9 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
     return () => clearInterval(interval)
   }, [])
 
-  // Update current time every second for Security Grid timestamps
+  // Update current time every second for Security Grid timestamps (client-only)
   useEffect(() => {
+    setCurrentTime(new Date()) // Initialize on mount
     const interval = setInterval(() => {
       setCurrentTime(new Date())
     }, 1000) // 1 second
@@ -129,12 +130,12 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
               </div>
 
               {/* Timestamp overlay */}
-              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
-                {currentTime.toLocaleTimeString('en-US', {
+              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded" suppressHydrationWarning>
+                {currentTime?.toLocaleTimeString('en-US', {
                   hour: '2-digit',
                   minute: '2-digit',
                   second: '2-digit',
-                })}
+                }) ?? '--:--:--'}
               </div>
 
               {/* Status indicator */}
@@ -201,7 +202,7 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
                             alt={camera.name}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded" suppressHydrationWarning>
                             {camera.snapshot_captured_at &&
                               new Date(camera.snapshot_captured_at).toLocaleTimeString('en-US', {
                                 hour: 'numeric',

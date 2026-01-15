@@ -19,14 +19,14 @@ export async function GET(request: NextRequest) {
   try {
     const searchTerm = `%${q}%`
     const vendors = await query<Vendor>(
-      `SELECT id, name, company, specialty, phone, email, emergency_phone
+      `SELECT id, name, company, specialties, phone, email, emergency_phone
        FROM vendors
        WHERE id = ANY($1::uuid[])
          AND is_active = TRUE
          AND (
            name ILIKE $2
            OR company ILIKE $2
-           OR specialty::text ILIKE $2
+           OR specialties::text ILIKE $2
          )
        ORDER BY
          CASE

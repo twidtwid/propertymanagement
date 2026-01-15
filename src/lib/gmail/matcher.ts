@@ -10,7 +10,7 @@ export interface VendorInfo {
   name: string
   email: string | null
   company: string | null
-  specialty: string
+  specialties: string[]
 }
 
 export interface MatchResult {
@@ -25,7 +25,7 @@ export interface MatchResult {
  */
 export async function getActiveVendors(): Promise<VendorInfo[]> {
   const result = await pool.query(`
-    SELECT id, name, email, company, specialty
+    SELECT id, name, email, company, specialties
     FROM vendors
     WHERE is_active = TRUE AND email IS NOT NULL AND email != ''
     ORDER BY name
