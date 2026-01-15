@@ -112,15 +112,33 @@ function extractPaymentInfo(subject: string | null, body: string | null): Extrac
  */
 function parseDate(dateStr: string): string | null {
   try {
-    // Try standard date parsing
-    const date = new Date(dateStr)
+    let date: Date | null = null
+
+    // Try MM/DD/YYYY or MM-DD-YYYY format first (US format)
+    const usDateMatch = dateStr.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/)
+    if (usDateMatch) {
+      const month = parseInt(usDateMatch[1], 10)
+      const day = parseInt(usDateMatch[2], 10)
+      const year = parseInt(usDateMatch[3], 10)
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        date = new Date(year, month - 1, day)
+      }
+    }
+
+    // Fall back to standard date parsing
+    if (!date) {
+      date = new Date(dateStr)
+    }
+
     if (!isNaN(date.getTime())) {
-      // Only accept dates within reasonable range (next 2 years)
+      // Only accept dates within reasonable range (past 30 days to next 2 years)
       const now = new Date()
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
       const twoYearsLater = new Date()
       twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
 
-      if (date >= now && date <= twoYearsLater) {
+      if (date >= thirtyDaysAgo && date <= twoYearsLater) {
         return date.toISOString().split('T')[0]
       }
     }
