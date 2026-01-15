@@ -1,32 +1,8 @@
 import { query } from "@/lib/db"
-import type { PaymentSuggestion, PaymentSuggestionConfidence, Vendor, Property } from "@/types/database"
+import type { PaymentSuggestion, PaymentSuggestionConfidence } from "@/types/database"
+import Anthropic from "@anthropic-ai/sdk"
 
-// Keywords indicating payment-related emails
-const PAYMENT_KEYWORDS = [
-  'invoice', 'statement', 'bill', 'payment due', 'amount due',
-  'balance due', 'pay by', 'due date', 'remittance', 'payable',
-  'autopay', 'auto-pay', 'scheduled payment', 'will be charged'
-]
-
-// Keywords for receipts/confirmations (not suggestions - payment already made)
-const RECEIPT_KEYWORDS = [
-  'payment received', 'thank you for your payment', 'payment confirmed',
-  'payment successful', 'receipt', 'paid in full'
-]
-
-// Regex patterns for extracting amounts
-const AMOUNT_PATTERNS = [
-  /\$\s*([\d,]+\.?\d{0,2})/g,                    // $1,234.56
-  /(?:amount|total|due|balance)[:\s]*\$?([\d,]+\.?\d{0,2})/gi,  // Amount: 1234.56
-  /(?:USD|US\$)\s*([\d,]+\.?\d{0,2})/g,          // USD 1234.56
-]
-
-// Regex patterns for extracting due dates
-const DATE_PATTERNS = [
-  /(?:due|by|before|on)\s*(?:date)?[:\s]*(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/gi,
-  /(?:due|by|before|on)\s*(?:date)?[:\s]*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s*\d{2,4})/gi,
-  /(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})\s*(?:due|deadline)/gi,
-]
+const anthropic = new Anthropic()
 
 interface EmailForAnalysis {
   id: string
@@ -39,139 +15,98 @@ interface EmailForAnalysis {
   received_at: string
 }
 
-interface ExtractedPaymentInfo {
+interface AIPaymentAnalysis {
+  isPaymentRequest: boolean
   amount: number | null
-  due_date: string | null
-  signals: string[]
-  is_receipt: boolean
+  dueDate: string | null  // ISO date format YYYY-MM-DD
+  confidence: 'high' | 'medium' | 'low'
+  reason: string
 }
 
 /**
- * Extract payment information from email text
+ * Use AI (Haiku) to analyze if an email is a payment request and extract details.
+ * More accurate than keyword matching - filters out false positives like key returns,
+ * delivery confirmations, marketing emails, etc.
  */
-function extractPaymentInfo(subject: string | null, body: string | null): ExtractedPaymentInfo {
-  const text = [subject, body].filter(Boolean).join(' ').toLowerCase()
-  const signals: string[] = []
-  let is_receipt = false
-
-  // Check for receipt keywords first (these are not suggestions)
-  for (const keyword of RECEIPT_KEYWORDS) {
-    if (text.includes(keyword.toLowerCase())) {
-      is_receipt = true
-      break
-    }
-  }
-
-  // Check for payment keywords
-  for (const keyword of PAYMENT_KEYWORDS) {
-    if (text.includes(keyword.toLowerCase())) {
-      signals.push('payment_keyword')
-      break
-    }
-  }
-
-  // Extract amount
-  let amount: number | null = null
-  const originalText = [subject, body].filter(Boolean).join(' ')
-
-  for (const pattern of AMOUNT_PATTERNS) {
-    let match: RegExpExecArray | null
-    // Reset regex lastIndex for global patterns
-    pattern.lastIndex = 0
-    while ((match = pattern.exec(originalText)) !== null) {
-      const parsed = parseFloat(match[1].replace(/,/g, ''))
-      // Take the first reasonable amount (between $1 and $100,000)
-      if (!isNaN(parsed) && parsed >= 1 && parsed <= 100000) {
-        amount = parsed
-        signals.push('amount_found')
-        break
-      }
-    }
-    if (amount) break
-  }
-
-  // Extract due date
-  let due_date: string | null = null
-  for (const pattern of DATE_PATTERNS) {
-    const match = originalText.match(pattern)
-    if (match && match[1]) {
-      const parsed = parseDate(match[1])
-      if (parsed) {
-        due_date = parsed
-        signals.push('due_date_found')
-        break
-      }
-    }
-  }
-
-  return { amount, due_date, signals, is_receipt }
-}
-
-/**
- * Parse various date formats into ISO date string
- */
-function parseDate(dateStr: string): string | null {
+async function analyzeEmailForPayment(
+  subject: string | null,
+  bodySnippet: string | null,
+  bodyHtml: string | null,
+  vendorName: string | null
+): Promise<AIPaymentAnalysis> {
   try {
-    let date: Date | null = null
+    // Strip HTML tags for cleaner analysis
+    const cleanBody = bodyHtml
+      ? bodyHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .slice(0, 3000)
+      : bodySnippet || ''
 
-    // Try MM/DD/YYYY or MM-DD-YYYY format first (US format)
-    const usDateMatch = dateStr.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/)
-    if (usDateMatch) {
-      const month = parseInt(usDateMatch[1], 10)
-      const day = parseInt(usDateMatch[2], 10)
-      const year = parseInt(usDateMatch[3], 10)
-      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        date = new Date(year, month - 1, day)
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 200,
+      system: `You analyze vendor emails to identify payment requests (invoices, bills, statements requiring payment).
+
+INCLUDE: Invoices, bills, statements with amounts due, utility bills, service invoices, autopay notifications for upcoming charges.
+
+EXCLUDE: Payment confirmations/receipts (already paid), key returns, package deliveries, building notices, marketing emails, account updates without payment requests, service notifications without bills.
+
+Be strict - only flag emails that clearly request payment for a specific amount. Output JSON only.`,
+      messages: [{
+        role: "user",
+        content: `Vendor: ${vendorName || 'Unknown'}
+Subject: ${subject || '(no subject)'}
+Body: ${cleanBody}
+
+Is this a payment request (invoice/bill that needs to be paid)?
+If yes, extract amount and due date.
+
+Output ONLY valid JSON:
+{"isPaymentRequest": boolean, "amount": number or null, "dueDate": "YYYY-MM-DD or null", "confidence": "high/medium/low", "reason": "brief reason"}`
+      }]
+    }, {
+      timeout: 10000 // 10 second timeout
+    })
+
+    const text = response.content[0]
+    if (text.type === "text") {
+      const jsonMatch = text.text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0])
+        return {
+          isPaymentRequest: result.isPaymentRequest === true,
+          amount: typeof result.amount === 'number' ? result.amount : null,
+          dueDate: result.dueDate || null,
+          confidence: result.confidence || 'low',
+          reason: result.reason || ''
+        }
       }
     }
-
-    // Fall back to standard date parsing
-    if (!date) {
-      date = new Date(dateStr)
-    }
-
-    if (!isNaN(date.getTime())) {
-      // Only accept dates within reasonable range (past 30 days to next 2 years)
-      const now = new Date()
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      const twoYearsLater = new Date()
-      twoYearsLater.setFullYear(twoYearsLater.getFullYear() + 2)
-
-      if (date >= thirtyDaysAgo && date <= twoYearsLater) {
-        return date.toISOString().split('T')[0]
-      }
-    }
-  } catch {
-    // Ignore parsing errors
+  } catch (error: any) {
+    console.error("[PaymentSuggestions] AI analysis error:", error.message)
   }
-  return null
+
+  // Default to not a payment request on error
+  return {
+    isPaymentRequest: false,
+    amount: null,
+    dueDate: null,
+    confidence: 'low',
+    reason: 'AI analysis failed'
+  }
 }
 
 /**
- * Calculate confidence level based on signals
- */
-function calculateConfidence(signals: string[], hasVendorMatch: boolean): PaymentSuggestionConfidence {
-  let score = 0
-
-  if (signals.includes('payment_keyword')) score += 1
-  if (signals.includes('amount_found')) score += 2
-  if (signals.includes('due_date_found')) score += 1
-  if (hasVendorMatch) score += 1
-
-  if (score >= 4) return 'high'
-  if (score >= 2) return 'medium'
-  return 'low'
-}
-
-/**
- * Scan recent emails for payment suggestions
+ * Scan recent emails for payment suggestions using AI analysis.
+ * Only processes emails from known vendors to keep API costs low.
  */
 export async function scanEmailsForPaymentSuggestions(
   daysBack: number = 14,
   onlyHighMedium: boolean = true
 ): Promise<number> {
   // Get recent vendor emails that haven't been processed yet
+  // Only emails from known vendors (vendor_id IS NOT NULL) are analyzed
   const emails = await query<EmailForAnalysis>(`
     SELECT
       vc.id,
@@ -193,36 +128,34 @@ export async function scanEmailsForPaymentSuggestions(
       )
       AND NOT (vc.labels && ARRAY['CATEGORY_PROMOTIONS', 'SPAM']::text[])
     ORDER BY vc.received_at DESC
-    LIMIT 100
+    LIMIT 50
   `, [daysBack])
 
   let suggestionsCreated = 0
 
   for (const email of emails) {
-    // Use body_snippet, or strip HTML tags from body_html as fallback
-    const bodyText = email.body_snippet ||
-      (email.body_html ? email.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 500) : null)
-
-    const { amount, due_date, signals, is_receipt } = extractPaymentInfo(
+    // Use AI to analyze if this is a payment request
+    const analysis = await analyzeEmailForPayment(
       email.subject,
-      bodyText
+      email.body_snippet,
+      email.body_html,
+      email.vendor_name
     )
 
-    // Skip receipts (payment already made)
-    if (is_receipt) continue
-
-    // Skip if no payment signals found
-    if (signals.length === 0) continue
-
-    // Add vendor match signal if we have a vendor
-    if (email.vendor_id) {
-      signals.push('vendor_matched')
+    // Skip if AI determined this is not a payment request
+    if (!analysis.isPaymentRequest) {
+      continue
     }
 
-    const confidence = calculateConfidence(signals, !!email.vendor_id)
-
     // Skip low confidence if only high/medium requested
-    if (onlyHighMedium && confidence === 'low') continue
+    if (onlyHighMedium && analysis.confidence === 'low') {
+      continue
+    }
+
+    // Build signals array for backward compatibility
+    const signals: string[] = ['ai_analyzed', 'vendor_matched']
+    if (analysis.amount) signals.push('amount_found')
+    if (analysis.dueDate) signals.push('due_date_found')
 
     // Insert suggestion
     await query(`
@@ -237,9 +170,9 @@ export async function scanEmailsForPaymentSuggestions(
       email.gmail_message_id,
       email.vendor_id,
       email.vendor_name,
-      amount,
-      due_date,
-      confidence,
+      analysis.amount,
+      analysis.dueDate,
+      analysis.confidence,
       signals,
       email.subject,
       email.body_snippet,
