@@ -176,14 +176,23 @@ async function runEmailSync() {
   console.log('='.repeat(60));
 
   try {
-    await makeRequest('/api/cron/sync-emails', 'Email Sync');
+    const result = await makeRequest('/api/cron/sync-emails', 'Email Sync');
 
     const state = loadState();
     state.lastEmailSync = new Date().toISOString();
     saveState(state);
 
-    // Update health check state
-    await updateHealthCheckState('email_sync', 'ok');
+    // Check response body for actual success - endpoint returns 200 even on failure
+    if (result.success === false) {
+      console.error('[Email Sync] Sync reported failure:', result.errors?.join(', ') || result.message);
+      await updateHealthCheckState('email_sync', 'critical', {
+        errors: result.errors,
+        message: result.message
+      });
+    } else {
+      console.log(`[Email Sync] Synced ${result.emailsStored || 0} emails, ${result.emailsMatched || 0} matched`);
+      await updateHealthCheckState('email_sync', 'ok');
+    }
   } catch (error) {
     console.error('[Email Sync] Failed:', error.message);
     await updateHealthCheckState('email_sync', 'critical');
@@ -373,11 +382,11 @@ async function runNestTokenCheck() {
 // Health Check State Updates
 // ============================================================================
 
-async function updateHealthCheckState(checkName, status) {
+async function updateHealthCheckState(checkName, status, details = null) {
   try {
     await pool.query(`
-      INSERT INTO health_check_state (check_name, status, last_checked_at, failure_count)
-      VALUES ($1, $2, NOW(), CASE WHEN $2 = 'ok' THEN 0 ELSE 1 END)
+      INSERT INTO health_check_state (check_name, status, last_checked_at, failure_count, details)
+      VALUES ($1, $2, NOW(), CASE WHEN $2 = 'ok' THEN 0 ELSE 1 END, $3::jsonb)
       ON CONFLICT (check_name)
       DO UPDATE SET
         status = $2,
@@ -391,8 +400,9 @@ async function updateHealthCheckState(checkName, status) {
           WHEN $2 = 'ok' THEN NULL
           WHEN health_check_state.status = 'ok' THEN NOW()
           ELSE health_check_state.first_failure_at
-        END
-    `, [checkName, status]);
+        END,
+        details = COALESCE($3::jsonb, health_check_state.details)
+    `, [checkName, status, details ? JSON.stringify(details) : null]);
   } catch (error) {
     console.error(`[Health] Failed to update ${checkName}:`, error.message);
   }
