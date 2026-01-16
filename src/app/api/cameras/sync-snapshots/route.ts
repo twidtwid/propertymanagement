@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         let snapshotResult: SnapshotResult
         switch (camera.provider) {
           case 'nest':
-            snapshotResult = await fetchNestSnapshot(camera.external_id)
+            snapshotResult = await fetchNestSnapshot(camera.external_id, camera.id)
             break
           case 'nest_legacy':
             snapshotResult = await fetchNestLegacySnapshot(camera.id, camera.external_id)

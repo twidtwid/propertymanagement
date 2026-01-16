@@ -13,52 +13,69 @@ export interface SnapshotResult {
 }
 
 /**
- * Fetch snapshot from Nest camera via Google SDM API
- * Returns image buffer that can be uploaded to Dropbox
+ * Fetch snapshot from Nest camera via WebRTC using Playwright
+ * Battery cameras don't support GenerateImage, so we connect via WebRTC
+ * and capture a frame from the live stream
  */
-export async function fetchNestSnapshot(externalId: string): Promise<SnapshotResult> {
-  try {
-    const creds = await getNestCredentials()
+export async function fetchNestSnapshot(externalId: string, cameraId?: string): Promise<SnapshotResult> {
+  // If no cameraId provided, we can't use WebRTC capture
+  if (!cameraId) {
+    return {
+      imageBuffer: Buffer.from(''),
+      timestamp: new Date(),
+      success: false,
+      error: 'Camera ID required for Nest WebRTC snapshot',
+    }
+  }
 
-    // Step 1: Request snapshot generation from Nest
-    const response = await fetch(
-      `https://smartdevicemanagement.googleapis.com/v1/enterprises/${process.env.NEST_PROJECT_ID}/devices/${externalId}:executeCommand`,
+  try {
+    const { execSync } = await import('child_process')
+    const path = await import('path')
+    const fs = await import('fs')
+
+    const outputPath = path.join(process.cwd(), 'public', 'camera-snapshots', `${cameraId}.jpg`)
+    const scriptPath = path.join(process.cwd(), 'scripts', 'capture-nest-snapshot.js')
+
+    // Use internal Docker network URL if in container, otherwise localhost
+    const appUrl = process.env.APP_HOST
+      ? `http://${process.env.APP_HOST}:${process.env.APP_PORT || 3000}`
+      : 'http://localhost:3000'
+
+    console.log(`[Nest Snapshot] Capturing via WebRTC for camera ${cameraId}`)
+
+    // Run the Playwright capture script
+    const result = execSync(
+      `node "${scriptPath}" "${cameraId}" "${outputPath}"`,
       {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${creds.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          command: 'sdm.devices.commands.CameraImage.GenerateImage',
-          params: {},
-        }),
+        env: { ...process.env, APP_URL: appUrl },
+        timeout: 60000, // 60 second timeout
+        encoding: 'utf8',
       }
     )
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Nest API error (${response.status}): ${error}`)
+    // Parse the JSON result from the script
+    const lines = result.trim().split('\n')
+    const jsonLine = lines.find(line => line.startsWith('{'))
+
+    if (jsonLine) {
+      const parsed = JSON.parse(jsonLine)
+      if (parsed.success) {
+        // Read the saved image
+        const imageBuffer = fs.readFileSync(outputPath)
+        return {
+          imageBuffer,
+          timestamp: new Date(),
+          success: true,
+        }
+      } else {
+        throw new Error(parsed.error || 'Capture failed')
+      }
     }
 
-    const data = await response.json()
+    throw new Error('No result from capture script')
 
-    // Step 2: Fetch actual image from the temporary URL Nest provides
-    const imageResponse = await fetch(data.results.url)
-
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to fetch image from Nest URL: ${imageResponse.status}`)
-    }
-
-    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer())
-
-    return {
-      imageBuffer,
-      timestamp: new Date(),
-      success: true,
-    }
   } catch (error) {
-    console.error(`Error fetching Nest snapshot for ${externalId}:`, error)
+    console.error(`Error fetching Nest WebRTC snapshot:`, error)
     return {
       imageBuffer: Buffer.from(''),
       timestamp: new Date(),
