@@ -15,6 +15,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/.playwright
       # Note: .next lives on host (not in anonymous volume) so rm -rf .next works
     depends_on:
       db:
@@ -57,6 +58,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/.playwright
     depends_on:
       app:
         condition: service_started

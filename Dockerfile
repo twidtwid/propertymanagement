@@ -80,8 +80,9 @@ RUN chown nextjs:nodejs .next
 # Camera snapshots directory
 RUN mkdir -p public/camera-snapshots && chown -R nextjs:nodejs public/camera-snapshots
 
-# Install Playwright's bundled Chromium (works better than system Chromium)
-RUN npx playwright install chromium && \
+# Install Playwright's bundled Chrome (includes H264 codec for Nest WebRTC)
+# Chrome is required because Nest's WebRTC API requires H264, which Chromium lacks
+RUN npx playwright install chrome && \
     chown -R nextjs:nodejs /app/.playwright
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

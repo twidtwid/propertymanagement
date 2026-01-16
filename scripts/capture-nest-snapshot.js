@@ -13,7 +13,9 @@
  * 5. Saves as JPEG
  */
 
-const { chromium } = require('playwright')
+// Use Chrome instead of Chromium for H264 codec support (required by Nest WebRTC)
+const playwright = require('playwright')
+const { chromium } = playwright
 const { writeFileSync } = require('fs')
 const path = require('path')
 
@@ -41,22 +43,35 @@ async function captureNestSnapshot() {
   console.log(`[Nest Snapshot] App URL: ${APP_URL}`)
   console.log(`[Nest Snapshot] Output: ${OUTPUT_PATH}`)
 
-  // Use system Chromium in production (Docker), or Playwright's Chromium locally
-  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
+  // Try Chrome first (has H264 codec for Nest WebRTC), fall back to Chromium
+  // Chrome not available on Arm64, so dev uses Chromium and may fail for Modern Nest
+  let browser
+  const browserArgs = [
+    '--use-fake-ui-for-media-stream', // Auto-allow media
+    '--use-fake-device-for-media-stream',
+    '--autoplay-policy=no-user-gesture-required',
+    '--no-sandbox', // Required for Docker
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage', // Overcome limited resource problems
+    '--disable-gpu', // Disable GPU
+  ]
 
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath,
-    args: [
-      '--use-fake-ui-for-media-stream', // Auto-allow media
-      '--use-fake-device-for-media-stream',
-      '--autoplay-policy=no-user-gesture-required',
-      '--no-sandbox', // Required for Docker
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage', // Overcome limited resource problems
-      '--disable-gpu', // Disable GPU
-    ]
-  })
+  try {
+    // Try Chrome first (has H264 support required by Nest)
+    browser = await chromium.launch({
+      headless: true,
+      channel: 'chrome',
+      args: browserArgs
+    })
+    console.log('[Nest Snapshot] Using Chrome (H264 supported)')
+  } catch (chromeError) {
+    // Fall back to Chromium (may fail for Nest due to missing H264)
+    console.log('[Nest Snapshot] Chrome not available, falling back to Chromium')
+    browser = await chromium.launch({
+      headless: true,
+      args: browserArgs
+    })
+  }
 
   try {
     const context = await browser.newContext({
