@@ -16,6 +16,25 @@ paths: src/lib/cameras/**, src/app/api/cameras/**, src/components/cameras/**
 - Modern: Google SDM API at `smartdevicemanagement.googleapis.com`
 - Legacy: Dropcam API at `nexusapi-us1.camera.home.nest.com`
 
+## Modern Nest OAuth
+
+**Env vars (separate from Gmail):**
+```
+NEST_PROJECT_ID=734ce5e7-4da8-45d4-a840-16d2905e165e
+NEST_CLIENT_ID=120115699308-jt3jqkgvp4du0cjsmf6fn3p3vtu4ruos.apps.googleusercontent.com
+NEST_CLIENT_SECRET=<secret>
+```
+
+**Re-authorization:**
+```bash
+source .env.local && node scripts/get-nest-auth-url.js  # Get URL
+# Visit URL, authorize as anne's Google account
+source .env.local && node scripts/nest-token-exchange.js CODE
+```
+
+**Google Cloud:** https://console.cloud.google.com/apis/credentials?project=nest-camera-view
+**Device Access:** https://console.nest.google.com/device-access/project/734ce5e7-4da8-45d4-a840-16d2905e165e
+
 ## Token Update (Legacy)
 
 When Pushover alert received:
@@ -39,3 +58,7 @@ When Pushover alert received:
 | 401 Modern | Token auto-refreshes; check NEST_PROJECT_ID |
 | 401 Legacy | Run `npm run nest:update-token` |
 | Blank snapshot | Camera offline or wrong UUID |
+| `invalid_client` | Secret changed in Google Cloud; create new secret, update env, re-auth |
+| `Enterprise not found` | Wrong OAuth client; use NEST_CLIENT_ID not GOOGLE_CLIENT_ID |
+
+**Credentials backup:** `backups/oauth-credentials-*.md`

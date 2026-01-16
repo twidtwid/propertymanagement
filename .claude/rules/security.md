@@ -23,15 +23,36 @@ paths: src/middleware.ts, src/lib/auth*
 
 Cookie-based (`session`), contains `{ userId, email, role }`. No JWT.
 
-## OAuth Tokens
+## OAuth Configuration
 
-Encrypted with AES-256-GCM using `TOKEN_ENCRYPTION_KEY` (32-byte hex).
+**Two separate Google Cloud projects:**
 
-| Service | Table |
-|---------|-------|
-| Gmail | `gmail_oauth_tokens` |
-| Dropbox | `dropbox_oauth_tokens` |
-| Nest | `camera_credentials` |
+| Project | Services | Env Vars |
+|---------|----------|----------|
+| Property Management | Gmail API | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| nest camera view | Device Access (SDM) | `NEST_CLIENT_ID`, `NEST_CLIENT_SECRET`, `NEST_PROJECT_ID` |
+
+**Token Storage:**
+
+| Service | Table | Encryption |
+|---------|-------|------------|
+| Gmail | `gmail_oauth_tokens` | Plaintext |
+| Dropbox | `dropbox_oauth_tokens` | Plaintext |
+| Nest | `camera_credentials` | AES-256-GCM |
+
+Token encryption uses `TOKEN_ENCRYPTION_KEY` (32-byte hex). **NEVER change this key.**
+
+## Re-Auth Procedures
+
+**Gmail:** Visit /settings → Connect Gmail → Sign in as anne@annespalter.com
+
+**Nest:**
+```bash
+source .env.local && node scripts/get-nest-auth-url.js  # Get auth URL
+source .env.local && node scripts/nest-token-exchange.js CODE  # Exchange code
+```
+
+**Credentials Backup:** `backups/oauth-credentials-*.md` (gitignored)
 
 ## API Protection
 
