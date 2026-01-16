@@ -5,6 +5,13 @@ on:
     branches: [main]
   workflow_dispatch: # Allow manual trigger
 
+# Workflow-level permissions for GHCR
+permissions:
+  contents: read
+  packages: write
+  attestations: write
+  id-token: write
+
 concurrency:
   group: production-deploy
   cancel-in-progress: false # Don't cancel in-progress deploys
@@ -26,9 +33,6 @@ jobs:
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -56,8 +60,8 @@ jobs:
           push: true
           target: runner
           tags: |
-            ghcr.io/twidtwid/propertymanagement:latest
-            ghcr.io/twidtwid/propertymanagement:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -68,8 +72,8 @@ jobs:
           push: true
           target: worker
           tags: |
-            ghcr.io/twidtwid/propertymanagement:worker-latest
-            ghcr.io/twidtwid/propertymanagement:worker-${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:worker-latest
+            ghcr.io/${{ github.repository }}:worker-${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
