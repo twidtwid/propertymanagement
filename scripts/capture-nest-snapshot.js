@@ -54,6 +54,10 @@ async function captureNestSnapshot() {
       '--no-sandbox', // Required for Docker
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage', // Overcome limited resource problems
+      '--disable-gpu', // Disable GPU
+      '--disable-software-rasterizer',
+      '--single-process', // Run in single process mode
+      '--no-zygote', // Disable zygote process
     ]
   })
 
