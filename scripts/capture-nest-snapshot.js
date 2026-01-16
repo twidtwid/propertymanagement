@@ -39,6 +39,11 @@ if (!CRON_SECRET) {
 const CAPTURE_URL = `${APP_URL}/api/cameras/capture-frame?cameraId=${CAMERA_ID}`
 
 async function captureNestSnapshot() {
+  // Set HOME to temp if not writable (Docker permission issue)
+  if (!process.env.HOME || !require('fs').existsSync(process.env.HOME)) {
+    process.env.HOME = '/tmp'
+  }
+
   console.log(`[Nest Snapshot] Capturing camera ${CAMERA_ID}`)
   console.log(`[Nest Snapshot] App URL: ${APP_URL}`)
   console.log(`[Nest Snapshot] Output: ${OUTPUT_PATH}`)
@@ -54,6 +59,10 @@ async function captureNestSnapshot() {
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage', // Overcome limited resource problems
     '--disable-gpu', // Disable GPU
+    '--disable-crash-reporter', // Avoid crash handler permission issues
+    '--disable-crashpad', // Disable crashpad (alternative)
+    '--no-first-run', // Skip first run setup
+    '--disable-features=Crashpad', // Ensure crashpad is disabled
   ]
 
   try {
@@ -63,14 +72,25 @@ async function captureNestSnapshot() {
       channel: 'chrome',
       args: browserArgs
     })
-    console.log('[Nest Snapshot] Using Chrome (H264 supported)')
+    console.log('[Nest Snapshot] Using Chrome via Playwright channel (H264 supported)')
   } catch (chromeError) {
-    // Fall back to Chromium (may fail for Nest due to missing H264)
-    console.log('[Nest Snapshot] Chrome not available, falling back to Chromium')
-    browser = await chromium.launch({
-      headless: true,
-      args: browserArgs
-    })
+    // Try system Chrome (installed via npx playwright install chrome)
+    try {
+      browser = await chromium.launch({
+        headless: true,
+        executablePath: '/usr/bin/google-chrome',
+        args: browserArgs
+      })
+      console.log('[Nest Snapshot] Using system Chrome at /usr/bin/google-chrome (H264 supported)')
+    } catch (systemChromeError) {
+      // Fall back to Chromium (may fail for Nest due to missing H264)
+      console.log('[Nest Snapshot] System Chrome failed:', systemChromeError.message)
+      console.log('[Nest Snapshot] Falling back to Chromium (H264 not supported)')
+      browser = await chromium.launch({
+        headless: true,
+        args: browserArgs
+      })
+    }
   }
 
   try {
