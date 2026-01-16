@@ -89,8 +89,14 @@ export async function GET(request: NextRequest) {
 
         status.textContent = 'Sending offer to server...';
 
+        // Nest API requires SDP to end with CRLF
+        let offerSdp = offer.sdp;
+        if (!offerSdp.endsWith('\\r\\n')) {
+          offerSdp = offerSdp.replace(/\\r?\\n?$/, '\\r\\n');
+        }
+
         const response = await fetch(
-          '/api/cameras/internal-stream?cameraId=' + cameraId + '&offer=' + encodeURIComponent(offer.sdp),
+          '/api/cameras/internal-stream?cameraId=' + cameraId + '&offer=' + encodeURIComponent(offerSdp),
           {
             headers: {
               'Authorization': 'Bearer ${cronSecretForPage}'
