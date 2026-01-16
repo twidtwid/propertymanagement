@@ -44,10 +44,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Playwright needs to know where Chromium is
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright
 
-# Install wget (for healthcheck) and Chromium dependencies
+# Install wget (for healthcheck) and Chromium dependencies for Playwright
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
-    chromium \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -68,10 +67,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Tell Playwright to use system Chromium
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
-
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 nextjs
 
@@ -84,6 +79,10 @@ RUN chown nextjs:nodejs .next
 
 # Camera snapshots directory
 RUN mkdir -p public/camera-snapshots && chown -R nextjs:nodejs public/camera-snapshots
+
+# Install Playwright's bundled Chromium (works better than system Chromium)
+RUN npx playwright install chromium && \
+    chown -R nextjs:nodejs /app/.playwright
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

@@ -55,9 +55,6 @@ async function captureNestSnapshot() {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage', // Overcome limited resource problems
       '--disable-gpu', // Disable GPU
-      '--disable-software-rasterizer',
-      '--single-process', // Run in single process mode
-      '--no-zygote', // Disable zygote process
     ]
   })
 
