@@ -21,7 +21,7 @@ const CAMERA_ID = process.argv[2]
 const OUTPUT_PATH = process.argv[3] || path.join(process.cwd(), 'public', 'camera-snapshots', `${CAMERA_ID}.jpg`)
 const APP_URL = process.env.APP_URL || 'http://localhost:3000'
 const CRON_SECRET = process.env.CRON_SECRET
-const TIMEOUT = 30000 // 30 seconds max
+const TIMEOUT = 60000 // 60 seconds max
 
 if (!CAMERA_ID) {
   console.error('Usage: node scripts/capture-nest-snapshot.js <cameraId> [outputPath]')

@@ -29,7 +29,7 @@ export async function fetchNestSnapshot(externalId: string, cameraId?: string): 
   }
 
   try {
-    const { execSync } = await import('child_process')
+    const { spawn } = await import('child_process')
     const path = await import('path')
     const fs = await import('fs')
 
@@ -43,15 +43,43 @@ export async function fetchNestSnapshot(externalId: string, cameraId?: string): 
 
     console.log(`[Nest Snapshot] Capturing via WebRTC for camera ${cameraId}`)
 
-    // Run the Playwright capture script
-    const result = execSync(
-      `node "${scriptPath}" "${cameraId}" "${outputPath}"`,
-      {
+    // Run the Playwright capture script asynchronously to avoid blocking the event loop
+    const result = await new Promise<string>((resolve, reject) => {
+      const child = spawn('node', [scriptPath, cameraId, outputPath], {
         env: { ...process.env, APP_URL: appUrl },
-        timeout: 60000, // 60 second timeout
-        encoding: 'utf8',
-      }
-    )
+      })
+
+      let stdout = ''
+      let stderr = ''
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString()
+      })
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString()
+      })
+
+      // Set a timeout
+      const timeout = setTimeout(() => {
+        child.kill()
+        reject(new Error('Capture script timed out after 90 seconds'))
+      }, 90000)
+
+      child.on('close', (code) => {
+        clearTimeout(timeout)
+        if (code === 0) {
+          resolve(stdout)
+        } else {
+          reject(new Error(stderr || stdout || `Script exited with code ${code}`))
+        }
+      })
+
+      child.on('error', (err) => {
+        clearTimeout(timeout)
+        reject(err)
+      })
+    })
 
     // Parse the JSON result from the script
     const lines = result.trim().split('\n')
