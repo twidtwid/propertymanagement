@@ -27,8 +27,8 @@ export async function refreshNestToken(): Promise<string> {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       refresh_token: credentials.refresh_token,
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      client_id: process.env.NEST_CLIENT_ID || process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.NEST_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET!,
       grant_type: 'refresh_token',
     }),
   })

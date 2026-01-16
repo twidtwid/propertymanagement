@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_ID = process.env.NEST_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
 const REDIRECT_URI = 'http://localhost:3000/api/auth/nest/callback';
 
 const scopes = [

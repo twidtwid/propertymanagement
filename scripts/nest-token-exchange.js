@@ -4,8 +4,8 @@ const crypto = require('crypto');
 const { execSync } = require('child_process');
 
 const CODE = process.argv[2];
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || process.env.NEST_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || process.env.NEST_CLIENT_SECRET;
+const CLIENT_ID = process.env.NEST_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.NEST_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000/api/auth/nest/callback';
 const ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 
