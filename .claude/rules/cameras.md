@@ -6,15 +6,37 @@ paths: src/lib/cameras/**, src/app/api/cameras/**, src/components/cameras/**
 
 ## Camera Types
 
-| Type | Auth | Token Refresh |
-|------|------|---------------|
-| Modern Nest | Google OAuth | Automatic via refresh_token |
-| Nest Legacy | user_token cookie | Manual every ~30 days |
+| Type | Provider | Auth | Snapshot Method |
+|------|----------|------|-----------------|
+| Modern Nest (battery) | `nest` | Google OAuth | WebRTC frame capture via Playwright |
+| Nest Legacy (wired) | `nest_legacy` | user_token cookie | Dropcam API |
+| HikVision NVR | `hikvision` | Digest auth | ISAPI snapshot endpoint |
 
 ## Key APIs
 
-- Modern: Google SDM API at `smartdevicemanagement.googleapis.com`
-- Legacy: Dropcam API at `nexusapi-us1.camera.home.nest.com`
+- Modern Nest: Google SDM API (`smartdevicemanagement.googleapis.com`) + WebRTC
+- Nest Legacy: Dropcam API (`nexusapi-us1.camera.home.nest.com`)
+- HikVision: ISAPI (`/ISAPI/Streaming/channels/{channel}/picture`)
+
+## Modern Nest WebRTC Snapshots
+
+Battery-powered Nest cameras don't support the `GenerateImage` API. Instead, we capture snapshots via WebRTC:
+
+1. **Playwright script** (`scripts/capture-nest-snapshot.js`) launches headless Chromium
+2. **Capture page** (`/api/cameras/capture-frame`) establishes WebRTC connection
+3. **Internal stream** (`/api/cameras/internal-stream`) calls Nest SDM API for WebRTC SDP exchange
+4. Frame is captured from video stream to canvas, saved as JPEG
+
+**Docker requirements:**
+- Debian slim base image (not Alpine) for Chromium support
+- Playwright's bundled Chromium installed via `npx playwright install chromium`
+- Dependencies: libgtk-3-0, libnss3, libgbm1, etc.
+
+**Key files:**
+- `scripts/capture-nest-snapshot.js` - Playwright capture script
+- `src/lib/cameras/snapshot-fetcher.ts` - Calls capture script via async spawn
+- `src/app/api/cameras/capture-frame/route.ts` - HTML page for WebRTC
+- `src/app/api/cameras/internal-stream/route.ts` - CRON_SECRET-authenticated stream endpoint
 
 ## Modern Nest OAuth
 
@@ -60,5 +82,24 @@ When Pushover alert received:
 | Blank snapshot | Camera offline or wrong UUID |
 | `invalid_client` | Secret changed in Google Cloud; create new secret, update env, re-auth |
 | `Enterprise not found` | Wrong OAuth client; use NEST_CLIENT_ID not GOOGLE_CLIENT_ID |
+| WebRTC timeout | Check Chromium is installed; verify CRON_SECRET is set |
+| `SDP must end with CRLF` | Fixed in capture-frame; SDP offer has proper line endings |
+| `execSync blocking` | Use async spawn (already implemented) |
+| Playwright crash in Docker | Ensure Debian slim image with all GTK/NSS dependencies |
 
 **Credentials backup:** `backups/oauth-credentials-*.md`
+
+## HikVision Setup
+
+HikVision NVR cameras use Digest authentication via ISAPI.
+
+**Credentials stored in `camera_credentials` table:**
+```json
+{
+  "base_url": "http://192.168.x.x",
+  "username": "admin",
+  "password": "xxx"
+}
+```
+
+**Channel mapping:** Camera number × 100 + 1 (e.g., Camera 1 → Channel 101)
