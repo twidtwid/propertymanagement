@@ -44,8 +44,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Playwright needs to know where Chromium is
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright
 
-# Install Chromium dependencies
+# Install wget (for healthcheck) and Chromium dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
     chromium \
     fonts-liberation \
     libasound2 \
