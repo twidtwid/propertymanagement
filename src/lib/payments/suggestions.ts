@@ -100,13 +100,15 @@ Output ONLY valid JSON:
 /**
  * Scan recent emails for payment suggestions using AI analysis.
  * Only processes emails from known vendors to keep API costs low.
+ * Uses payment_analyzed_at to track analyzed emails and prevent re-analysis.
  */
 export async function scanEmailsForPaymentSuggestions(
   daysBack: number = 14,
   onlyHighMedium: boolean = true
 ): Promise<number> {
-  // Get recent vendor emails that haven't been processed yet
+  // Get recent vendor emails that haven't been analyzed yet
   // Only emails from known vendors (vendor_id IS NOT NULL) are analyzed
+  // Uses payment_analyzed_at to prevent re-analyzing the same emails
   const emails = await query<EmailForAnalysis>(`
     SELECT
       vc.id,
@@ -122,10 +124,7 @@ export async function scanEmailsForPaymentSuggestions(
     WHERE vc.direction = 'inbound'
       AND vc.vendor_id IS NOT NULL
       AND vc.received_at >= CURRENT_DATE - ($1::INTEGER)
-      AND NOT EXISTS (
-        SELECT 1 FROM payment_suggestions ps
-        WHERE ps.email_id = vc.id OR ps.gmail_message_id = vc.gmail_message_id
-      )
+      AND vc.payment_analyzed_at IS NULL
       AND NOT (vc.labels && ARRAY['CATEGORY_PROMOTIONS', 'SPAM']::text[])
     ORDER BY vc.received_at DESC
     LIMIT 50
@@ -141,6 +140,14 @@ export async function scanEmailsForPaymentSuggestions(
       email.body_html,
       email.vendor_name
     )
+
+    // Mark email as analyzed (whether it's a payment request or not)
+    // This prevents re-analyzing the same email repeatedly
+    await query(`
+      UPDATE vendor_communications
+      SET payment_analyzed_at = NOW()
+      WHERE id = $1
+    `, [email.id])
 
     // Skip if AI determined this is not a payment request
     if (!analysis.isPaymentRequest) {
