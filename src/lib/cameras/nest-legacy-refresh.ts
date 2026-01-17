@@ -57,6 +57,7 @@ async function getGoogleAccessToken(
   }
 
   const data = JSON.parse(text.substring(jsonStart))
+  console.log('[nest_legacy] Got access token:', data.access_token?.substring(0, 50) + '...')
   return data.access_token
 }
 
@@ -80,6 +81,8 @@ async function getNestJWT(googleAccessToken: string): Promise<{ jwt: string, exp
   })
 
   if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[nest_legacy] JWT error response:', errorText.substring(0, 500))
     throw new Error(`Failed to get Nest JWT: ${response.status}`)
   }
 
