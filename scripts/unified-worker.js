@@ -40,6 +40,7 @@ const APP_PORT = process.env.APP_PORT || 3000;
 const EMAIL_SYNC_INTERVAL = parseInt(process.env.EMAIL_SYNC_INTERVAL || '10', 10);
 const SMART_PINS_INTERVAL = parseInt(process.env.SMART_PINS_INTERVAL || '60', 10);
 const CAMERA_SYNC_INTERVAL = parseInt(process.env.CAMERA_SYNC_INTERVAL || '5', 10);
+const NEST_JWT_REFRESH_INTERVAL = parseInt(process.env.NEST_JWT_REFRESH_INTERVAL || '10', 10);
 const DAILY_SUMMARY_HOUR = 18; // 6 PM
 const DAILY_SUMMARY_MINUTE = 0;
 const TIMEZONE = 'America/New_York';
@@ -249,6 +250,35 @@ async function runCameraSync() {
 }
 
 // ============================================================================
+// Task 3.5: Nest JWT Refresh (every 10 minutes - keeps Google session alive)
+// ============================================================================
+
+async function runNestJWTRefresh() {
+  console.log('\n' + '-'.repeat(40));
+  console.log('  NEST JWT REFRESH');
+  console.log('-'.repeat(40));
+
+  try {
+    const result = await makeRequest('/api/cameras/nest-jwt-refresh', 'Nest JWT Refresh', 'POST');
+
+    const state = loadState();
+    state.lastNestJWTRefresh = new Date().toISOString();
+    saveState(state);
+
+    if (result.success) {
+      console.log('[Nest JWT Refresh] ✓ Success');
+      await updateHealthCheckState('nest_jwt_refresh', 'ok');
+    } else {
+      console.log('[Nest JWT Refresh] ✗ Failed:', result.error);
+      await updateHealthCheckState('nest_jwt_refresh', 'warning', { error: result.error });
+    }
+  } catch (error) {
+    console.error('[Nest JWT Refresh] Failed:', error.message);
+    await updateHealthCheckState('nest_jwt_refresh', 'warning', { error: error.message });
+  }
+}
+
+// ============================================================================
 // Task 4: Daily Summary
 // ============================================================================
 
@@ -441,6 +471,14 @@ async function mainLoop() {
     await runCameraSync();
   }
 
+  // Task 3.5: Nest JWT Refresh (every 10 minutes - keeps Google session alive like Homebridge)
+  const lastNestJWTRefresh = state.lastNestJWTRefresh ? new Date(state.lastNestJWTRefresh) : null;
+  const minutesSinceNestJWTRefresh = lastNestJWTRefresh ? (now - lastNestJWTRefresh) / 1000 / 60 : Infinity;
+
+  if (minutesSinceNestJWTRefresh >= NEST_JWT_REFRESH_INTERVAL) {
+    await runNestJWTRefresh();
+  }
+
   // Task 4: Daily Summary (once at 6 PM NYC)
   const isTimeToSend = nyc.hour === DAILY_SUMMARY_HOUR && nyc.minute >= DAILY_SUMMARY_MINUTE && nyc.minute < DAILY_SUMMARY_MINUTE + 5;
   const alreadySentToday = state.lastDailySummary === nyc.date;
@@ -480,6 +518,7 @@ console.log('='.repeat(60));
 console.log(`  Email Sync: Every ${EMAIL_SYNC_INTERVAL} minutes`);
 console.log(`  Smart Pins: Every ${SMART_PINS_INTERVAL} minutes`);
 console.log(`  Camera Sync: Every ${CAMERA_SYNC_INTERVAL} minutes`);
+console.log(`  Nest JWT Refresh: Every ${NEST_JWT_REFRESH_INTERVAL} minutes (keeps Google session alive)`);
 console.log(`  Daily Summary: ${DAILY_SUMMARY_HOUR}:${String(DAILY_SUMMARY_MINUTE).padStart(2, '0')} ${TIMEZONE}`);
 console.log(`  Nest Token Check: 3:00 ${TIMEZONE} (daily)`);
 console.log(`  Target: http://${APP_HOST}:${APP_PORT}`);
@@ -489,6 +528,7 @@ const state = loadState();
 console.log(`\n[State] Last email sync: ${state.lastEmailSync || 'never'}`);
 console.log(`[State] Last smart pins sync: ${state.lastSmartPinsSync || 'never'}`);
 console.log(`[State] Last camera sync: ${state.lastCameraSync || 'never'}`);
+console.log(`[State] Last nest JWT refresh: ${state.lastNestJWTRefresh || 'never'}`);
 console.log(`[State] Last daily summary: ${state.lastDailySummary || 'never'}`);
 console.log(`[State] Last nest token check: ${state.lastNestTokenCheck || 'never'}`);
 console.log(`[State] Current NYC time: ${getNYCTime().formatted}\n`);

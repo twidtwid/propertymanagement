@@ -30,13 +30,25 @@ async function getGoogleAccessToken(
   issueToken: string,
   cookies: string
 ): Promise<string> {
+  // Use full browser headers to avoid Google detecting automated requests
+  // These match what Chrome 120+ sends for iframe OAuth requests
   const response = await fetch(issueToken, {
     method: 'GET',
     headers: {
-      'Sec-Fetch-Mode': 'cors',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      'X-Requested-With': 'XmlHttpRequest',
+      'accept': '*/*',
+      'accept-language': 'en-US,en;q=0.9',
+      'cache-control': 'no-cache',
+      'pragma': 'no-cache',
+      'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"macOS"',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-origin',
+      'x-requested-with': 'XmlHttpRequest',
       'Referer': 'https://accounts.google.com/o/oauth2/iframe',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'cookie': cookies
     }
   })
