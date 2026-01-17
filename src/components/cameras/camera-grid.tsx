@@ -27,8 +27,6 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
   // Track refresh counter for nest_legacy cameras (force image reload)
   const [refreshCounter, setRefreshCounter] = useState(0)
 
-  // Track current time for live timestamp display (client-only to avoid hydration mismatch)
-  const [currentTime, setCurrentTime] = useState<Date | null>(null)
 
   // Auto-refresh snapshots every 10 minutes for nest_legacy and hikvision cameras
   useEffect(() => {
@@ -39,15 +37,6 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
     return () => clearInterval(interval)
   }, [])
 
-  // Update current time every second for Security Grid timestamps (client-only)
-  useEffect(() => {
-    setCurrentTime(new Date()) // Initialize on mount
-    const interval = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000) // 1 second
-
-    return () => clearInterval(interval)
-  }, [])
 
   if (camerasGrouped.length === 0) {
     return (
@@ -129,13 +118,14 @@ export function CameraGrid({ camerasGrouped }: CameraGridProps) {
                 {camera.name.toUpperCase()}
               </div>
 
-              {/* Timestamp overlay */}
+              {/* Last refresh timestamp overlay */}
               <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded" suppressHydrationWarning>
-                {currentTime?.toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                }) ?? '--:--:--'}
+                {camera.snapshot_captured_at
+                  ? new Date(camera.snapshot_captured_at).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })
+                  : '--:--'}
               </div>
 
               {/* Status indicator */}
