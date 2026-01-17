@@ -62,11 +62,19 @@ async function getGoogleAccessToken(
   // Response format: )]}'\n{json} - need to extract the JSON part
   const jsonStart = text.indexOf('{')
   if (jsonStart === -1) {
+    console.error('[nest_legacy] Invalid response format (no JSON):', text.substring(0, 200))
     throw new Error(`Invalid response format: ${text.substring(0, 100)}`)
   }
 
   const data = JSON.parse(text.substring(jsonStart))
-  console.log('[nest_legacy] Got access token:', data.access_token?.substring(0, 50) + '...')
+  console.log('[nest_legacy] Response keys:', Object.keys(data).join(', '))
+
+  if (!data.access_token) {
+    console.error('[nest_legacy] No access_token in response. Full response:', JSON.stringify(data).substring(0, 500))
+    throw new Error('Google response missing access_token - session may have expired')
+  }
+
+  console.log('[nest_legacy] Got access token:', data.access_token.substring(0, 50) + '...')
   return data.access_token
 }
 
