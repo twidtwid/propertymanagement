@@ -22,30 +22,32 @@ interface NestLegacyRefreshCredentials {
   last_refresh_at?: string
 }
 
-// Homebridge-Nest User-Agent string (Chrome 77)
-const HOMEBRIDGE_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36'
-
 /**
  * Get Google access token from issue_token URL with cookies
  * This is the first step in the Homebridge authentication flow
  *
- * IMPORTANT: Headers must match Homebridge-Nest EXACTLY to avoid
- * Google flagging the request as automated. Extra headers can trigger
- * bot detection and session invalidation.
+ * Uses full browser headers to maximize compatibility with Google's detection.
+ * The Homebridge minimal headers didn't prevent session expiration.
  */
 async function getGoogleAccessToken(
   issueToken: string,
   cookies: string
 ): Promise<string> {
-  // Use EXACT Homebridge-Nest headers - nothing more, nothing less
-  // Source: https://github.com/chrisjshull/homebridge-nest/blob/master/lib/nest-connection.js
+  // Use full browser headers (more headers seem to work better than minimal)
   const response = await fetch(issueToken, {
     method: 'GET',
     headers: {
-      'Sec-Fetch-Mode': 'cors',
-      'User-Agent': HOMEBRIDGE_USER_AGENT,
-      'X-Requested-With': 'XmlHttpRequest',
+      'accept': '*/*',
+      'accept-language': 'en-US,en;q=0.9',
+      'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"macOS"',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-origin',
+      'x-requested-with': 'XmlHttpRequest',
       'Referer': 'https://accounts.google.com/o/oauth2/iframe',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'cookie': cookies
     }
   })
@@ -80,17 +82,16 @@ async function getGoogleAccessToken(
 
 /**
  * Exchange Google access token for Nest JWT
- * This is the second step in the Homebridge authentication flow
- *
- * Headers match Homebridge-Nest exactly (no Content-Type header!)
+ * This is the second step in the authentication flow
  */
 async function getNestJWT(googleAccessToken: string): Promise<{ jwt: string, expiresAt: Date }> {
   const response = await fetch('https://nestauthproxyservice-pa.googleapis.com/v1/issue_jwt', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${googleAccessToken}`,
-      'User-Agent': HOMEBRIDGE_USER_AGENT,
-      'Referer': 'https://home.nest.com'
+      'Content-Type': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://home.nest.com/'
     },
     body: JSON.stringify({
       embed_google_oauth_access_token: true,
