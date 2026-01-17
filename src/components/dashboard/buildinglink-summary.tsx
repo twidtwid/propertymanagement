@@ -26,9 +26,9 @@ export function BuildingLinkSummary({ items }: BuildingLinkSummaryProps) {
   const flagged = items.filter((i) => i.type === "flagged")
 
   return (
-    <Card className="border-amber-200 bg-amber-50/30">
+    <Card className="border-purple-500/30 bg-purple-500/10">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="flex items-center gap-2 text-amber-800">
+        <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
           <Building2 className="h-5 w-5" />
           BuildingLink
           <Badge variant="secondary" className="ml-2">
@@ -37,7 +37,7 @@ export function BuildingLinkSummary({ items }: BuildingLinkSummaryProps) {
         </CardTitle>
         <Link
           href="/buildinglink"
-          className="text-sm text-amber-700 hover:text-amber-900 flex items-center gap-1"
+          className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 flex items-center gap-1"
         >
           View All
           <ArrowRight className="h-3 w-3" />
@@ -46,7 +46,7 @@ export function BuildingLinkSummary({ items }: BuildingLinkSummaryProps) {
       <CardContent className="space-y-2">
         {/* Outages */}
         {outages.length > 0 && (
-          <div className="flex items-center gap-2 p-2 rounded bg-red-100 text-red-800">
+          <div className="flex items-center gap-2 p-2 rounded bg-red-500/20 text-red-700 dark:text-red-300">
             <AlertTriangle className="h-4 w-4" />
             <span className="text-sm font-medium">
               {outages.length} active outage{outages.length > 1 ? "s" : ""}
@@ -56,7 +56,7 @@ export function BuildingLinkSummary({ items }: BuildingLinkSummaryProps) {
 
         {/* Packages */}
         {packages.length > 0 && (
-          <div className="flex items-center gap-2 p-2 rounded bg-purple-100 text-purple-800">
+          <div className="flex items-center gap-2 p-2 rounded bg-purple-500/20 text-purple-700 dark:text-purple-300">
             <Package className="h-4 w-4" />
             <span className="text-sm font-medium">
               {packages.length} package{packages.length > 1 ? "s" : ""} waiting

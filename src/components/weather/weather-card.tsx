@@ -63,9 +63,9 @@ function AlertBadge({ location, children }: { location: string; children: React.
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[250px]">
-          <p className="font-medium text-orange-600">{alert.event}</p>
-          <p className="text-sm text-slate-600 mt-1">{alert.headline}</p>
-          <p className="text-xs text-slate-400 mt-2">Expires: {alert.expires}</p>
+          <p className="font-medium text-orange-600 dark:text-orange-400">{alert.event}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{alert.headline}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Expires: {alert.expires}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -152,16 +152,16 @@ export function WeatherCard({ initialData }: WeatherCardProps) {
 
   return (
     <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
-      <Card className="overflow-hidden bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 border-sky-200/50">
+      <Card className="overflow-hidden bg-gradient-to-br from-sky-500/10 via-blue-500/10 to-indigo-500/10 border-sky-500/30">
         <CardContent className="p-0">
           {/* Header - clickable to collapse */}
           <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between px-4 pt-3 pb-2 cursor-pointer hover:bg-sky-100/50 transition-colors gap-2">
-              <div className="flex items-center gap-2 text-sky-700 min-w-0 flex-1">
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 cursor-pointer hover:bg-sky-500/20 transition-colors gap-2">
+              <div className="flex items-center gap-2 text-sky-700 dark:text-sky-400 min-w-0 flex-1">
                 <Cloud className="h-4 w-4 flex-shrink-0" />
                 <span className="text-sm font-medium flex-shrink-0">Weather</span>
                   {!isOpen && weather.length > 0 && mounted && (
-                    <span className="text-xs text-sky-600/70 ml-1 overflow-x-auto whitespace-nowrap scrollbar-hide flex-1 min-w-0">
+                    <span className="text-xs text-sky-600/70 dark:text-sky-400/70 ml-1 overflow-x-auto whitespace-nowrap scrollbar-hide flex-1 min-w-0">
                       {weather.map((w, i) => {
                         const abbrev = LOCATION_ABBREV[w.location] || w.location
                         const hasAlert = ALERT_LOCATIONS.has(w.location)
@@ -174,15 +174,15 @@ export function WeatherCard({ initialData }: WeatherCardProps) {
                             {hasAlert && <span className="text-[10px]">⚠️</span>}
                             <span className={hasAlert ? "text-red-500 font-medium" : ""}>{abbrev}</span>
                             <span>{w.emoji}</span>
-                            <span className="text-slate-500 ml-0.5">{w.tempF}°F</span>
-                            {showTime && <span className="text-slate-400 ml-0.5 text-[10px]">{localTime}</span>}
+                            <span className="text-slate-500 dark:text-slate-400 ml-0.5">{w.tempF}°F</span>
+                            {showTime && <span className="text-slate-400 dark:text-slate-500 ml-0.5 text-[10px]">{localTime}</span>}
                           </span>
                         )
 
                         return (
                           <span key={w.location} className="inline-flex items-center">
                             {hasAlert ? <AlertBadge location={w.location}>{locationContent}</AlertBadge> : locationContent}
-                            {i < weather.length - 1 && <span className="mx-1 text-sky-300">·</span>}
+                            {i < weather.length - 1 && <span className="mx-1 text-sky-300 dark:text-sky-600">·</span>}
                           </span>
                         )
                       })}
@@ -191,12 +191,12 @@ export function WeatherCard({ initialData }: WeatherCardProps) {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {mounted && lastUpdated && (
-                  <span className="text-xs text-sky-600/70 hidden sm:block" suppressHydrationWarning>
+                  <span className="text-xs text-sky-600/70 dark:text-sky-400/70 hidden sm:block" suppressHydrationWarning>
                     {formatLastUpdated()}
                   </span>
                 )}
                 <ChevronDown
-                  className={`h-4 w-4 text-sky-600/70 transition-transform duration-200 ${
+                  className={`h-4 w-4 text-sky-600/70 dark:text-sky-400/70 transition-transform duration-200 ${
                     isOpen ? "" : "-rotate-90"
                   }`}
                 />
@@ -206,7 +206,7 @@ export function WeatherCard({ initialData }: WeatherCardProps) {
 
           {/* Weather grid - responsive */}
           <CollapsibleContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-sky-200/30">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-sky-500/20">
               {weather.map((w) => (
                 <WeatherItem key={w.location} data={w} currentTime={currentTime} mounted={mounted} hasAlert={ALERT_LOCATIONS.has(w.location)} />
               ))}
@@ -282,18 +282,18 @@ function WeatherItem({ data, currentTime, mounted, hasAlert }: { data: WeatherCo
   const moonPhase = getMoonPhase()
 
   // Simple consistent background - emoji conveys weather
-  const bgColor = "bg-sky-50/60"
+  const bgColor = "bg-sky-500/10 dark:bg-sky-500/5"
 
   const content = (
     <>
       {/* Location + Time */}
       <div className="flex flex-col items-center">
-        <span className={`text-xs font-medium truncate max-w-full flex items-center gap-1 ${hasAlert ? "text-red-600" : "text-slate-600"}`}>
+        <span className={`text-xs font-medium truncate max-w-full flex items-center gap-1 ${hasAlert ? "text-red-600 dark:text-red-400" : "text-slate-600 dark:text-slate-300"}`}>
           {hasAlert && <span>⚠️</span>}
           {data.displayName}
         </span>
         {mounted && (
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-slate-400 dark:text-slate-500">
             {timeInfo.dayTime} {timeInfo.isNight && moonPhase}
           </span>
         )}
@@ -302,19 +302,19 @@ function WeatherItem({ data, currentTime, mounted, hasAlert }: { data: WeatherCo
       {/* Emoji + Temp */}
       <div className="flex flex-col items-center py-1">
         <span className="text-2xl leading-none">{data.emoji}</span>
-        <span className="text-xl font-semibold text-slate-800 mt-1">
+        <span className="text-xl font-semibold text-slate-800 dark:text-slate-200 mt-1">
           {temp}°{unit}
         </span>
       </div>
 
       {/* High/Low + Description */}
       <div className="space-y-0.5">
-        <div className="text-xs text-slate-500">
-          <span className="text-slate-600">H:{high}°</span>
-          <span className="mx-1 text-slate-400">/</span>
-          <span className="text-slate-500">L:{low}°</span>
+        <div className="text-xs text-slate-500 dark:text-slate-400">
+          <span className="text-slate-600 dark:text-slate-300">H:{high}°</span>
+          <span className="mx-1 text-slate-400 dark:text-slate-500">/</span>
+          <span className="text-slate-500 dark:text-slate-400">L:{low}°</span>
         </div>
-        <div className="text-xs text-slate-500 truncate max-w-[100px]">
+        <div className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[100px]">
           {data.description}
         </div>
       </div>

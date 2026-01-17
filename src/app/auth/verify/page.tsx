@@ -58,7 +58,7 @@ export default function VerifyPage() {
   }, [token, router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -80,14 +80,14 @@ export default function VerifyPage() {
           {status === "success" && (
             <div className="py-8">
               <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <p className="text-green-600 font-medium">{message}</p>
+              <p className="text-green-600 dark:text-green-400 font-medium">{message}</p>
             </div>
           )}
 
           {status === "error" && (
             <div className="py-8">
               <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <p className="text-red-600 mb-4">{message}</p>
+              <p className="text-red-600 dark:text-red-400 mb-4">{message}</p>
               <Button onClick={() => router.push("/auth/login")}>
                 Back to Login
               </Button>

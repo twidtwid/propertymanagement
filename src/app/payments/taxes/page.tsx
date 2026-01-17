@@ -69,13 +69,13 @@ export default async function TaxesPage({ searchParams }: TaxesPageProps) {
           </CardContent>
         </Card>
 
-        <Card className={overdueTaxes.length > 0 ? "border-red-200 bg-red-50/50" : ""}>
+        <Card className={overdueTaxes.length > 0 ? "border-red-500/30 bg-red-500/10" : ""}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Overdue</CardTitle>
             {overdueTaxes.length > 0 && <Badge variant="destructive">{overdueTaxes.length}</Badge>}
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${overdueTaxes.length > 0 ? "text-red-600" : ""}`}>
+            <div className={`text-2xl font-bold ${overdueTaxes.length > 0 ? "text-red-600 dark:text-red-400" : ""}`}>
               {overdueTaxes.length}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -84,13 +84,13 @@ export default async function TaxesPage({ searchParams }: TaxesPageProps) {
           </CardContent>
         </Card>
 
-        <Card className={sentTaxes.length > 0 ? "border-amber-200 bg-amber-50/50" : ""}>
+        <Card className={sentTaxes.length > 0 ? "border-amber-500/30 bg-amber-500/10" : ""}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Awaiting Confirmation</CardTitle>
             {sentTaxes.length > 0 && <Badge variant="warning">{sentTaxes.length}</Badge>}
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${sentTaxes.length > 0 ? "text-amber-600" : ""}`}>
+            <div className={`text-2xl font-bold ${sentTaxes.length > 0 ? "text-amber-600 dark:text-amber-400" : ""}`}>
               {sentTaxes.length}
             </div>
             <p className="text-xs text-muted-foreground">

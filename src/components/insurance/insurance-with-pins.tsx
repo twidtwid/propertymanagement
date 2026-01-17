@@ -509,9 +509,9 @@ export function InsuranceWithPins({
 
       {/* Expiring Policies Alert */}
       {expiring.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-amber-500/30 bg-amber-500/10">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-800">
+            <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
               <AlertTriangle className="h-5 w-5" />
               Policies Expiring Soon ({expiring.length})
             </CardTitle>
@@ -524,7 +524,7 @@ export function InsuranceWithPins({
                   <Link
                     key={policy.id}
                     href={`/insurance/${policy.id}`}
-                    className="flex items-center justify-between p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-colors"
+                    className="flex items-center justify-between p-4 rounded-xl border border-amber-500/20 bg-card hover:bg-amber-500/10 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       {policy.property_id ? (

@@ -48,12 +48,12 @@ export default function LoginPage() {
   // Email sent confirmation
   if (emailSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="rounded-xl bg-green-100 p-3">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="rounded-xl bg-green-100 dark:bg-green-900/30 p-3">
+                <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
             </div>
             <CardTitle className="text-2xl">Check Your Email</CardTitle>
@@ -83,7 +83,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -97,7 +97,7 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleMagicLink} className="space-y-4">
             {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
+              <div className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 rounded-lg">
                 {error}
               </div>
             )}

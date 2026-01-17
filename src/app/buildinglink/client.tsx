@@ -206,14 +206,14 @@ export function BuildingLinkClient({
       )}
 
       {/* Uncollected Packages - Always show for UI consistency */}
-      <Card className="border-purple-200 bg-purple-50/50">
+      <Card className="border-purple-500/30 bg-purple-500/10">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-purple-700 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-400 flex items-center gap-2">
               <Package className="h-4 w-4" />
               Uncollected Packages
             </CardTitle>
-            <Badge variant="secondary" className="bg-purple-200 text-purple-800">
+            <Badge variant="secondary" className="bg-purple-500/20 text-purple-800 dark:text-purple-300">
               {uncollectedPackages.length}
             </Badge>
           </div>
@@ -230,7 +230,7 @@ export function BuildingLinkClient({
               />
             ))
           ) : (
-            <p className="text-sm text-purple-600/70 py-2">
+            <p className="text-sm text-purple-600/70 dark:text-purple-400/70 py-2">
               All packages have been collected
             </p>
           )}

@@ -13,15 +13,15 @@ export function ConfirmationAlerts({ bills }: ConfirmationAlertsProps) {
   if (bills.length === 0) return null
 
   return (
-    <Card className="border-amber-200 bg-amber-50/50">
+    <Card className="border-amber-500/30 bg-amber-500/10">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-amber-800">
+        <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
           <AlertCircle className="h-5 w-5" />
           Checks Needing Confirmation
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-base text-amber-700 mb-4">
+        <p className="text-base text-amber-700 dark:text-amber-400 mb-4">
           The following payments were sent but haven&apos;t been confirmed as cashed.
           Bank of America checks should be verified.
         </p>
@@ -31,7 +31,7 @@ export function ConfirmationAlerts({ bills }: ConfirmationAlertsProps) {
             return (
               <div
                 key={bill.id}
-                className="flex items-center justify-between p-3 rounded-xl border border-amber-200 bg-white"
+                className="flex items-center justify-between p-3 rounded-xl border border-amber-500/20 bg-card"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-base font-medium truncate">

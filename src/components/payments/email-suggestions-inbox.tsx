@@ -159,13 +159,13 @@ export function EmailSuggestionsInbox({
 
   return (
     <>
-      <Card className="border-orange-200 bg-orange-50/30">
+      <Card className="border-orange-500/30 bg-orange-500/10">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Inbox className="h-5 w-5 text-orange-600" />
+              <Inbox className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               <span>Review from Email</span>
-              <Badge variant="secondary" className="bg-orange-100 text-orange-700">
+              <Badge variant="secondary" className="bg-orange-500/20 text-orange-700 dark:text-orange-300">
                 {suggestions.length}
               </Badge>
             </CardTitle>
@@ -178,28 +178,28 @@ export function EmailSuggestionsInbox({
           {suggestions.map((suggestion) => (
             <details
               key={suggestion.id}
-              className="group rounded-lg bg-white border border-orange-100 overflow-hidden"
+              className="group rounded-lg bg-card border border-orange-500/20 overflow-hidden"
               onToggle={(e) => {
                 if ((e.target as HTMLDetailsElement).open && suggestion.email_id) {
                   loadEmailContent(suggestion.email_id)
                 }
               }}
             >
-              <summary className="cursor-pointer list-none p-3 hover:bg-orange-50/50 transition-colors">
+              <summary className="cursor-pointer list-none p-3 hover:bg-orange-500/10 transition-colors">
                 <div className="flex items-start gap-3">
-                  <ChevronDown className="h-4 w-4 text-orange-500 mt-1 flex-shrink-0 transition-transform group-open:rotate-180" />
+                  <ChevronDown className="h-4 w-4 text-orange-500 dark:text-orange-400 mt-1 flex-shrink-0 transition-transform group-open:rotate-180" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="font-medium">
                         {suggestion.vendor_name_extracted || "Unknown Vendor"}
                       </span>
                       {suggestion.confidence === "high" && (
-                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30">
                           High
                         </Badge>
                       )}
                       {suggestion.confidence === "medium" && (
-                        <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                        <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30">
                           Medium
                         </Badge>
                       )}
@@ -228,7 +228,7 @@ export function EmailSuggestionsInbox({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 text-green-700 border-green-200 hover:bg-green-50"
+                      className="h-8 text-green-700 dark:text-green-400 border-green-500/30 hover:bg-green-500/10"
                       onClick={(e) => openImportDialog(suggestion, e)}
                       disabled={isPending}
                     >
@@ -254,7 +254,7 @@ export function EmailSuggestionsInbox({
               </summary>
 
               {/* Expanded email content */}
-              <div className="px-3 pb-3 border-t border-orange-100 pt-3 bg-white">
+              <div className="px-3 pb-3 border-t border-orange-500/20 pt-3 bg-card">
                 {loadingEmailId === suggestion.email_id ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -275,7 +275,7 @@ export function EmailSuggestionsInbox({
                         title="Email content"
                       />
                     ) : loadedEmails[suggestion.email_id]!.body_snippet ? (
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-gray-50 rounded p-3">
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted rounded p-3">
                         {loadedEmails[suggestion.email_id]!.body_snippet}
                       </p>
                     ) : (
@@ -283,7 +283,7 @@ export function EmailSuggestionsInbox({
                     )}
                   </div>
                 ) : suggestion.email_snippet ? (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-gray-50 rounded p-3">
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted rounded p-3">
                     {suggestion.email_snippet}
                   </p>
                 ) : (

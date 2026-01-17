@@ -36,21 +36,21 @@ export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProp
   const totalAmount = confirmations.reduce((sum, c) => sum + Number(c.amount), 0)
 
   return (
-    <Card className="border-green-200 bg-green-50/30">
+    <Card className="border-green-500/30 bg-green-500/10">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="flex items-center gap-2 text-green-800">
+        <CardTitle className="flex items-center gap-2 text-green-800 dark:text-green-300">
           <div className="flex items-center gap-1">
             <Zap className="h-5 w-5" />
             <Check className="h-4 w-4 -ml-2" />
           </div>
           Auto-Pays Processed
-          <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
+          <Badge variant="secondary" className="ml-2 bg-green-500/20 text-green-800 dark:text-green-300">
             {confirmations.length}
           </Badge>
         </CardTitle>
         <Link
           href="/payments?status=confirmed"
-          className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1"
+          className="text-sm text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 flex items-center gap-1"
         >
           View All
           <ArrowRight className="h-3 w-3" />
@@ -64,7 +64,7 @@ export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProp
         ) : (
           <>
             {/* Summary */}
-            <div className="flex items-center justify-between p-2 rounded bg-green-100 text-green-800">
+            <div className="flex items-center justify-between p-2 rounded bg-green-500/20 text-green-800 dark:text-green-300">
               <span className="text-sm font-medium">
                 {confirmations.length} payment{confirmations.length > 1 ? "s" : ""} confirmed this week
               </span>
@@ -76,7 +76,7 @@ export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProp
             {/* Expandable details */}
             <Collapsible open={isOpen} onOpenChange={setIsOpen}>
               <CollapsibleTrigger asChild>
-                <button className="flex items-center gap-1 text-sm text-green-700 hover:text-green-900">
+                <button className="flex items-center gap-1 text-sm text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300">
                   <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   {isOpen ? 'Hide' : 'Show'} details
                 </button>
@@ -85,13 +85,13 @@ export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProp
                 {confirmations.map((confirmation) => (
               <div
                 key={confirmation.payment_id}
-                className="p-3 rounded-lg bg-white border border-green-100"
+                className="p-3 rounded-lg bg-card border border-green-500/20"
               >
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{confirmation.description}</span>
-                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                      <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30">
                         <Check className="h-3 w-3 mr-1" />
                         Confirmed
                       </Badge>
@@ -119,8 +119,8 @@ export function AutoPayConfirmations({ confirmations }: AutoPayConfirmationsProp
                 </div>
 
                 {/* Email confirmation link */}
-                <div className="mt-2 pt-2 border-t border-green-100">
-                  <div className="flex items-center gap-2 text-xs text-green-700">
+                <div className="mt-2 pt-2 border-t border-green-500/20">
+                  <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
                     <Mail className="h-3 w-3" />
                     <span className="truncate flex-1">{confirmation.email_subject}</span>
                     <GmailViewLink subject={confirmation.email_subject} />

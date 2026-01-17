@@ -56,8 +56,8 @@ export const WEATHER_LOCATIONS: WttrLocation[] = [
   { name: 'nyc', displayName: 'Brooklyn', query: 'Williamsburg,Brooklyn,NY', useFahrenheit: true, timezone: 'America/New_York' },
   { name: 'ri', displayName: 'Rhode Island', query: 'Providence,RI', useFahrenheit: true, timezone: 'America/New_York' },
   { name: 'vt', displayName: 'Vermont', query: 'Brattleboro,VT', useFahrenheit: true, timezone: 'America/New_York' },
-  { name: 'martinique', displayName: 'Martinique', query: 'Fort-de-France,Martinique', useFahrenheit: false, timezone: 'America/Martinique' },
-  { name: 'paris', displayName: 'Paris', query: 'Paris,France', useFahrenheit: false, timezone: 'Europe/Paris' },
+  { name: 'martinique', displayName: 'Martinique', query: 'Fort-de-France,Martinique', useFahrenheit: true, timezone: 'America/Martinique' },
+  { name: 'paris', displayName: 'Paris', query: 'Paris,France', useFahrenheit: true, timezone: 'Europe/Paris' },
 ]
 
 // Map wttr.in weather codes to emojis

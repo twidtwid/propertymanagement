@@ -200,10 +200,10 @@ export function Header({ onMenuClick }: HeaderProps) {
   const displayName = user?.full_name || user?.email?.split("@")[0] || "User"
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b bg-background px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
       <button
         type="button"
-        className="-m-2.5 p-2.5 text-gray-700 lg:hidden touch-manipulation active:bg-gray-100 rounded-lg"
+        className="-m-2.5 p-2.5 text-muted-foreground lg:hidden touch-manipulation active:bg-muted rounded-lg"
         onClick={onMenuClick}
       >
         <span className="sr-only">Open sidebar</span>
@@ -211,7 +211,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       </button>
 
       {/* Separator */}
-      <div className="h-6 w-px bg-gray-200 lg:hidden" aria-hidden="true" />
+      <div className="h-6 w-px bg-border lg:hidden" aria-hidden="true" />
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
         <div className="flex flex-1 items-center">
@@ -249,10 +249,10 @@ export function Header({ onMenuClick }: HeaderProps) {
               <DropdownMenuSeparator />
               {alerts.length === 0 ? (
                 <div className="py-8 text-center">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-3">
-                    <Check className="h-6 w-6 text-green-600" />
+                  <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3">
+                    <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-900">All caught up!</p>
+                  <p className="text-sm font-medium text-foreground">All caught up!</p>
                   <p className="text-xs text-muted-foreground mt-1">No pending notifications</p>
                 </div>
               ) : (
@@ -261,23 +261,23 @@ export function Header({ onMenuClick }: HeaderProps) {
                     const hasAction = alert.action_url || getAlertLink(alert)
                     const isAutoPay = alert.alert_type === "autopay_confirmed"
                     const severityStyles = {
-                      critical: "border-l-4 border-l-red-500 bg-red-50/50",
-                      warning: "border-l-4 border-l-yellow-500 bg-yellow-50/30",
+                      critical: "border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/30",
+                      warning: "border-l-4 border-l-yellow-500 bg-yellow-50/30 dark:bg-yellow-950/30",
                       info: "border-l-4 border-l-blue-500",
                     }
-                    const autoPayStyle = isAutoPay ? "border-l-4 border-l-green-500 bg-green-50/30" : ""
+                    const autoPayStyle = isAutoPay ? "border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/30" : ""
                     return (
                       <div
                         key={alert.id}
-                        className={`px-3 py-3 hover:bg-gray-50 border-b last:border-0 cursor-pointer ${
+                        className={`px-3 py-3 hover:bg-muted border-b last:border-0 cursor-pointer ${
                           isAutoPay ? autoPayStyle : (severityStyles[alert.severity] || "")
-                        } ${!alert.is_read ? "bg-blue-50/30" : ""}`}
+                        } ${!alert.is_read ? "bg-blue-50/30 dark:bg-blue-950/30" : ""}`}
                         onClick={() => hasAction && handleAlertClick(alert)}
                       >
                         <div className="flex items-start gap-2">
                           {getSeverityIcon(alert.severity, alert.alert_type)}
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium ${alert.severity === "critical" ? "text-red-900" : ""}`}>
+                            <p className={`text-sm font-medium ${alert.severity === "critical" ? "text-red-900 dark:text-red-300" : ""}`}>
                               {alert.title}
                             </p>
                             {alert.message && (
@@ -322,7 +322,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* Separator */}
           <div
-            className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200"
+            className="hidden lg:block lg:h-6 lg:w-px lg:bg-border"
             aria-hidden="true"
           />
 
@@ -337,7 +337,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 </Avatar>
                 <span className="hidden lg:flex lg:items-center">
                   <span
-                    className="text-base font-medium leading-6 text-gray-900"
+                    className="text-base font-medium leading-6 text-foreground"
                     aria-hidden="true"
                   >
                     {displayName}

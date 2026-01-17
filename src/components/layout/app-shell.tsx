@@ -13,7 +13,7 @@ export function AppShell({ children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted/30">
       <Sidebar />
       <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 

@@ -33,8 +33,8 @@ export function StatusBanner({
         className={cn(
           "rounded-lg border-l-4 p-4",
           overdueCount > 0
-            ? "bg-red-50 border-red-500"
-            : "bg-amber-50 border-amber-500"
+            ? "bg-red-500/10 border-red-500"
+            : "bg-amber-500/10 border-amber-500"
         )}
       >
         <div className="flex items-center justify-between">
@@ -42,14 +42,14 @@ export function StatusBanner({
             <AlertTriangle
               className={cn(
                 "h-6 w-6",
-                overdueCount > 0 ? "text-red-600" : "text-amber-600"
+                overdueCount > 0 ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
               )}
             />
             <div>
               <h2
                 className={cn(
                   "text-lg font-semibold",
-                  overdueCount > 0 ? "text-red-800" : "text-amber-800"
+                  overdueCount > 0 ? "text-red-800 dark:text-red-300" : "text-amber-800 dark:text-amber-300"
                 )}
               >
                 {overdueCount > 0 && urgentCount > 0
@@ -61,7 +61,7 @@ export function StatusBanner({
               <p
                 className={cn(
                   "text-sm",
-                  overdueCount > 0 ? "text-red-700" : "text-amber-700"
+                  overdueCount > 0 ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
                 )}
               >
                 {message}
@@ -72,7 +72,7 @@ export function StatusBanner({
             href="#pinned-items"
             className={cn(
               "flex items-center gap-1 text-sm font-medium hover:underline",
-              overdueCount > 0 ? "text-red-700" : "text-amber-700"
+              overdueCount > 0 ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"
             )}
           >
             View Items
@@ -85,13 +85,13 @@ export function StatusBanner({
 
   // All clear state
   return (
-    <div className="rounded-lg border-l-4 border-green-500 bg-green-50 p-4">
+    <div className="rounded-lg border-l-4 border-green-500 bg-green-500/10 p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <CheckCircle2 className="h-6 w-6 text-green-600" />
+          <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
           <div>
-            <h2 className="text-lg font-semibold text-green-800">All Clear</h2>
-            <p className="text-sm text-green-700">
+            <h2 className="text-lg font-semibold text-green-800 dark:text-green-300">All Clear</h2>
+            <p className="text-sm text-green-700 dark:text-green-400">
               {hasItems
                 ? "No urgent items requiring immediate attention."
                 : nextDueDate
@@ -102,7 +102,7 @@ export function StatusBanner({
         </div>
         <Link
           href="/payments"
-          className="flex items-center gap-1 text-sm font-medium text-green-700 hover:underline"
+          className="flex items-center gap-1 text-sm font-medium text-green-700 dark:text-green-400 hover:underline"
         >
           View Payments
           <ArrowRight className="h-4 w-4" />

@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { User, Bell, Shield, Users, Database, Mail, Cloud, ArrowRight } from "lucide-react"
 import { SmartPinsSettings } from "@/components/settings/smart-pins-settings"
+import { ThemeSettings } from "@/components/settings/theme-settings"
 
 export default function SettingsPage() {
   return (
@@ -50,6 +51,8 @@ export default function SettingsPage() {
           <Button>Save Changes</Button>
         </CardContent>
       </Card>
+
+      <ThemeSettings />
 
       <Card>
         <CardHeader>

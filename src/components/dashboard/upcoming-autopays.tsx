@@ -69,14 +69,14 @@ function AutopayItem({ autopay }: { autopay: UpcomingAutopay }) {
   const relativeDate = useRelativeDate(autopay.payment_date, autopay.email_received_at)
 
   return (
-    <div className="p-3 rounded-lg bg-white border border-blue-100">
+    <div className="p-3 rounded-lg bg-card border border-blue-500/20">
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">{autopay.vendor_name}</span>
             <Badge
               variant="outline"
-              className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+              className="text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
               suppressHydrationWarning
             >
               <AlertCircle className="h-3 w-3 mr-1" />
@@ -99,9 +99,9 @@ function AutopayItem({ autopay }: { autopay: UpcomingAutopay }) {
       </div>
 
       {/* Email source with View Email link */}
-      <div className="mt-2 pt-2 border-t border-blue-100">
+      <div className="mt-2 pt-2 border-t border-blue-500/20">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-blue-700 flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-400 flex-1 min-w-0">
             <Mail className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{autopay.email_subject}</span>
           </div>
@@ -109,7 +109,7 @@ function AutopayItem({ autopay }: { autopay: UpcomingAutopay }) {
             href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(autopay.email_subject)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 ml-2 flex-shrink-0"
+            className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 ml-2 flex-shrink-0"
             title="Search in Gmail"
           >
             <ExternalLink className="h-3 w-3" />
@@ -131,22 +131,22 @@ export function UpcomingAutopays({ autopays }: UpcomingAutopaysProps) {
   const totalAmount = autopays.reduce((sum, a) => sum + (a.amount || 0), 0)
 
   return (
-    <Card className="border-blue-200 bg-blue-50/30">
+    <Card className="border-blue-500/30 bg-blue-500/10">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="flex items-center gap-2 text-blue-800">
+        <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
           <div className="flex items-center gap-1">
             <CreditCard className="h-5 w-5" />
             <Clock className="h-4 w-4 -ml-2" />
           </div>
           Autopays Coming Up
-          <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
+          <Badge variant="secondary" className="ml-2 bg-blue-500/20 text-blue-800 dark:text-blue-300">
             {autopays.length}
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Summary */}
-        <div className="flex items-center justify-between p-2 rounded bg-blue-100 text-blue-800">
+        <div className="flex items-center justify-between p-2 rounded bg-blue-500/20 text-blue-800 dark:text-blue-300">
           <span className="text-sm font-medium">
             {autopays.length} autopay{autopays.length > 1 ? "s" : ""} scheduled
           </span>
