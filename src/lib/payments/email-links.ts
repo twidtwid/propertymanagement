@@ -49,6 +49,9 @@ Output ONLY valid JSON:
       }]
     })
 
+    // Log AI usage for cost tracking
+    console.log(`[AI:analyzeEmailWithAI] tokens: ${response.usage.input_tokens} in, ${response.usage.output_tokens} out`)
+
     const text = response.content[0]
     if (text.type === "text") {
       // Parse JSON response
@@ -636,6 +639,9 @@ Output ONLY valid JSON:
     })
 
     const response = await Promise.race([apiPromise, timeoutPromise])
+
+    // Log AI usage for cost tracking
+    console.log(`[AI:analyzeUpcomingAutopayWithAI] tokens: ${response.usage.input_tokens} in, ${response.usage.output_tokens} out`)
 
     const text = response.content[0]
     if (text.type === "text") {

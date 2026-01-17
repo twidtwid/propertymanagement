@@ -222,6 +222,9 @@ Based on the filename and folder, provide a one-line summary describing what thi
       messages
     })
 
+    // Log AI usage for cost tracking
+    console.log(`[AI:generateSummary] tokens: ${response.usage.input_tokens} in, ${response.usage.output_tokens} out`)
+
     const text = response.content[0]
     if (text.type === "text") {
       // Clean up the response

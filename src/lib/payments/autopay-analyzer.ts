@@ -89,6 +89,9 @@ Output ONLY valid JSON:
 
     const response = await Promise.race([apiPromise, timeoutPromise])
 
+    // Log AI usage for cost tracking
+    console.log(`[AI:analyzeEmailForAutopay] tokens: ${response.usage.input_tokens} in, ${response.usage.output_tokens} out`)
+
     const text = response.content[0]
     if (text.type === "text") {
       const jsonMatch = text.text.match(/\{[\s\S]*\}/)

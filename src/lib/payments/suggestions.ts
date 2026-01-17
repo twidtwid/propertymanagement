@@ -69,6 +69,9 @@ Output ONLY valid JSON:
       timeout: 10000 // 10 second timeout
     })
 
+    // Log AI usage for cost tracking
+    console.log(`[AI:analyzeEmailForPayment] tokens: ${response.usage.input_tokens} in, ${response.usage.output_tokens} out`)
+
     const text = response.content[0]
     if (text.type === "text") {
       const jsonMatch = text.text.match(/\{[\s\S]*\}/)
