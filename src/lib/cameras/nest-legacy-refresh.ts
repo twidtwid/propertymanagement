@@ -22,33 +22,30 @@ interface NestLegacyRefreshCredentials {
   last_refresh_at?: string
 }
 
+// Homebridge-Nest User-Agent string (Chrome 77)
+const HOMEBRIDGE_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36'
+
 /**
  * Get Google access token from issue_token URL with cookies
  * This is the first step in the Homebridge authentication flow
+ *
+ * IMPORTANT: Headers must match Homebridge-Nest EXACTLY to avoid
+ * Google flagging the request as automated. Extra headers can trigger
+ * bot detection and session invalidation.
  */
 async function getGoogleAccessToken(
   issueToken: string,
   cookies: string
 ): Promise<string> {
-  // Use full browser headers to avoid Google detecting automated requests
-  // These match what Chrome 120+ sends for iframe OAuth requests
+  // Use EXACT Homebridge-Nest headers - nothing more, nothing less
+  // Source: https://github.com/chrisjshull/homebridge-nest/blob/master/lib/nest-connection.js
   const response = await fetch(issueToken, {
     method: 'GET',
     headers: {
-      'accept': '*/*',
-      'accept-language': 'en-US,en;q=0.9',
-      'cache-control': 'no-cache',
-      'pragma': 'no-cache',
-      'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-      'sec-ch-ua-mobile': '?0',
-      'sec-ch-ua-platform': '"macOS"',
-      'sec-fetch-dest': 'empty',
-      'sec-fetch-mode': 'cors',
-      'sec-fetch-site': 'same-origin',
-      'x-requested-with': 'XmlHttpRequest',
+      'Sec-Fetch-Mode': 'cors',
+      'User-Agent': HOMEBRIDGE_USER_AGENT,
+      'X-Requested-With': 'XmlHttpRequest',
       'Referer': 'https://accounts.google.com/o/oauth2/iframe',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'cookie': cookies
     }
   })
@@ -76,15 +73,16 @@ async function getGoogleAccessToken(
 /**
  * Exchange Google access token for Nest JWT
  * This is the second step in the Homebridge authentication flow
+ *
+ * Headers match Homebridge-Nest exactly (no Content-Type header!)
  */
 async function getNestJWT(googleAccessToken: string): Promise<{ jwt: string, expiresAt: Date }> {
   const response = await fetch('https://nestauthproxyservice-pa.googleapis.com/v1/issue_jwt', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${googleAccessToken}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      'Referer': 'https://home.nest.com/'
+      'User-Agent': HOMEBRIDGE_USER_AGENT,
+      'Referer': 'https://home.nest.com'
     },
     body: JSON.stringify({
       embed_google_oauth_access_token: true,
@@ -152,36 +150,27 @@ async function updateJWT(jwt: string, expiresAt: Date): Promise<void> {
 /**
  * Get valid Nest JWT, refreshing if needed
  * This is the main function that should be called to get a token
+ *
+ * Timing matches Homebridge-Nest exactly:
+ * - JWT lasts 1 hour (3600s)
+ * - Homebridge refreshes every 55 minutes (5 min before expiry)
+ * - We use the same 5-minute threshold
  */
 export async function getValidNestJWT(): Promise<string> {
   const creds = await getRefreshCredentials()
 
   // Check if we have a current JWT and it's still valid
-  // Refresh aggressively (every 15 min) to keep Google session alive
-  // JWT lasts 1 hour, but we refresh when >15 min old to keep hitting Google's endpoint
+  // JWT lasts 1 hour. Homebridge refreshes every 55 min (5 min before expiry).
+  // With our 10-minute polling, we use a 15-minute threshold to ensure we
+  // catch the refresh window (will refresh ~10-15 min before expiry).
   if (creds.current_jwt && creds.jwt_expires_at) {
     const expiresAt = new Date(creds.jwt_expires_at)
-    const now = new Date()
+    const fifteenMinutesFromNow = new Date(Date.now() + 15 * 60 * 1000)
 
-    // If JWT is still valid (not expired)
-    if (expiresAt > now) {
-      // Check last refresh time - refresh every 15 minutes to keep Google session alive
-      if (creds.last_refresh_at) {
-        const lastRefresh = new Date(creds.last_refresh_at)
-        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000)
-
-        if (lastRefresh > fifteenMinutesAgo) {
-          console.log('[nest_legacy] Using cached JWT (refreshed:', lastRefresh.toISOString(), ', expires:', expiresAt.toISOString(), ')')
-          return creds.current_jwt
-        }
-      } else {
-        // No last_refresh_at recorded - use JWT if it expires in >45 min (meaning it's relatively fresh)
-        const fortyFiveMinutesFromNow = new Date(Date.now() + 45 * 60 * 1000)
-        if (expiresAt > fortyFiveMinutesFromNow) {
-          console.log('[nest_legacy] Using cached JWT (expires:', expiresAt.toISOString(), ')')
-          return creds.current_jwt
-        }
-      }
+    // If JWT expires more than 15 minutes from now, it's still good
+    if (expiresAt > fifteenMinutesFromNow) {
+      console.log('[nest_legacy] Using cached JWT (expires:', expiresAt.toISOString(), ')')
+      return creds.current_jwt
     }
   }
 
