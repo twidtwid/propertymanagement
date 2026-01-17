@@ -41,15 +41,22 @@ async function getGoogleAccessToken(
     }
   })
 
+  const text = await response.text()
+
   if (!response.ok) {
-    const text = await response.text()
     if (text.includes('USER_LOGGED_OUT')) {
       throw new Error('Google session expired - need to log in to home.nest.com again')
     }
     throw new Error(`Failed to get Google access token: ${response.status} ${text}`)
   }
 
-  const data = await response.json()
+  // Response format: )]}'\n{json} - need to extract the JSON part
+  const jsonStart = text.indexOf('{')
+  if (jsonStart === -1) {
+    throw new Error(`Invalid response format: ${text.substring(0, 100)}`)
+  }
+
+  const data = JSON.parse(text.substring(jsonStart))
   return data.access_token
 }
 

@@ -4,6 +4,7 @@
 import { query } from '@/lib/db'
 import { decryptToken } from '@/lib/encryption'
 import DigestFetch from 'digest-fetch'
+import { getValidNestJWT } from './nest-legacy-refresh'
 
 export interface SnapshotResult {
   imageBuffer: Buffer  // Raw image data
@@ -225,23 +226,24 @@ async function getHikvisionCredentials(propertyId: string): Promise<{
 
 /**
  * Fetch snapshot from legacy Nest camera via Dropcam API
- * Uses the snapshot endpoint we've already implemented
+ * Uses JWT auth with automatic refresh (Homebridge pattern)
  */
 export async function fetchNestLegacySnapshot(
   cameraId: string,
   externalId: string
 ): Promise<SnapshotResult> {
   try {
-    const creds = await getNestLegacyCredentials()
+    // Get valid JWT (auto-refreshes if expired)
+    const jwt = await getValidNestJWT()
 
-    // Fetch snapshot directly from Dropcam API
+    // Fetch snapshot from Dropcam API using JWT auth
     const response = await fetch(
       `https://nexusapi-us1.camera.home.nest.com/get_image?uuid=${externalId}&width=1920`,
       {
         headers: {
-          Cookie: `user_token=${creds.access_token}`,
+          'Authorization': `Basic ${jwt}`,
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-          Referer: 'https://home.nest.com/',
+          'Referer': 'https://home.nest.com/',
         },
       }
     )
