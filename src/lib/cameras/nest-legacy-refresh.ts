@@ -70,7 +70,9 @@ async function getNestJWT(googleAccessToken: string): Promise<{ jwt: string, exp
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${googleAccessToken}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      'Referer': 'https://home.nest.com/'
     },
     body: JSON.stringify({
       embed_google_oauth_access_token: true,
