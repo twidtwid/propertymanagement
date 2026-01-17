@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { getUser } from '@/lib/auth'
-import { getValidNestLegacyToken } from '@/lib/cameras/nest-legacy-auth'
+import { getValidNestJWT } from '@/lib/cameras/nest-legacy-refresh'
 import { fetchHikvisionSnapshot } from '@/lib/cameras/snapshot-fetcher'
 import {
   getCachedSnapshot,
@@ -148,23 +148,21 @@ async function handleHikvisionSnapshot(
 
 /**
  * Handle Nest Legacy snapshot with fallback to cached snapshot when token expired
+ * Uses JWT auth via Homebridge-style auto-refresh
  */
 async function handleNestLegacySnapshot(camera: Camera): Promise<NextResponse> {
   try {
-    // Get valid access token from encrypted credentials (server-side, like modern Nest)
-    const cztoken = await getValidNestLegacyToken()
+    // Get valid JWT (auto-refreshes if expired)
+    const jwt = await getValidNestJWT()
 
-    // Fetch snapshot from Nest camera API
-    // Modern endpoint format from https://den.dev/blog/nest/
-    const snapshotUrl = `https://nexusapi-us1.camera.home.nest.com/get_image?uuid=${camera.external_id}&width=1280`
+    // Fetch snapshot from Dropcam API using JWT auth
+    const snapshotUrl = `https://nexusapi-us1.camera.home.nest.com/get_image?uuid=${camera.external_id}&width=1920`
 
-    // Dropcam API uses cookie-based authentication with user_token cookie
-    // Reference: https://den.dev/blog/nest/
     const response = await fetch(snapshotUrl, {
       headers: {
-        Cookie: `user_token=${cztoken}`,
+        'Authorization': `Basic ${jwt}`,
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        Referer: 'https://home.nest.com/',
+        'Referer': 'https://home.nest.com/',
       },
     })
 
