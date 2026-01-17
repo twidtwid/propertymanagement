@@ -144,14 +144,32 @@ async function updateJWT(jwt: string, expiresAt: Date): Promise<void> {
 export async function getValidNestJWT(): Promise<string> {
   const creds = await getRefreshCredentials()
 
-  // Check if we have a current JWT and it's still valid (with 5-minute buffer)
+  // Check if we have a current JWT and it's still valid
+  // Refresh aggressively (every 15 min) to keep Google session alive
+  // JWT lasts 1 hour, but we refresh when >15 min old to keep hitting Google's endpoint
   if (creds.current_jwt && creds.jwt_expires_at) {
     const expiresAt = new Date(creds.jwt_expires_at)
-    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000)
+    const now = new Date()
 
-    if (expiresAt > fiveMinutesFromNow) {
-      console.log('[nest_legacy] Using cached JWT (expires:', expiresAt.toISOString(), ')')
-      return creds.current_jwt
+    // If JWT is still valid (not expired)
+    if (expiresAt > now) {
+      // Check last refresh time - refresh every 15 minutes to keep Google session alive
+      if (creds.last_refresh_at) {
+        const lastRefresh = new Date(creds.last_refresh_at)
+        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000)
+
+        if (lastRefresh > fifteenMinutesAgo) {
+          console.log('[nest_legacy] Using cached JWT (refreshed:', lastRefresh.toISOString(), ', expires:', expiresAt.toISOString(), ')')
+          return creds.current_jwt
+        }
+      } else {
+        // No last_refresh_at recorded - use JWT if it expires in >45 min (meaning it's relatively fresh)
+        const fortyFiveMinutesFromNow = new Date(Date.now() + 45 * 60 * 1000)
+        if (expiresAt > fortyFiveMinutesFromNow) {
+          console.log('[nest_legacy] Using cached JWT (expires:', expiresAt.toISOString(), ')')
+          return creds.current_jwt
+        }
+      }
     }
   }
 
