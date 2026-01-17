@@ -71,7 +71,8 @@ Browser → Next.js App (Server Components → actions.ts/mutations.ts → Postg
 
 - **Check alerts:** Unconfirmed >14 days triggers alert (Bank of America unreliable)
 - **Smart pins:** Bills due ≤7 days, overdue bills, unconfirmed checks >14 days, urgent tickets
-- **Cameras:** Modern Nest (auto-refresh), Legacy Nest (manual refresh ~30 days, Pushover alerts)
+- **Cameras:** Modern Nest (auto-refresh), Legacy Nest (manual refresh ~30 days, Pushover alerts on 403)
+- **Dark mode:** Supported via Settings → Appearance (user preference stored in localStorage)
 - **Dropbox namespace:** `13490620643`
 
 ---

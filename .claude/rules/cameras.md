@@ -59,9 +59,27 @@ source .env.local && node scripts/nest-token-exchange.js CODE
 
 ## Token Update (Legacy)
 
-When Pushover alert received:
-1. DevTools on home.nest.com → Application → Cookies → `user_token`
-2. Run: `npm run nest:update-token <token>`
+**CRITICAL:** `npm run nest:update-token` updates LOCAL database only! For production:
+
+When Pushover alert received (immediate 403 alert or 7-day expiry warning):
+1. Open home.nest.com → DevTools (F12) → Application → Cookies → copy `user_token`
+2. Update **production** database directly:
+```bash
+# Get token encrypted locally then update prod DB
+TOKEN="<paste_token_here>"
+ENCRYPTED=$(node -e "..." "$TOKEN")  # Use encryption from update script
+ssh root@143.110.229.185 "docker exec app-db-1 psql -U propman -d propertymanagement -c \"UPDATE camera_credentials SET credentials_encrypted = '\$ENCRYPTED', updated_at = NOW() WHERE provider = 'nest_legacy'\""
+```
+
+**Or** run update script with production DATABASE_URL:
+```bash
+DATABASE_URL=<prod_url> npm run nest:update-token <token>
+```
+
+**Reliability features (v0.10.30):**
+- Immediate Pushover alert on first 403 error (1-hour cooldown)
+- Fallback to cached snapshot when token expires
+- Token test uses same auth method as actual API
 
 ## Tables
 

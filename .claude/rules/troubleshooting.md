@@ -11,7 +11,7 @@
 | Hydration error | Use `mounted` state + `suppressHydrationWarning` |
 | Hot reload broken | `/deploydev` or `rm -rf .next && restart` |
 | Worker not running | `docker logs app-worker-1`, restart if needed |
-| Nest token expired | Check Pushover alerts, run `npm run nest:update-token` |
+| Nest token expired | Pushover alert on 403; update PRODUCTION db (see cameras.md) |
 | UUID error | Use `gen_random_uuid()` not `uuid_generate_v4()` |
 
 ## File Edit Guide
