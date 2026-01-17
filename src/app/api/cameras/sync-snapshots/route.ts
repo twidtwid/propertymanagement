@@ -5,13 +5,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
-import { query } from '@/lib/db'
+import { query, queryOne } from '@/lib/db'
 import {
   fetchNestSnapshot,
   fetchNestLegacySnapshot,
   fetchHikvisionSnapshot,
   type SnapshotResult
 } from '@/lib/cameras/snapshot-fetcher'
+import { notifyTodd } from '@/lib/pushover'
+
+// Track last alert time to avoid spamming (in-memory, resets on deploy)
+let lastNestLegacyAlertTime: number = 0
+const ALERT_COOLDOWN_MS = 60 * 60 * 1000 // 1 hour between alerts
 
 export async function POST(request: NextRequest) {
   // Authenticate with cron secret (same as other cron endpoints)
@@ -71,6 +76,19 @@ export async function POST(request: NextRequest) {
         if (!snapshotResult.success) {
           console.error(`[Camera Sync] Failed to fetch snapshot for ${camera.name}:`, snapshotResult.error)
           errors.push(`${camera.name}: ${snapshotResult.error}`)
+
+          // Send immediate Pushover alert for Nest Legacy 403 errors (token expired)
+          if (camera.provider === 'nest_legacy' && snapshotResult.error?.includes('403')) {
+            const now = Date.now()
+            if (now - lastNestLegacyAlertTime > ALERT_COOLDOWN_MS) {
+              lastNestLegacyAlertTime = now
+              console.log('[Camera Sync] Sending Pushover alert for Nest Legacy token expiration')
+              notifyTodd(
+                `🔴 Nest Legacy token expired!\n\nCamera "${camera.name}" failed with 403.\n\nFix: Get fresh user_token cookie from home.nest.com and run:\nnpm run nest:update-token <token>`,
+                { title: 'Camera Token Expired', priority: 1 }
+              ).catch(err => console.error('[Camera Sync] Failed to send Pushover alert:', err))
+            }
+          }
 
           // Mark camera as error status
           await query(

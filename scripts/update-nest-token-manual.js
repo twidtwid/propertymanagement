@@ -55,21 +55,22 @@ function decryptToken(encryptedBase64) {
 
 async function testToken(token) {
   return new Promise((resolve, reject) => {
-    // Test token against Dropcam API with a dummy UUID (will fail if token is invalid)
+    // Test token against the SAME endpoint the snapshot fetcher uses
+    // Uses Cookie auth (not Basic auth) to match actual usage
     const options = {
-      hostname: 'nexusapi-us1.dropcam.com',
+      hostname: 'nexusapi-us1.camera.home.nest.com',
       path: '/get_image?uuid=test&width=1280',
       method: 'GET',
       headers: {
-        Authorization: `Basic ${token}`,
-        'User-Agent': 'Mozilla/5.0',
+        Cookie: `user_token=${token}`,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
         Referer: 'https://home.nest.com/',
       },
     };
 
     const req = https.request(options, (res) => {
       if (res.statusCode === 401 || res.statusCode === 403) {
-        reject(new Error('Token is invalid (401/403)'));
+        reject(new Error(`Token is invalid (${res.statusCode}) - please get a fresh user_token cookie from home.nest.com`));
       } else if (res.statusCode === 404) {
         // 404 is expected for dummy UUID - token is valid
         resolve(true);

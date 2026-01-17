@@ -147,64 +147,90 @@ async function handleHikvisionSnapshot(
 }
 
 /**
- * Handle Nest Legacy snapshot (existing implementation)
+ * Handle Nest Legacy snapshot with fallback to cached snapshot when token expired
  */
 async function handleNestLegacySnapshot(camera: Camera): Promise<NextResponse> {
   try {
+    // Get valid access token from encrypted credentials (server-side, like modern Nest)
+    const cztoken = await getValidNestLegacyToken()
 
-  // Get valid access token from encrypted credentials (server-side, like modern Nest)
-  const cztoken = await getValidNestLegacyToken()
+    // Fetch snapshot from Nest camera API
+    // Modern endpoint format from https://den.dev/blog/nest/
+    const snapshotUrl = `https://nexusapi-us1.camera.home.nest.com/get_image?uuid=${camera.external_id}&width=1280`
 
-  console.log(`[nest_legacy] Fetching snapshot for ${camera.name}`)
-  console.log(`[nest_legacy] Token length: ${cztoken.length}`)
-  console.log(`[nest_legacy] Token prefix: ${cztoken.substring(0, 30)}...`)
+    // Dropcam API uses cookie-based authentication with user_token cookie
+    // Reference: https://den.dev/blog/nest/
+    const response = await fetch(snapshotUrl, {
+      headers: {
+        Cookie: `user_token=${cztoken}`,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        Referer: 'https://home.nest.com/',
+      },
+    })
 
-  // Fetch snapshot from Nest camera API
-  // Modern endpoint format from https://den.dev/blog/nest/
-  const snapshotUrl = `https://nexusapi-us1.camera.home.nest.com/get_image?uuid=${camera.external_id}&width=1280`
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[nest_legacy] Dropcam API error:', response.status, errorText.substring(0, 200))
 
-  console.log(`[nest_legacy] URL: ${snapshotUrl}`)
+      // On 403 (token expired), try to return last cached snapshot
+      if (response.status === 403) {
+        const lastSnapshot = getLastSnapshot(camera.id)
+        if (lastSnapshot) {
+          console.log(`[nest_legacy] Token expired - returning stale cached snapshot for ${camera.name}`)
+          return new NextResponse(new Uint8Array(lastSnapshot), {
+            headers: {
+              'Content-Type': 'image/jpeg',
+              'X-Snapshot-Status': 'stale',
+              'X-Snapshot-Error': 'Token expired (403) - using cached snapshot',
+            },
+          })
+        }
+      }
 
-  // Dropcam API uses cookie-based authentication with user_token cookie
-  // Reference: https://den.dev/blog/nest/
-  const response = await fetch(snapshotUrl, {
-    headers: {
-      Cookie: `user_token=${cztoken}`,
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      Referer: 'https://home.nest.com/',
-    },
-  })
+      return NextResponse.json(
+        { error: `Failed to fetch snapshot: HTTP ${response.status}` },
+        { status: 500 }
+      )
+    }
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('[nest_legacy] Dropcam API error:', response.status, errorText.substring(0, 200))
-    return NextResponse.json(
-      { error: `Failed to fetch snapshot: HTTP ${response.status}` },
-      { status: 500 }
-    )
-  }
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('image')) {
+      console.error('[nest_legacy] Unexpected content-type:', contentType)
+      return NextResponse.json({ error: 'Invalid response from camera' }, { status: 500 })
+    }
 
-  const contentType = response.headers.get('content-type') || ''
-  if (!contentType.includes('image')) {
-    console.error('[nest_legacy] Unexpected content-type:', contentType)
-    return NextResponse.json({ error: 'Invalid response from camera' }, { status: 500 })
-  }
+    // Get image data and return it
+    const imageBuffer = await response.arrayBuffer()
 
-  // Get image data and return it
-  const imageBuffer = await response.arrayBuffer()
+    // Cache successful fetch for fallback
+    setCachedSnapshot(camera.id, Buffer.from(imageBuffer))
 
-  console.log(`[nest_legacy] ✓ Fetched snapshot for ${camera.name} (${imageBuffer.byteLength} bytes)`)
+    console.log(`[nest_legacy] ✓ Fetched snapshot for ${camera.name} (${imageBuffer.byteLength} bytes)`)
 
-  return new NextResponse(imageBuffer, {
-    headers: {
-      'Content-Type': 'image/jpeg',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-    },
-  })
+    return new NextResponse(imageBuffer, {
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error) {
     console.error('[nest_legacy] Snapshot error:', error)
+
+    // On any error, try to return last cached snapshot
+    const lastSnapshot = getLastSnapshot(camera.id)
+    if (lastSnapshot) {
+      console.log(`[nest_legacy] Error occurred - returning stale cached snapshot for ${camera.id}`)
+      return new NextResponse(new Uint8Array(lastSnapshot), {
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'X-Snapshot-Status': 'stale',
+          'X-Snapshot-Error': error instanceof Error ? error.message : 'Unknown error',
+        },
+      })
+    }
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
