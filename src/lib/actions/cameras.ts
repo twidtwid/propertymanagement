@@ -73,8 +73,9 @@ export async function getCamerasGroupedByProperty(userId: string): Promise<Camer
       status: row.status as Camera['status'],
       provider: row.provider as Camera['provider'],
       snapshot_url: row.snapshot_url,
-      snapshot_captured_at: row.snapshot_captured_at,
-      last_online: row.last_online,
+      // Convert to ISO format so JavaScript Date parses timezone correctly
+      snapshot_captured_at: row.snapshot_captured_at ? new Date(row.snapshot_captured_at).toISOString() : null,
+      last_online: row.last_online ? new Date(row.last_online).toISOString() : null,
       created_at: '',
       updated_at: '',
     }

@@ -1,6 +1,6 @@
 {
   "name": "property-management",
-  "version": "0.10.36",
+  "version": "0.10.37",
   "private": true,
   "scripts": {
     "dev": "next dev",
