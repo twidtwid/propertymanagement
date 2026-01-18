@@ -57,24 +57,96 @@ source .env.local && node scripts/nest-token-exchange.js CODE
 **Google Cloud:** https://console.cloud.google.com/apis/credentials?project=nest-camera-view
 **Device Access:** https://console.nest.google.com/device-access/project/734ce5e7-4da8-45d4-a840-16d2905e165e
 
-## Token Update (Legacy)
+## Nest Legacy Authentication (Issue Token + Cookies Method)
 
-**CRITICAL:** `npm run nest:update-token` updates LOCAL database only! For production:
+**CRITICAL: Use Safari, not Chrome!** Per [homebridge-nest-accfactory](https://github.com/n0rt0nthec4t/homebridge-nest-accfactory):
+> "Tokens must be obtained using Safari. Other browsers do not reliably generate valid or non-expiring tokens."
 
-When Pushover alert received (immediate 403 alert or 7-day expiry warning):
-1. Open home.nest.com → DevTools (F12) → Application → Cookies → copy `user_token`
-2. Update **production** database directly:
+### How It Works
+
+1. **issue_token URL** + **cookies** → Google access token (short-lived)
+2. Google access token → Nest JWT (1 hour)
+3. Nest JWT → Dropcam API for snapshots
+
+The issue_token/cookies act as long-lived credentials. As long as you stay logged into home.nest.com, they remain valid for weeks.
+
+### Getting Fresh Credentials (Safari Only)
+
+1. Open **Safari** (not Chrome!)
+2. Enable Developer Tools: Safari → Settings → Advanced → "Show features for web developers"
+3. Open Developer Tools: Develop → Show JavaScript Console
+4. Click **Network** tab, enable **Preserve Log**
+5. Go to **home.nest.com** and sign in with Google
+6. Find the `iframerpc` request in Network tab
+7. Copy:
+   - **Request URL** (full URL starting with `https://accounts.google.com/o/oauth2/iframerpc?...`) → `issue_token`
+   - **Cookie header** (entire multi-line string) → `cookies`
+8. **DO NOT log out** - just close the tab
+
+### Updating Production Credentials
+
 ```bash
-# Get token encrypted locally then update prod DB
-TOKEN="<paste_token_here>"
-ENCRYPTED=$(node -e "..." "$TOKEN")  # Use encryption from update script
-ssh root@143.110.229.185 "docker exec app-db-1 psql -U propman -d propertymanagement -c \"UPDATE camera_credentials SET credentials_encrypted = '\$ENCRYPTED', updated_at = NOW() WHERE provider = 'nest_legacy'\""
+# 1. Create encryption script
+cat << 'SCRIPT' > /tmp/encrypt-nest-creds.js
+const crypto = require('crypto');
+const creds = { issue_token: process.argv[2], cookies: process.argv[3] };
+const key = Buffer.from(process.argv[4], 'hex');
+const iv = crypto.randomBytes(16);
+const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+let encrypted = cipher.update(JSON.stringify(creds), 'utf8');
+encrypted = Buffer.concat([encrypted, cipher.final()]);
+const combined = Buffer.concat([iv, encrypted, cipher.getAuthTag()]);
+console.log(combined.toString('base64'));
+SCRIPT
+
+# 2. Copy to server and encrypt
+scp /tmp/encrypt-nest-creds.js root@143.110.229.185:/tmp/
+ssh root@143.110.229.185 "docker cp /tmp/encrypt-nest-creds.js app-app-1:/tmp/"
+
+# 3. Save issue_token and cookies to files (avoid shell escaping)
+echo "ISSUE_TOKEN_HERE" > /tmp/nest_issue_token.txt
+echo "COOKIES_HERE" > /tmp/nest_cookies.txt
+scp /tmp/nest_issue_token.txt /tmp/nest_cookies.txt root@143.110.229.185:/tmp/
+
+# 4. Encrypt and update database
+ssh root@143.110.229.185 'ISSUE_TOKEN=$(cat /tmp/nest_issue_token.txt) && \
+  COOKIES=$(cat /tmp/nest_cookies.txt) && \
+  ENCRYPTION_KEY=$(docker exec app-app-1 printenv TOKEN_ENCRYPTION_KEY) && \
+  ENCRYPTED=$(docker exec app-app-1 node /tmp/encrypt-nest-creds.js "$ISSUE_TOKEN" "$COOKIES" "$ENCRYPTION_KEY") && \
+  docker exec -i app-db-1 psql -U propman -d propertymanagement -c \
+    "UPDATE camera_credentials SET credentials_encrypted = '"'"'$ENCRYPTED'"'"', updated_at = NOW() WHERE provider = '"'"'nest_legacy'"'"'"'
+
+# 5. Test
+ssh root@143.110.229.185 "curl -s -X POST 'http://localhost:3000/api/cameras/nest-jwt-refresh' \
+  -H 'Authorization: Bearer \$(grep CRON_SECRET /root/app/.env.production | cut -d= -f2)'"
 ```
 
-**Or** run update script with production DATABASE_URL:
-```bash
-DATABASE_URL=<prod_url> npm run nest:update-token <token>
+### Headers (Match homebridge-nest-accfactory Exactly)
+
+```typescript
+headers: {
+  'Referer': 'https://accounts.google.com/',
+  'Cookie': cookies,
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+  'X-Requested-With': 'XmlHttpRequest'
+}
 ```
+
+### Common Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `USER_LOGGED_OUT` | Google session expired | Get fresh Safari cookies |
+| `Unsupported state or unable to authenticate data` | Encryption format mismatch | Use base64, not hex encoding |
+| 401/403 on snapshots | JWT expired | Automatic refresh should handle; check logs |
+
+### References
+
+- [homebridge-nest-accfactory](https://github.com/n0rt0nthec4t/homebridge-nest-accfactory) - Safari requirement, headers
+- [homebridge-nest](https://github.com/chrisjshull/homebridge-nest) - Original implementation
+- [Issue #630](https://github.com/chrisjshull/homebridge-nest/issues/630) - Known authentication issues
 
 **Reliability features (v0.10.30):**
 - Immediate Pushover alert on first 403 error (1-hour cooldown)
