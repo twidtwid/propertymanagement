@@ -2,13 +2,11 @@
  * Dropbox sync service - scans for new files, generates AI summaries, updates counts.
  */
 
-import Anthropic from "@anthropic-ai/sdk"
 import { Dropbox } from "dropbox"
 import { query, queryOne } from "@/lib/db"
 import { decryptToken } from "@/lib/encryption"
 import { getFolderMappings } from "./files"
-
-const anthropic = new Anthropic()
+import { chatCompletion, type AIMessage, type AIMessageContent } from "@/lib/ai"
 
 interface DropboxFile {
   id: string
@@ -142,7 +140,7 @@ function getExtension(filename: string): string {
 }
 
 /**
- * Generate AI summary using Claude Haiku with improved prompts.
+ * Generate AI summary using shared AI client with improved prompts.
  */
 async function generateSummary(
   filename: string,
@@ -174,7 +172,7 @@ Examples of good summaries:
 - "Condo board meeting minutes - Feb 2024"
 - "Vehicle registration renewal notice - expires Mar 2025"`
 
-    const messages: Anthropic.MessageParam[] = []
+    const messages: AIMessage[] = [{ role: "system", content: systemPrompt }]
 
     if (imageBase64 && mimeType) {
       messages.push({
@@ -215,28 +213,16 @@ Based on the filename and folder, provide a one-line summary describing what thi
       })
     }
 
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 100,
-      system: systemPrompt,
-      messages
-    })
+    const response = await chatCompletion(messages, { maxTokens: 100 })
 
-    // Log AI usage for cost tracking
-    console.log(`[AI:generateSummary] tokens: ${response.usage.input_tokens} in, ${response.usage.output_tokens} out`)
-
-    const text = response.content[0]
-    if (text.type === "text") {
-      // Clean up the response
-      let summary = text.text.trim()
-      // Remove quotes if wrapped
-      if ((summary.startsWith('"') && summary.endsWith('"')) ||
-          (summary.startsWith("'") && summary.endsWith("'"))) {
-        summary = summary.slice(1, -1)
-      }
-      return summary.slice(0, 150)
+    // Clean up the response
+    let summary = response.content.trim()
+    // Remove quotes if wrapped
+    if ((summary.startsWith('"') && summary.endsWith('"')) ||
+        (summary.startsWith("'") && summary.endsWith("'"))) {
+      summary = summary.slice(1, -1)
     }
-    return ""
+    return summary.slice(0, 150)
   } catch (error: any) {
     console.error(`Error generating summary for ${filename}:`, error.message)
     return ""

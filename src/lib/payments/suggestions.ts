@@ -1,8 +1,6 @@
 import { query } from "@/lib/db"
 import type { PaymentSuggestion, PaymentSuggestionConfidence } from "@/types/database"
-import Anthropic from "@anthropic-ai/sdk"
-
-const anthropic = new Anthropic()
+import { chatCompletion, extractJSON } from "@/lib/ai"
 
 interface EmailForAnalysis {
   id: string
@@ -24,7 +22,7 @@ interface AIPaymentAnalysis {
 }
 
 /**
- * Use AI (Haiku) to analyze if an email is a payment request and extract details.
+ * Use AI to analyze if an email is a payment request and extract details.
  * More accurate than keyword matching - filters out false positives like key returns,
  * delivery confirmations, marketing emails, etc.
  */
@@ -43,17 +41,18 @@ async function analyzeEmailForPayment(
           .slice(0, 3000)
       : bodySnippet || ''
 
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 200,
-      system: `You analyze vendor emails to identify payment requests (invoices, bills, statements requiring payment).
+    const response = await chatCompletion([
+      {
+        role: "system",
+        content: `You analyze vendor emails to identify payment requests (invoices, bills, statements requiring payment).
 
 INCLUDE: Invoices, bills, statements with amounts due, utility bills, service invoices, autopay notifications for upcoming charges.
 
 EXCLUDE: Payment confirmations/receipts (already paid), key returns, package deliveries, building notices, marketing emails, account updates without payment requests, service notifications without bills.
 
-Be strict - only flag emails that clearly request payment for a specific amount. Output JSON only.`,
-      messages: [{
+Be strict - only flag emails that clearly request payment for a specific amount. Output JSON only.`
+      },
+      {
         role: "user",
         content: `Vendor: ${vendorName || 'Unknown'}
 Subject: ${subject || '(no subject)'}
@@ -64,26 +63,17 @@ If yes, extract amount and due date.
 
 Output ONLY valid JSON:
 {"isPaymentRequest": boolean, "amount": number or null, "dueDate": "YYYY-MM-DD or null", "confidence": "high/medium/low", "reason": "brief reason"}`
-      }]
-    }, {
-      timeout: 10000 // 10 second timeout
-    })
+      }
+    ], { maxTokens: 200, timeout: 10000 })
 
-    // Log AI usage for cost tracking
-    console.log(`[AI:analyzeEmailForPayment] tokens: ${response.usage.input_tokens} in, ${response.usage.output_tokens} out`)
-
-    const text = response.content[0]
-    if (text.type === "text") {
-      const jsonMatch = text.text.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0])
-        return {
-          isPaymentRequest: result.isPaymentRequest === true,
-          amount: typeof result.amount === 'number' ? result.amount : null,
-          dueDate: result.dueDate || null,
-          confidence: result.confidence || 'low',
-          reason: result.reason || ''
-        }
+    const result = extractJSON<AIPaymentAnalysis>(response.content)
+    if (result) {
+      return {
+        isPaymentRequest: result.isPaymentRequest === true,
+        amount: typeof result.amount === 'number' ? result.amount : null,
+        dueDate: result.dueDate || null,
+        confidence: result.confidence || 'low',
+        reason: result.reason || ''
       }
     }
   } catch (error: any) {

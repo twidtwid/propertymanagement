@@ -1,6 +1,6 @@
 "use server"
 
-import Anthropic from "@anthropic-ai/sdk"
+import { chatCompletion, extractJSON } from "@/lib/ai"
 import { query, queryOne } from "./db"
 import type { Vendor, Property } from "@/types/database"
 import type { VendorCommunication } from "./actions"
@@ -57,13 +57,11 @@ async function getExistingAssociations(vendorId: string): Promise<string[]> {
   return associations.map((a) => a.property_id)
 }
 
-// Use Claude to analyze emails and suggest property matches
+// Use AI to analyze emails and suggest property matches
 async function analyzeVendorEmails(
   vendor: Vendor & { emails: VendorCommunication[] },
   properties: Property[]
 ): Promise<VendorPropertyAnalysis> {
-  const client = new Anthropic()
-
   // Build property context
   const propertyInfo = properties
     .map(
@@ -106,36 +104,20 @@ Respond in JSON format:
 Only include properties you're reasonably confident about. If no clear matches are found, return an empty matches array.`
 
   try {
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    })
+    const response = await chatCompletion([
+      { role: "user", content: prompt }
+    ], { maxTokens: 1024 })
 
-    const content = response.content[0]
-    if (content.type !== "text") {
+    const parsed = extractJSON<{ matches: PropertyMatch[]; analysis: string }>(response.content)
+    if (!parsed) {
       return {
         vendorId: vendor.id,
         vendorName: vendor.name,
         emailCount: vendor.emails.length,
         suggestedProperties: [],
-        rawAnalysis: "No text response from AI",
+        rawAnalysis: response.content,
       }
     }
-
-    // Parse JSON response
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      return {
-        vendorId: vendor.id,
-        vendorName: vendor.name,
-        emailCount: vendor.emails.length,
-        suggestedProperties: [],
-        rawAnalysis: content.text,
-      }
-    }
-
-    const parsed = JSON.parse(jsonMatch[0])
 
     return {
       vendorId: vendor.id,

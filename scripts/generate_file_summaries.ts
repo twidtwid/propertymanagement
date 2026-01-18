@@ -1,15 +1,13 @@
 /**
  * One-time script to generate AI summaries for Dropbox files.
- * Uses Claude Haiku to analyze PDFs (text extraction) and images (vision).
+ * Uses local Gemma API when LOCAL_AI_URL is set, otherwise Claude Haiku.
  */
 
-import Anthropic from "@anthropic-ai/sdk"
 import { Dropbox } from "dropbox"
 import pdfParse from "pdf-parse"
 import { decryptToken } from "../src/lib/encryption"
 import { query, queryOne } from "../src/lib/db"
-
-const anthropic = new Anthropic()
+import { chatCompletion, type AIMessage } from "../src/lib/ai"
 
 interface FileToProcess {
   path: string
@@ -125,7 +123,7 @@ async function generateSummary(
   mimeType: string | null
 ): Promise<string> {
   try {
-    const messages: Anthropic.MessageParam[] = []
+    const messages: AIMessage[] = []
 
     if (imageBase64 && mimeType) {
       // Image file - use vision
@@ -160,17 +158,8 @@ async function generateSummary(
       })
     }
 
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 150,
-      messages
-    })
-
-    const text = response.content[0]
-    if (text.type === "text") {
-      return text.text.trim().slice(0, 150)
-    }
-    return ""
+    const response = await chatCompletion(messages, { maxTokens: 150 })
+    return response.content.trim().slice(0, 150)
   } catch (error: any) {
     console.error(`Error generating summary for ${filename}:`, error.message)
     return ""
